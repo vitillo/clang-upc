@@ -103,7 +103,8 @@ namespace {
     KEYOPENCL = 0x200,
     KEYC11 = 0x400,
     KEYARC = 0x800,
-    KEYALL = 0x0fff
+    KEYUPC = 0x1000,
+    KEYALL = 0x1fff
   };
 }
 

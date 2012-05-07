@@ -56,6 +56,7 @@ BENIGN_LANGOPT(ObjCDefaultSynthProperties , 1, 0,
                "Objective-C auto-synthesized properties")
 BENIGN_LANGOPT(ObjCInferRelatedResultType , 1, 1, 
                "Objective-C related result type inference")
+LANGOPT(UPC               , 1, 0, "UPC")
 LANGOPT(Trigraphs         , 1, 0,"trigraphs")
 LANGOPT(BCPLComment       , 1, 0, "BCPL-style '//' comments")
 LANGOPT(Bool              , 1, 0, "bool, true, and false keywords")
