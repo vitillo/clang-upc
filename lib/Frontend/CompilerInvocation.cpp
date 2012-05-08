@@ -731,6 +731,8 @@ static void LangOptsToArgs(const LangOptions &Opts, ToArgsList &Res) {
     Res.push_back("-ffast-math");
   if (Opts.Static)
     Res.push_back("-static-define");
+  if (Opts.UPCThreads)
+    Res.push_back("-upc-threads", llvm::utostr(Opts.UPCThreads));
   if (Opts.DumpRecordLayoutsSimple)
     Res.push_back("-fdump-record-layouts-simple");
   else if (Opts.DumpRecordLayouts)
@@ -1908,6 +1910,8 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PICLevel = Args.getLastArgIntValue(OPT_pic_level, 0, Diags);
   Opts.PIELevel = Args.getLastArgIntValue(OPT_pie_level, 0, Diags);
   Opts.Static = Args.hasArg(OPT_static_define);
+
+  Opts.UPCThreads = Args.getLastArgIntValue(OPT_fupc_threads, 0, Diags);
   Opts.DumpRecordLayoutsSimple = Args.hasArg(OPT_fdump_record_layouts_simple);
   Opts.DumpRecordLayouts = Opts.DumpRecordLayoutsSimple 
                         || Args.hasArg(OPT_fdump_record_layouts);

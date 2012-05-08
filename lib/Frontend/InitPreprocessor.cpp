@@ -310,6 +310,15 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   if (LangOpts.UPC) {
     Builder.defineMacro("__UPC__", "1");
     Builder.defineMacro("__UPC_VERSION__", "200505L");
+
+    if (LangOpts.UPCThreads) {
+      Builder.defineMacro("__UPC_STATIC_THREADS__", "1");
+      Builder.defineMacro("THREADS", Twine(LangOpts.UPCThreads));
+    } else {
+      Builder.defineMacro("__UPC_DYNAMIC_THREADS__", "1");
+      Builder.append("extern const int THREADS;\n");
+    }
+    Builder.append("extern const int MYTHREAD;\n");
   }
 
   // Not "standard" per se, but available even with the -undef flag.

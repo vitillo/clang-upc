@@ -2522,6 +2522,12 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     D.Diag(diag::err_drv_clang_unsupported)
       << Args.getLastArg(options::OPT_fno_for_scope)->getAsString(Args);
 
+
+  if (Arg *A = Args.getLastArg(options::OPT_fupc_threads_)) {
+    CmdArgs.push_back("-fupc-threads");
+    CmdArgs.push_back(A->getValue(Args));
+  }
+
   // -fcaret-diagnostics is default.
   if (!Args.hasFlag(options::OPT_fcaret_diagnostics,
                     options::OPT_fno_caret_diagnostics, true))

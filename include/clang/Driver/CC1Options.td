@@ -840,3 +840,10 @@ def cl_std_EQ : Joined<"-cl-std=">,
 
 def fcuda_is_device : Flag<"-fcuda-is-device">,
   HelpText<"Generate code for CUDA device">;
+
+//===----------------------------------------------------------------------===//
+// UPC Options
+//===----------------------------------------------------------------------===//
+
+def fupc_threads : Separate<"-fupc-threads">,
+  HelpText<"Set the number of threads">;
