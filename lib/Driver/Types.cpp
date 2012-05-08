@@ -80,6 +80,7 @@ bool types::isAcceptedByClang(ID Id) {
   case TY_CL:
   case TY_CUDA:
   case TY_ObjC: case TY_PP_ObjC: case TY_PP_ObjC_Alias:
+  case TY_UPC: case TY_PP_UPC:
   case TY_CXX: case TY_PP_CXX:
   case TY_ObjCXX: case TY_PP_ObjCXX: case TY_PP_ObjCXX_Alias:
   case TY_CHeader: case TY_PP_CHeader:
@@ -177,6 +178,8 @@ types::ID types::lookupTypeForExtension(const char *Ext) {
            .Case("F90", TY_Fortran)
            .Case("F95", TY_Fortran)
            .Case("mii", TY_PP_ObjCXX)
+           .Case("upc", TY_UPC)
+           .Case("upci", TY_PP_UPC)
            .Default(TY_INVALID);
 }
 

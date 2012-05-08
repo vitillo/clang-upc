@@ -307,6 +307,11 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   if (LangOpts.ObjC1)
     Builder.defineMacro("__OBJC__");
 
+  if (LangOpts.UPC) {
+    Builder.defineMacro("__UPC__", "1");
+    Builder.defineMacro("__UPC_VERSION__", "200505L");
+  }
+
   // Not "standard" per se, but available even with the -undef flag.
   if (LangOpts.AsmPreprocessor)
     Builder.defineMacro("__ASSEMBLER__");

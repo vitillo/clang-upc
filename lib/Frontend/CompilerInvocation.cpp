@@ -393,10 +393,12 @@ static const char *getInputKindName(InputKind Kind) {
   case IK_ObjCXX:            return "objective-c++";
   case IK_OpenCL:            return "cl";
   case IK_CUDA:              return "cuda";
+  case IK_UPC:               return "upc";
   case IK_PreprocessedC:     return "cpp-output";
   case IK_PreprocessedCXX:   return "c++-cpp-output";
   case IK_PreprocessedObjC:  return "objective-c-cpp-output";
   case IK_PreprocessedObjCXX:return "objective-c++-cpp-output";
+  case IK_PreprocessedUPC:   return "upc-cpp-output";
   }
 
   llvm_unreachable("Unexpected language kind!");
@@ -1489,6 +1491,8 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       .Case("objective-c-header", IK_ObjC)
       .Case("c++-header", IK_CXX)
       .Case("objective-c++-header", IK_ObjCXX)
+      .Case("upc", IK_UPC)
+      .Case("upc-cpp-output", IK_PreprocessedUPC)
       .Case("ast", IK_AST)
       .Case("ir", IK_LLVM_IR)
       .Default(IK_None);
@@ -1634,6 +1638,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
              IK == IK_PreprocessedObjC ||
              IK == IK_PreprocessedObjCXX) {
     Opts.ObjC1 = Opts.ObjC2 = 1;
+  } else if (IK == IK_UPC) {
+    Opts.UPC = 1;
   }
 
   if (LangStd == LangStandard::lang_unspecified) {
@@ -1654,6 +1660,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     case IK_PreprocessedC:
     case IK_ObjC:
     case IK_PreprocessedObjC:
+    case IK_UPC:
+    case IK_PreprocessedUPC:
       LangStd = LangStandard::lang_gnu99;
       break;
     case IK_CXX:
@@ -1721,8 +1729,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       switch (IK) {
       case IK_C:
       case IK_ObjC:
+      case IK_UPC:
       case IK_PreprocessedC:
       case IK_PreprocessedObjC:
+      case IK_PreprocessedUPC:
         if (!(Std.isC89() || Std.isC99()))
           Diags.Report(diag::err_drv_argument_not_allowed_with)
             << A->getAsString(Args) << "C/ObjC";
