@@ -2137,7 +2137,7 @@ void ASTWriter::WriteType(QualType T) {
   if (T.hasLocalNonFastQualifiers()) {
     Qualifiers Qs = T.getLocalQualifiers();
     AddTypeRef(T.getLocalUnqualifiedType(), Record);
-    Record.push_back(Qs.getAsOpaqueValue());
+    Qs.toOpaqueSequence(Record);
     W.Code = TYPE_EXT_QUAL;
   } else {
     switch (T->getTypeClass()) {

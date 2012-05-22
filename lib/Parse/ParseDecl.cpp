@@ -2433,6 +2433,50 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
                                  getLangOpts());
       break;
 
+    // UPC type qualifiers
+    case tok::kw_shared:
+      {
+        ConsumeToken();
+        unsigned LQType;
+        ExprResult LayoutQualifier;
+        if (Tok.getKind() == tok::l_square) {
+          ConsumeBracket();
+          switch (Tok.getKind()) {
+          case tok::r_square:
+            LQType = Qualifiers::LQ_Empty;
+            ConsumeBracket();
+            break;
+          case tok::star:
+            if (GetLookAheadToken(1).getKind() == tok::r_square) {
+              ConsumeToken();
+              ConsumeBracket();
+              LQType = Qualifiers::LQ_Star;
+              break;
+            }
+          default:
+            LayoutQualifier = ParseConstantExpression();
+            LQType = Qualifiers::LQ_Expr;
+          }
+        } else {
+          LQType = Qualifiers::LQ_None;
+        }
+        isInvalid = DS.SetTypeQualShared(Loc, LQType, LayoutQualifier.take(),
+                                         PrevSpec, DiagID);
+
+        // If the specifier combination wasn't legal, issue a diagnostic.
+        if (isInvalid) {
+          assert(PrevSpec && "Method did not return previous specifier!");
+          Diag(Tok, DiagID) << PrevSpec;
+        }
+        continue;
+      }
+    case tok::kw_relaxed:
+      isInvalid = DS.SetTypeQualRelaxed(Loc, PrevSpec, DiagID);
+      break;
+    case tok::kw_strict:
+      isInvalid = DS.SetTypeQualStrict(Loc, PrevSpec, DiagID);
+      break;
+
     // C++ typename-specifier:
     case tok::kw_typename:
       if (TryAnnotateTypeOrScopeToken()) {
@@ -3137,6 +3181,9 @@ bool Parser::isTypeQualifier() const {
   case tok::kw___read_only:
   case tok::kw___read_write:
   case tok::kw___write_only:
+  case tok::kw_shared:
+  case tok::kw_relaxed:
+  case tok::kw_strict:
     return true;
   }
 }
@@ -3254,6 +3301,10 @@ bool Parser::isTypeSpecifierQualifier() {
   case tok::kw_const:
   case tok::kw_volatile:
   case tok::kw_restrict:
+
+  case tok::kw_shared:
+  case tok::kw_relaxed:
+  case tok::kw_strict:
 
     // typedef-name
   case tok::annot_typename:
@@ -3391,6 +3442,9 @@ bool Parser::isDeclarationSpecifier(bool DisambiguatingWithExpression) {
   case tok::kw_const:
   case tok::kw_volatile:
   case tok::kw_restrict:
+  case tok::kw_shared:
+  case tok::kw_relaxed:
+  case tok::kw_strict:
 
     // function-specifier
   case tok::kw_inline:
@@ -3584,6 +3638,48 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
       isInvalid = DS.SetTypeQual(DeclSpec::TQ_restrict, Loc, PrevSpec, DiagID,
                                  getLangOpts());
       break;
+    case tok::kw_shared:
+      {
+        EndLoc = ConsumeToken();
+        unsigned LQType;
+        ExprResult LayoutQualifier;
+        if (Tok.getKind() == tok::l_square) {
+          ConsumeBracket();
+          switch (Tok.getKind()) {
+          case tok::r_square:
+            LQType = Qualifiers::LQ_Empty;
+            ConsumeBracket();
+            break;
+          case tok::star:
+            if (GetLookAheadToken(1).getKind() == tok::r_square) {
+              ConsumeToken();
+              ConsumeBracket();
+              LQType = Qualifiers::LQ_Star;
+              break;
+            }
+          default:
+            LayoutQualifier = ParseConstantExpression();
+            LQType = Qualifiers::LQ_Expr;
+          }
+        } else {
+          LQType = Qualifiers::LQ_None;
+        }
+        isInvalid = DS.SetTypeQualShared(Loc, LQType, LayoutQualifier.take(),
+                                         PrevSpec, DiagID);
+
+        // If the specifier combination wasn't legal, issue a diagnostic.
+        if (isInvalid) {
+          assert(PrevSpec && "Method did not return previous specifier!");
+          Diag(Tok, DiagID) << PrevSpec;
+        }
+        continue;
+      }
+    case tok::kw_relaxed:
+      isInvalid = DS.SetTypeQualRelaxed(Loc, PrevSpec, DiagID);
+      break;
+    case tok::kw_strict:
+      isInvalid = DS.SetTypeQualStrict(Loc, PrevSpec, DiagID);
+      break;
 
     // OpenCL qualifiers:
     case tok::kw_private: 
@@ -3757,10 +3853,16 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
     ParseDeclaratorInternal(D, DirectDeclParser);
     if (Kind == tok::star)
       // Remember that we parsed a pointer type, and remember the type-quals.
-      D.AddTypeInfo(DeclaratorChunk::getPointer(DS.getTypeQualifiers(), Loc,
+      D.AddTypeInfo(DeclaratorChunk::getPointer(DS.getTypeQualifiers(),
+                                                DS.getUPCLayoutQualifierKind(),
+                                                DS.getUPCLayoutQualifier(),
+                                                Loc,
                                                 DS.getConstSpecLoc(),
                                                 DS.getVolatileSpecLoc(),
-                                                DS.getRestrictSpecLoc()),
+                                                DS.getRestrictSpecLoc(),
+                                                DS.getSharedSpecLoc(),
+                                                DS.getRelaxedSpecLoc(),
+                                                DS.getStrictSpecLoc()),
                     DS.getAttributes(),
                     SourceLocation());
     else

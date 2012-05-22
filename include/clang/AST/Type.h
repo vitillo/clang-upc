@@ -103,19 +103,36 @@ namespace clang {
 #define TYPE(Class, Base) class Class##Type;
 #include "clang/AST/TypeNodes.def"
 
+class UPCLayoutQualifier {
+public:
+  enum Kind {
+    None, Empty, Star, Expr
+  };
+  UPCLayoutQualifier(Kind k = None, uint32_t v = 0)
+    : kind(k), value(v) {}
+  Kind getKind() const { return kind; }
+  uint32_t getValue() const { return value; }
+  bool operator==(const UPCLayoutQualifier& other) const {
+    return kind == other.kind && value == other.value;
+  }
+private:
+  Kind kind;
+  uint32_t value;
+};
+
 /// Qualifiers - The collection of all-type qualifiers we support.
 /// Clang supports five independent qualifiers:
 /// * C99: const, volatile, and restrict
 /// * Embedded C (TR18037): address spaces
 /// * Objective C: the GC attributes (none, weak, or strong)
+/// * UPC: shared, strict, and relaxed
 class Qualifiers {
 public:
-  enum TQ { // NOTE: These flags must be kept in sync with DeclSpec::TQ.
-    Const    = 0x1,
-    Restrict = 0x2,
-    Volatile = 0x4,
-    CVRMask = Const | Volatile | Restrict
-  };
+  // NOTE: These flags must be kept in sync with DeclSpec::TQ.
+  static const uint64_t Const = 0x1;
+  static const uint64_t Restrict = 0x2;
+  static const uint64_t Volatile = 0x4;
+  static const uint64_t CVRMask = Const | Volatile | Restrict;
 
   enum GC {
     GCNone = 0,
@@ -145,19 +162,28 @@ public:
     OCL_Autoreleasing
   };
 
-  enum {
-    /// The maximum supported address space number.
-    /// 24 bits should be enough for anyone.
-    MaxAddressSpace = 0xffffffu,
+  static const uint64_t Shared = 0x100;
+  static const uint64_t Strict = 0x200;
+  static const uint64_t Relaxed = 0x400;
 
-    /// The width of the "fast" qualifier mask.
-    FastWidth = 3,
-
-    /// The fast qualifier mask.
-    FastMask = (1 << FastWidth) - 1
+  enum LayoutQualifierKind {
+    LQ_None = 0,
+    LQ_Empty = 1,
+    LQ_Star = 2,
+    LQ_Expr = 3
   };
 
-  Qualifiers() : Mask(0) {}
+  /// The maximum supported address space number.
+  /// 24 bits should be enough for anyone.
+  static const uint64_t MaxAddressSpace = 0xffffffu;
+
+  /// The width of the "fast" qualifier mask.
+  static const uint64_t FastWidth = 3;
+
+  /// The fast qualifier mask.
+  static const uint64_t FastMask = (1 << FastWidth) - 1;
+
+  Qualifiers() : Mask(0), LayoutQualifier(0) {}
 
   static Qualifiers fromFastMask(unsigned Mask) {
     Qualifiers Qs;
@@ -172,15 +198,23 @@ public:
   }
 
   // Deserialize qualifiers from an opaque representation.
-  static Qualifiers fromOpaqueValue(unsigned opaque) {
+  template<class C, class I>
+  static Qualifiers fromOpaqueSequence(const C& c, I& i) {
     Qualifiers Qs;
-    Qs.Mask = opaque;
+    Qs.Mask = c[i++];
+    if (Qs.hasShared()) {
+      Qs.LayoutQualifier = c[i++];
+    }
     return Qs;
   }
 
   // Serialize these qualifiers into an opaque representation.
-  unsigned getAsOpaqueValue() const {
-    return Mask;
+  template<class C>
+  void toOpaqueSequence(C& c) const {
+    c.push_back(Mask);
+    if (hasShared()) {
+      c.push_back(LayoutQualifier);
+    }
   }
 
   bool hasConst() const { return Mask & Const; }
@@ -212,7 +246,7 @@ public:
   }
   void removeCVRQualifiers(unsigned mask) {
     assert(!(mask & ~CVRMask) && "bitmask contains non-CVR bits");
-    Mask &= ~mask;
+    Mask &= ~static_cast<uint64_t>(mask);
   }
   void removeCVRQualifiers() {
     removeCVRQualifiers(CVRMask);
@@ -274,12 +308,52 @@ public:
   void setAddressSpace(unsigned space) {
     assert(space <= MaxAddressSpace);
     Mask = (Mask & ~AddressSpaceMask)
-         | (((uint32_t) space) << AddressSpaceShift);
+         | (((uint64_t) space) << AddressSpaceShift);
   }
   void removeAddressSpace() { setAddressSpace(0); }
   void addAddressSpace(unsigned space) {
     assert(space);
     setAddressSpace(space);
+  }
+
+  bool hasShared() const { return Mask & Shared; }
+  void setShared(bool flag) {
+    Mask = (Mask & ~Shared) | (flag? Shared : 0);
+  }
+  void addShared() { Mask |= Shared; }
+  void removeShared() { Mask &= ~Shared; }
+
+  bool hasStrict() const { return Mask & Strict; }
+  void setStrict(bool flag) {
+    Mask = (Mask & ~Strict) | (flag? Strict : 0);
+  }
+  void addStrict() { Mask |= Strict; }
+  void removeStrict() { Mask &= ~Strict; }
+
+  bool hasRelaxed() const { return Mask & Relaxed; }
+  void setRelaxed(bool flag) {
+    Mask = (Mask & ~Relaxed) | (flag? Relaxed : 0);
+  }
+  void addRelaxed() { Mask |= Relaxed; }
+  void removeRelaxed() { Mask &= ~Relaxed; }
+
+  LayoutQualifierKind getLayoutQualifierKind() const {
+    return LayoutQualifierKind((Mask & LQMask) >> LQShift);
+  }
+  void setLayoutQualifierKind(LayoutQualifierKind flag) {
+    Mask = (Mask & ~LQMask) | (flag << LQShift);
+    if (flag != LQ_Expr) {
+      LayoutQualifier = 0;
+    }
+  }
+
+  bool hasLayoutQualifier() const {
+    return getLayoutQualifierKind() != LQ_None;
+  }
+  uint32_t getLayoutQualifier() const { return LayoutQualifier; }
+  void setLayoutQualifier(uint32_t value) {
+    Mask = (Mask & ~LQMask) | (LQ_Expr << LQShift);
+    LayoutQualifier = value;
   }
 
   // Fast qualifiers are those that can be allocated directly
@@ -292,7 +366,7 @@ public:
   }
   void removeFastQualifiers(unsigned mask) {
     assert(!(mask & ~FastMask) && "bitmask contains non-fast qualifier bits");
-    Mask &= ~mask;
+    Mask &= ~uint64_t(mask);
   }
   void removeFastQualifiers() {
     removeFastQualifiers(FastMask);
@@ -329,6 +403,16 @@ public:
         addObjCGCAttr(Q.getObjCGCAttr());
       if (Q.hasObjCLifetime())
         addObjCLifetime(Q.getObjCLifetime());
+      if (Q.hasShared())
+	addShared();
+      if (Q.getLayoutQualifierKind() == LQ_Expr)
+        setLayoutQualifier(Q.getLayoutQualifier());
+      if (Q.hasLayoutQualifier())
+        setLayoutQualifierKind(Q.getLayoutQualifierKind());
+      if (Q.hasStrict())
+	addStrict();
+      if (Q.hasRelaxed())
+	addRelaxed();
     }
   }
 
@@ -341,7 +425,15 @@ public:
            !hasObjCGCAttr() || !qs.hasObjCGCAttr());
     assert(getObjCLifetime() == qs.getObjCLifetime() ||
            !hasObjCLifetime() || !qs.hasObjCLifetime());
+    assert(!hasShared() || !qs.hasShared());
+    assert(!(hasRelaxed() || hasStrict()) ||
+	   !(qs.hasRelaxed() || qs.hasStrict()));
+    assert((getLayoutQualifierKind() == qs.getLayoutQualifierKind() &&
+            getLayoutQualifier() == qs.getLayoutQualifier()) ||
+	   !hasLayoutQualifier() || !qs.hasLayoutQualifier());
     Mask |= qs.Mask;
+    if (qs.hasLayoutQualifier())
+      LayoutQualifier = qs.LayoutQualifier;
   }
 
   /// \brief Determines if these qualifiers compatibly include another set.
@@ -357,6 +449,12 @@ public:
        !hasObjCGCAttr() || !other.hasObjCGCAttr()) &&
       // ObjC lifetime qualifiers must match exactly.
       getObjCLifetime() == other.getObjCLifetime() &&
+      // UPC flags must match exactly
+      hasShared() == other.hasShared() &&
+      hasStrict() == other.hasStrict() &&
+      hasRelaxed() == other.hasRelaxed() &&
+      getLayoutQualifierKind() == other.getLayoutQualifierKind() && 
+      getLayoutQualifier() == other.getLayoutQualifier() &&
       // CVR qualifiers may subset.
       (((Mask & CVRMask) | (other.Mask & CVRMask)) == (Mask & CVRMask));
   }
@@ -421,20 +519,24 @@ public:
 
   void Profile(llvm::FoldingSetNodeID &ID) const {
     ID.AddInteger(Mask);
+    ID.AddInteger(LayoutQualifier);
   }
 
 private:
 
-  // bits:     |0 1 2|3 .. 4|5  ..  7|8   ...   31|
-  //           |C R V|GCAttr|Lifetime|AddressSpace|
-  uint32_t Mask;
+  // bits:     |0 1 2|3 .. 4|5  ..  7|  8   |  9   |  10   |11..12|40   ...  63|
+  //           |C R V|GCAttr|Lifetime|Shared|Strict|Relaxed|LQType|AddressSpace|
+  uint64_t Mask;
+  uint32_t LayoutQualifier;
 
-  static const uint32_t GCAttrMask = 0x18;
-  static const uint32_t GCAttrShift = 3;
-  static const uint32_t LifetimeMask = 0xE0;
-  static const uint32_t LifetimeShift = 5;
-  static const uint32_t AddressSpaceMask = ~(CVRMask|GCAttrMask|LifetimeMask);
-  static const uint32_t AddressSpaceShift = 8;
+  static const uint64_t GCAttrMask = 0x18;
+  static const uint64_t GCAttrShift = 3;
+  static const uint64_t LifetimeMask = 0xE0;
+  static const uint64_t LifetimeShift = 5;
+  static const uint64_t LQMask = 0x1800;
+  static const uint64_t LQShift = 11;
+  static const uint64_t AddressSpaceMask = ~(CVRMask|GCAttrMask|LifetimeMask);
+  static const uint64_t AddressSpaceShift = 40;
 };
 
 /// CallingConv - Specifies the calling convention that a function uses.

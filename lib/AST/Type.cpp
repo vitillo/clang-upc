@@ -39,7 +39,13 @@ bool Qualifiers::isStrictSupersetOf(Qualifiers Other) const {
      (hasAddressSpace()&& !Other.hasAddressSpace())) &&
     // Lifetime qualifier superset.
     ((getObjCLifetime() == Other.getObjCLifetime()) ||
-     (hasObjCLifetime() && !Other.hasObjCLifetime()));
+     (hasObjCLifetime() && !Other.hasObjCLifetime())) &&
+    // UPC qualifier superset
+    (hasShared() || !Other.hasShared()) &&
+    (hasStrict() || !Other.hasRelaxed()) &&
+    (hasRelaxed() || !Other.hasRelaxed()) &&
+    ((getLayoutQualifier() == Other.getLayoutQualifier()) ||
+     (hasLayoutQualifier() && !Other.hasLayoutQualifier()));
 }
 
 const IdentifierInfo* QualType::getBaseTypeIdentifier() const {

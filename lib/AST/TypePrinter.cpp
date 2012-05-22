@@ -1216,6 +1216,31 @@ void Qualifiers::getAsStringInternal(std::string &S,
     case Qualifiers::OCL_Autoreleasing: S += "__autoreleasing"; break;
     }
   }
+
+  if (hasShared()) {
+    if (!S.empty()) S += ' ';
+    S += "shared";
+    switch (getLayoutQualifierKind()) {
+    case Qualifiers::LQ_None: break;
+    case Qualifiers::LQ_Star: S += " [*]"; break;
+    case Qualifiers::LQ_Empty: S += " []"; break;
+    case Qualifiers::LQ_Expr: 
+      S += " [";
+      S += llvm::utostr_32(getLayoutQualifier());
+      S += "]";
+      break;
+    }
+  }
+
+  if (hasStrict()) {
+    if (!S.empty()) S += ' ';
+    S += "strict";
+  }
+
+  if (hasRelaxed()) {
+    if (!S.empty()) S += ' ';
+    S += "relaxed";
+  }
 }
 
 std::string QualType::getAsString(const Type *ty, Qualifiers qs) {

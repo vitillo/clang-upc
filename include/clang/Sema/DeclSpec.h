@@ -272,7 +272,10 @@ public:
     TQ_unspecified = 0,
     TQ_const       = 1,
     TQ_restrict    = 2,
-    TQ_volatile    = 4
+    TQ_volatile    = 4,
+    TQ_shared      = 8,
+    TQ_relaxed     = 16,
+    TQ_strict      = 32
   };
 
   /// ParsedSpecifiers - Flags to query which specifiers were applied.  This is
@@ -302,7 +305,7 @@ private:
   unsigned TypeSpecOwned : 1;
 
   // type-qualifiers
-  unsigned TypeQualifiers : 3;  // Bitwise OR of TQ.
+  unsigned TypeQualifiers : 6;  // Bitwise OR of TQ.
 
   // function-specifier
   unsigned FS_inline_specified : 1;
@@ -316,6 +319,9 @@ private:
   unsigned Constexpr_specified : 1;
 
   /*SCS*/unsigned StorageClassSpecAsWritten : 3;
+
+  unsigned UPCLayoutQualifierType : 2;
+  Expr * UPCLayoutQualifier;
 
   union {
     UnionParsedType TypeRep;
@@ -350,6 +356,7 @@ private:
   SourceLocation TSTNameLoc;
   SourceRange TypeofParensRange;
   SourceLocation TQ_constLoc, TQ_restrictLoc, TQ_volatileLoc;
+  SourceLocation UPC_sharedLoc, UPC_relaxedLoc, UPC_strictLoc;
   SourceLocation FS_inlineLoc, FS_virtualLoc, FS_explicitLoc;
   SourceLocation FriendLoc, ModulePrivateLoc, ConstexprLoc;
 
@@ -394,6 +401,8 @@ public:
       Friend_specified(false),
       Constexpr_specified(false),
       StorageClassSpecAsWritten(SCS_unspecified),
+      UPCLayoutQualifierType(0),
+      UPCLayoutQualifier(0),
       Attrs(attrFactory),
       ProtocolQualifiers(0),
       NumProtocolQualifiers(0),
@@ -479,16 +488,30 @@ public:
 
   /// getTypeQualifiers - Return a set of TQs.
   unsigned getTypeQualifiers() const { return TypeQualifiers; }
+  bool isSharedSpecified() const { return TypeQualifiers & TQ_shared; }
+  bool isRelaxedSpecified() const { return TypeQualifiers & TQ_relaxed; }
+  bool isStrictSpecified() const { return TypeQualifiers & TQ_strict; }
   SourceLocation getConstSpecLoc() const { return TQ_constLoc; }
   SourceLocation getRestrictSpecLoc() const { return TQ_restrictLoc; }
   SourceLocation getVolatileSpecLoc() const { return TQ_volatileLoc; }
+  SourceLocation getSharedSpecLoc() const { return UPC_sharedLoc; }
+  SourceLocation getRelaxedSpecLoc() const { return UPC_relaxedLoc; }
+  SourceLocation getStrictSpecLoc() const { return UPC_strictLoc; }
+
+  unsigned getUPCLayoutQualifierKind() const { return UPCLayoutQualifierType; }
+  Expr* getUPCLayoutQualifier() const { return UPCLayoutQualifier; }
 
   /// \brief Clear out all of the type qualifiers.
   void ClearTypeQualifiers() {
     TypeQualifiers = 0;
+    UPCLayoutQualifierType = 0;
+    UPCLayoutQualifier = 0;
     TQ_constLoc = SourceLocation();
     TQ_restrictLoc = SourceLocation();
     TQ_volatileLoc = SourceLocation();
+    UPC_sharedLoc = SourceLocation();
+    UPC_relaxedLoc = SourceLocation();
+    UPC_strictLoc = SourceLocation();
   }
 
   // function-specifier
@@ -591,6 +614,12 @@ public:
 
   bool SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
                    unsigned &DiagID, const LangOptions &Lang);
+  bool SetTypeQualShared(SourceLocation Loc, int LQType, Expr * LayoutQualifier,
+			 const char *&PrevSpec, unsigned &DiagID);
+  bool SetTypeQualRelaxed(SourceLocation Loc, const char *&PrevSpec,
+			  unsigned &DiagID);
+  bool SetTypeQualStrict(SourceLocation Loc, const char *&PrevSpec,
+		         unsigned &DiagID);
 
   bool SetFunctionSpecInline(SourceLocation Loc, const char *&PrevSpec,
                              unsigned &DiagID);
@@ -1006,6 +1035,12 @@ struct DeclaratorChunk {
     /// The type qualifiers: const/volatile/restrict.
     unsigned TypeQuals : 3;
 
+    unsigned IsShared : 1;
+    unsigned IsRelaxed : 1;
+    unsigned IsStrict : 1;
+    unsigned LQKind : 2;
+    Expr * LQExpr;
+
     /// The location of the const-qualifier, if any.
     unsigned ConstQualLoc;
 
@@ -1014,6 +1049,15 @@ struct DeclaratorChunk {
 
     /// The location of the restrict-qualifier, if any.
     unsigned RestrictQualLoc;
+
+    // The location of the shared-qualifier, if any.
+    unsigned SharedQualLoc;
+
+    // The location of the relaxed-qualifier, if any.
+    unsigned RelaxedQualLoc;
+
+    // The location of the strict-qualifier, if any.
+    unsigned StrictQualLoc;
 
     void destroy() {
     }
@@ -1291,17 +1335,28 @@ struct DeclaratorChunk {
 
   /// getPointer - Return a DeclaratorChunk for a pointer.
   ///
-  static DeclaratorChunk getPointer(unsigned TypeQuals, SourceLocation Loc,
+  static DeclaratorChunk getPointer(unsigned TypeQuals,
+                                    unsigned UPCLayoutQualifierKind,
+                                    Expr *UPCLayoutQualifier,
+                                    SourceLocation Loc,
                                     SourceLocation ConstQualLoc,
                                     SourceLocation VolatileQualLoc,
-                                    SourceLocation RestrictQualLoc) {
+                                    SourceLocation RestrictQualLoc,
+                                    SourceLocation SharedQualLoc,
+                                    SourceLocation RelaxedLoc,
+                                    SourceLocation StrictLoc) {
     DeclaratorChunk I;
     I.Kind                = Pointer;
     I.Loc                 = Loc;
     I.Ptr.TypeQuals       = TypeQuals;
+    I.Ptr.LQKind          = UPCLayoutQualifierKind;
+    I.Ptr.LQExpr          = UPCLayoutQualifier;
     I.Ptr.ConstQualLoc    = ConstQualLoc.getRawEncoding();
     I.Ptr.VolatileQualLoc = VolatileQualLoc.getRawEncoding();
     I.Ptr.RestrictQualLoc = RestrictQualLoc.getRawEncoding();
+    I.Ptr.SharedQualLoc   = SharedQualLoc.getRawEncoding();
+    I.Ptr.RelaxedQualLoc  = RelaxedLoc.getRawEncoding();
+    I.Ptr.StrictQualLoc   = StrictLoc.getRawEncoding();
     I.Ptr.AttrList        = 0;
     return I;
   }

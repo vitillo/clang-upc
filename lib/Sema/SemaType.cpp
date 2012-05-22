@@ -31,6 +31,7 @@
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Lookup.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/APSInt.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace clang;
 
@@ -959,11 +960,16 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         Loc = DS.getConstSpecLoc();
       else if (TypeQuals & DeclSpec::TQ_volatile)
         Loc = DS.getVolatileSpecLoc();
-      else {
-        assert((TypeQuals & DeclSpec::TQ_restrict) &&
-               "Has CVR quals but not C, V, or R?");
+      else if (TypeQuals & DeclSpec::TQ_restrict)
         Loc = DS.getRestrictSpecLoc();
-      }
+      else if (TypeQuals & DeclSpec::TQ_shared)
+        Loc = DS.getSharedSpecLoc();
+      else if (TypeQuals & DeclSpec::TQ_relaxed)
+        Loc = DS.getRelaxedSpecLoc();
+      else if (TypeQuals & DeclSpec::TQ_strict)
+        Loc = DS.getStrictSpecLoc();
+      else
+        assert(false && "Has CVR quals but not C, V, or R?");
       S.Diag(Loc, diag::warn_typecheck_function_qualifiers)
         << Result << DS.getSourceRange();
     }
@@ -999,7 +1005,29 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       // in this case.
     }
 
-    Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals);
+    Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals & Qualifiers::CVRMask);
+    if (TypeQuals & DeclSpec::TQ_shared) {
+      Quals.addShared();
+      Quals.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(DS.getUPCLayoutQualifierKind()));
+      if (DS.getUPCLayoutQualifierKind() == Qualifiers::LQ_Expr) {
+        // FIXME: Magic number
+        llvm::APSInt Val(32);
+        if (S.VerifyIntegerConstantExpression(DS.getUPCLayoutQualifier(), &Val).isInvalid()) {
+          // FIXME: Diag
+        } else {
+          // FIXME: Magic Number
+          if (Val.getActiveBits() > 32) {
+            // FIXME: Diag
+          } else {
+            Quals.setLayoutQualifier(Val.getZExtValue());
+          }
+        }
+      }
+    }
+    if (TypeQuals & DeclSpec::TQ_relaxed)
+      Quals.addRelaxed();
+    if (TypeQuals & DeclSpec::TQ_strict)
+      Quals.addStrict();
     Result = Context.getQualifiedType(Result, Quals);
   }
 
@@ -2104,8 +2132,35 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         break;
       }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
-      if (DeclType.Ptr.TypeQuals)
+      if (DeclType.Ptr.TypeQuals || DeclType.Ptr.IsShared ||
+          DeclType.Ptr.IsRelaxed || DeclType.Ptr.IsStrict) {
+        Qualifiers Qs = Qualifiers::fromCVRMask(DeclType.Ptr.TypeQuals);
+        if (DeclType.Ptr.IsShared) {
+          Qs.addShared();
+          Qs.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(DeclType.Ptr.LQKind));
+          if (DeclType.Ptr.LQExpr) {
+            llvm::APSInt Val(S.getASTContext().getTypeSize(S.getASTContext().getSizeType()));
+            if (S.VerifyIntegerConstantExpression(DeclType.Ptr.LQExpr, &Val).isInvalid()) {
+              // FIXME:
+              // S.Diag() << ExprLoc...
+            } else {
+              if (Val.getActiveBits() > 32) {
+                // FIXME:
+                // S.Diag() << too large
+              } else {
+                uint64_t val = Val.getZExtValue();
+                Qs.setLayoutQualifier(uint32_t(val));
+              }
+            }
+          }
+        }
+        if (DeclType.Ptr.IsRelaxed)
+          Qs.addRelaxed();
+        if (DeclType.Ptr.IsStrict)
+          Qs.addStrict();
+        
         T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
+      }
 
       break;
     case DeclaratorChunk::Reference: {
@@ -3277,7 +3332,7 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
   max = Qualifiers::MaxAddressSpace;
   if (addrSpace > max) {
     S.Diag(Attr.getLoc(), diag::err_attribute_address_space_too_high)
-      << Qualifiers::MaxAddressSpace << ASArgExpr->getSourceRange();
+      << uint32_t(Qualifiers::MaxAddressSpace) << ASArgExpr->getSourceRange();
     Attr.setInvalid();
     return;
   }

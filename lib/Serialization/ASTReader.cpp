@@ -3710,7 +3710,7 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
       return QualType();
     }
     QualType Base = readType(*Loc.F, Record, Idx);
-    Qualifiers Quals = Qualifiers::fromOpaqueValue(Record[Idx++]);
+    Qualifiers Quals = Qualifiers::fromOpaqueSequence(Record, Idx);
     return Context.getQualifiedType(Base, Quals);
   }
 
