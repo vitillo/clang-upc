@@ -5458,6 +5458,10 @@ def err_filter_expression_integral : Error<
 def err_invalid_astype_of_different_size : Error<
   "invalid reinterpretation: sizes of %0 and %1 must match">;
 
+// UPC warnings and errors
+def err_upc_layout_qualifier_too_big : Error<
+  "Block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
+
 } // end of sema category
 
 let CategoryName = "Related Result Type Issue" in {

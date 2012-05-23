@@ -141,6 +141,9 @@ LANGOPT(ObjCRuntimeHasWeak , 1, 0, "__weak support in the ARC runtime")
 LANGOPT(FakeAddressSpaceMap , 1, 0, "OpenCL fake address space map")
 
 LANGOPT(UPCThreads, 32, 0, "number of threads")
+LANGOPT(UPCPhaseBits, 8, 20, "number of phase bits")
+LANGOPT(UPCThreadBits, 8, 10, "number of thread bits")
+LANGOPT(UPCAddrBits, 8, 34, "number of addr bits")
 
 LANGOPT(MRTD , 1, 0, "-mrtd calling convention")
 BENIGN_LANGOPT(DelayedTemplateParsing , 1, 0, "delayed template parsing")

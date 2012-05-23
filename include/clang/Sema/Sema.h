@@ -870,6 +870,7 @@ public:
   // Type Analysis / Processing: SemaType.cpp.
   //
 
+  uint32_t CheckLayoutQualifier(Expr *);
   QualType BuildQualifiedType(QualType T, SourceLocation Loc, Qualifiers Qs);
   QualType BuildQualifiedType(QualType T, SourceLocation Loc, unsigned CVR) {
     return BuildQualifiedType(T, Loc, Qualifiers::fromCVRMask(CVR));

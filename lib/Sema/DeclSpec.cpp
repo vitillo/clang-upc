@@ -681,13 +681,34 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
   return false;
 }
 
-bool DeclSpec::SetTypeQualShared(SourceLocation Loc, int LQType,
+bool DeclSpec::SetTypeQualShared(Sema &S, SourceLocation Loc, int LQType,
                                  Expr * LayoutQualifier,
                                  const char *&PrevSpec, unsigned &DiagID) {
   if (UPCLayoutQualifierType && LQType) {
-    PrevSpec = "shared";
-    DiagID = diag::err_invalid_decl_spec_combination;
-    return true;
+    switch (UPCLayoutQualifierType) {
+    case Qualifiers::LQ_Star:
+      if (LQType != Qualifiers::LQ_Star) {
+        PrevSpec = "shared";
+        DiagID = diag::err_invalid_decl_spec_combination;
+        return true;
+      } else {
+        return false;
+      }
+    case Qualifiers::LQ_Empty:
+    case Qualifiers::LQ_Expr:
+      // FIXME: Don't evalute the ICE multiple times
+      if (LQType == Qualifiers::LQ_Star ||
+          (S.CheckLayoutQualifier(UPCLayoutQualifier) !=
+           S.CheckLayoutQualifier(LayoutQualifier))) {
+        PrevSpec = "shared";
+        DiagID = diag::err_invalid_decl_spec_combination;
+        return true;
+      } else {
+        return false;
+      }
+    default:
+      llvm_unreachable("Invalid Layout Qualifier type");
+    }
   }
 
   TypeQualifiers |= TQ_shared;

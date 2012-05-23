@@ -32,6 +32,7 @@
 #include "clang/Sema/Lookup.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace clang;
 
@@ -572,24 +573,32 @@ static void maybeSynthesizeBlockSignature(TypeProcessingState &state,
   state.setCurrentChunkIndex(declarator.getNumTypeObjects());
 }
 
+uint32_t Sema::CheckLayoutQualifier(Expr * LQExpr) {
+  if (LQExpr) {
+    llvm::APSInt Val(Context.getTypeSize(Context.getSizeType()));
+    if (VerifyIntegerConstantExpression(LQExpr, &Val).isInvalid()) {
+      // Diagnostic printed by VerifyIntegerConstantExpression
+    } else {
+      if (Val.getActiveBits() > getLangOpts().UPCPhaseBits) {
+        llvm::SmallString<64> ValStr;
+        Val.toStringUnsigned(ValStr);
+        Diag(LQExpr->getLocStart(), diag::err_upc_layout_qualifier_too_big)
+          << ValStr << LQExpr->getSourceRange();
+      } else {
+        return Val.getZExtValue();
+      }
+    }
+  }
+  return 0;
+}
+
 static Qualifiers computeQualifiers(Sema &S, unsigned TypeQuals, unsigned LQKind, Expr *LayoutQualifier) {
   Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals & Qualifiers::CVRMask);
   if (TypeQuals & DeclSpec::TQ_shared) {
     Quals.addShared();
     Quals.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(LQKind));
     if (LQKind == Qualifiers::LQ_Expr) {
-      // FIXME: Magic number
-      llvm::APSInt Val(32);
-      if (S.VerifyIntegerConstantExpression(LayoutQualifier, &Val).isInvalid()) {
-        // FIXME: Diag
-      } else {
-        // FIXME: Magic Number
-        if (Val.getActiveBits() > 32) {
-          // FIXME: Diag
-        } else {
-          Quals.setLayoutQualifier(Val.getZExtValue());
-        }
-      }
+      Quals.setLayoutQualifier(S.CheckLayoutQualifier(LayoutQualifier));
     }
   }
   if (TypeQuals & DeclSpec::TQ_relaxed)
@@ -1049,12 +1058,18 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         S.Diag(DS.getRelaxedSpecLoc(), diag::err_invalid_decl_spec_combination) << "strict";
         Quals.removeRelaxed();
       }
+      // UPC1.2 6.5.2p6:
+      // No type qualifier list shall specify more than one
+      // block size, either directly or indirectly through
+      // one or more typedefs.
       if (Existing.hasLayoutQualifier() && Quals.hasLayoutQualifier()) {
-        S.Diag(DS.getSharedSpecLoc(), diag::err_invalid_decl_spec_combination) << "shared";
-        Quals.setLayoutQualifierKind(Qualifiers::LQ_None);
+        if (Existing.getLayoutQualifierKind() != Quals.getLayoutQualifierKind() ||
+            Existing.getLayoutQualifier() != Quals.getLayoutQualifier()) {
+          S.Diag(DS.getSharedSpecLoc(), diag::err_invalid_decl_spec_combination) << "shared";
+          Quals.setLayoutQualifierKind(Qualifiers::LQ_None);
+        }
       }
     }
-
 
     Result = Context.getQualifiedType(Result, Quals);
   }
@@ -1104,28 +1119,6 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
       Qs.removeRestrict();
     }
   }
-
-  // FIXME: is this needed
-#if 0
-
-  if (Qs.hasShared() || Qs.hasRelaxed() || Qs.hasStrict()) {
-    Qualifiers Existing = T.getQualifiers();
-
-    // UPC1.2 6.5.2p7:
-    // No type qualifier list shall include both strict and
-    // relaxed either directly or indirectly through one
-    // or more typedefs.
-    if (Existing.hasRelaxed() && Qs.hasStrict()) {
-      Diag(Loc, diag::err_invalid_decl_spec_combination) << "relaxed";
-      Qs.removeStrict();
-    }
-    if (Existing.hasStrict() && Qs.hasRelaxed()) {
-      Diag(Loc, diag::err_invalid_decl_spec_combination) << "strict";
-      Qs.removeRelaxed();
-    }
-  }
-
-#endif
 
   return Context.getQualifiedType(T, Qs);
 }

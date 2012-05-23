@@ -614,7 +614,7 @@ public:
 
   bool SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
                    unsigned &DiagID, const LangOptions &Lang);
-  bool SetTypeQualShared(SourceLocation Loc, int LQType, Expr * LayoutQualifier,
+  bool SetTypeQualShared(Sema& S, SourceLocation Loc, int LQType, Expr * LayoutQualifier,
 			 const char *&PrevSpec, unsigned &DiagID);
   bool SetTypeQualRelaxed(SourceLocation Loc, const char *&PrevSpec,
 			  unsigned &DiagID);

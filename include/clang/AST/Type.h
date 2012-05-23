@@ -352,8 +352,13 @@ public:
   }
   uint32_t getLayoutQualifier() const { return LayoutQualifier; }
   void setLayoutQualifier(uint32_t value) {
-    Mask = (Mask & ~LQMask) | (LQ_Expr << LQShift);
-    LayoutQualifier = value;
+    if (value) {
+      Mask = (Mask & ~LQMask) | (LQ_Expr << LQShift);
+      LayoutQualifier = value;
+    } else {
+      Mask = (Mask & ~LQMask) | (LQ_Empty << LQShift);
+      LayoutQualifier = 0;
+    }
   }
 
   // Fast qualifiers are those that can be allocated directly

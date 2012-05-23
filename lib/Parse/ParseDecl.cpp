@@ -2462,7 +2462,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         } else {
           LQType = Qualifiers::LQ_None;
         }
-        isInvalid = DS.SetTypeQualShared(Loc, LQType, LayoutQualifier.take(),
+        isInvalid = DS.SetTypeQualShared(Actions, Loc, LQType, LayoutQualifier.take(),
                                          PrevSpec, DiagID);
 
         // If the specifier combination wasn't legal, issue a diagnostic.
@@ -3668,7 +3668,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
         } else {
           LQType = Qualifiers::LQ_None;
         }
-        isInvalid = DS.SetTypeQualShared(Loc, LQType, LayoutQualifier.take(),
+        isInvalid = DS.SetTypeQualShared(Actions, Loc, LQType, LayoutQualifier.take(),
                                          PrevSpec, DiagID);
 
         // If the specifier combination wasn't legal, issue a diagnostic.
