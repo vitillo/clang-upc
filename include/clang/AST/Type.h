@@ -425,9 +425,8 @@ public:
            !hasObjCGCAttr() || !qs.hasObjCGCAttr());
     assert(getObjCLifetime() == qs.getObjCLifetime() ||
            !hasObjCLifetime() || !qs.hasObjCLifetime());
-    assert(!hasShared() || !qs.hasShared());
-    assert(!(hasRelaxed() || hasStrict()) ||
-	   !(qs.hasRelaxed() || qs.hasStrict()));
+    assert(!hasRelaxed() || !qs.hasStrict());
+    assert(!hasStrict() || !qs.hasRelaxed());
     assert((getLayoutQualifierKind() == qs.getLayoutQualifierKind() &&
             getLayoutQualifier() == qs.getLayoutQualifier()) ||
 	   !hasLayoutQualifier() || !qs.hasLayoutQualifier());

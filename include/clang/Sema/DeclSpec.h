@@ -1032,12 +1032,9 @@ struct DeclaratorChunk {
   };
 
   struct PointerTypeInfo : TypeInfoCommon {
-    /// The type qualifiers: const/volatile/restrict.
-    unsigned TypeQuals : 3;
+    /// The type qualifiers: const/volatile/restrict/shared/relaxed/strict.
+    unsigned TypeQuals : 6;
 
-    unsigned IsShared : 1;
-    unsigned IsRelaxed : 1;
-    unsigned IsStrict : 1;
     unsigned LQKind : 2;
     Expr * LQExpr;
 

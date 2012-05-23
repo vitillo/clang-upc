@@ -2436,6 +2436,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
     // UPC type qualifiers
     case tok::kw_shared:
       {
+        Token SharedTok = Tok;
         ConsumeToken();
         unsigned LQType;
         ExprResult LayoutQualifier;
@@ -2455,6 +2456,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
             }
           default:
             LayoutQualifier = ParseConstantExpression();
+            ConsumeBracket();
             LQType = Qualifiers::LQ_Expr;
           }
         } else {
@@ -2466,7 +2468,7 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         // If the specifier combination wasn't legal, issue a diagnostic.
         if (isInvalid) {
           assert(PrevSpec && "Method did not return previous specifier!");
-          Diag(Tok, DiagID) << PrevSpec;
+          Diag(SharedTok, DiagID) << PrevSpec;
         }
         continue;
       }
@@ -3640,6 +3642,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
       break;
     case tok::kw_shared:
       {
+        Token SharedTok = Tok;
         EndLoc = ConsumeToken();
         unsigned LQType;
         ExprResult LayoutQualifier;
@@ -3659,6 +3662,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
             }
           default:
             LayoutQualifier = ParseConstantExpression();
+            ConsumeBracket();
             LQType = Qualifiers::LQ_Expr;
           }
         } else {
@@ -3670,7 +3674,7 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
         // If the specifier combination wasn't legal, issue a diagnostic.
         if (isInvalid) {
           assert(PrevSpec && "Method did not return previous specifier!");
-          Diag(Tok, DiagID) << PrevSpec;
+          Diag(SharedTok, DiagID) << PrevSpec;
         }
         continue;
       }

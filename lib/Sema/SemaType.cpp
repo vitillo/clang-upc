@@ -572,6 +572,33 @@ static void maybeSynthesizeBlockSignature(TypeProcessingState &state,
   state.setCurrentChunkIndex(declarator.getNumTypeObjects());
 }
 
+static Qualifiers computeQualifiers(Sema &S, unsigned TypeQuals, unsigned LQKind, Expr *LayoutQualifier) {
+  Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals & Qualifiers::CVRMask);
+  if (TypeQuals & DeclSpec::TQ_shared) {
+    Quals.addShared();
+    Quals.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(LQKind));
+    if (LQKind == Qualifiers::LQ_Expr) {
+      // FIXME: Magic number
+      llvm::APSInt Val(32);
+      if (S.VerifyIntegerConstantExpression(LayoutQualifier, &Val).isInvalid()) {
+        // FIXME: Diag
+      } else {
+        // FIXME: Magic Number
+        if (Val.getActiveBits() > 32) {
+          // FIXME: Diag
+        } else {
+          Quals.setLayoutQualifier(Val.getZExtValue());
+        }
+      }
+    }
+  }
+  if (TypeQuals & DeclSpec::TQ_relaxed)
+    Quals.addRelaxed();
+  if (TypeQuals & DeclSpec::TQ_strict)
+    Quals.addStrict();
+  return Quals;
+}
+
 /// \brief Convert the specified declspec to the appropriate type
 /// object.
 /// \param D  the declarator containing the declaration specifier.
@@ -1005,29 +1032,30 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       // in this case.
     }
 
-    Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals & Qualifiers::CVRMask);
-    if (TypeQuals & DeclSpec::TQ_shared) {
-      Quals.addShared();
-      Quals.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(DS.getUPCLayoutQualifierKind()));
-      if (DS.getUPCLayoutQualifierKind() == Qualifiers::LQ_Expr) {
-        // FIXME: Magic number
-        llvm::APSInt Val(32);
-        if (S.VerifyIntegerConstantExpression(DS.getUPCLayoutQualifier(), &Val).isInvalid()) {
-          // FIXME: Diag
-        } else {
-          // FIXME: Magic Number
-          if (Val.getActiveBits() > 32) {
-            // FIXME: Diag
-          } else {
-            Quals.setLayoutQualifier(Val.getZExtValue());
-          }
-        }
+    Qualifiers Quals = computeQualifiers(S, TypeQuals, DS.getUPCLayoutQualifierKind(), DS.getUPCLayoutQualifier());
+
+    if (S.getLangOpts().UPC) {
+      Qualifiers Existing = Result.getQualifiers();
+
+      // UPC1.2 6.5.2p7:
+      // No type qualifier list shall include both strict and
+      // relaxed either directly or indirectly through one
+      // or more typedefs.
+      if (Existing.hasRelaxed() && Quals.hasStrict()) {
+        S.Diag(DS.getStrictSpecLoc(), diag::err_invalid_decl_spec_combination) << "relaxed";
+        Quals.removeStrict();
+      }
+      if (Existing.hasStrict() && Quals.hasRelaxed()) {
+        S.Diag(DS.getRelaxedSpecLoc(), diag::err_invalid_decl_spec_combination) << "strict";
+        Quals.removeRelaxed();
+      }
+      if (Existing.hasLayoutQualifier() && Quals.hasLayoutQualifier()) {
+        S.Diag(DS.getSharedSpecLoc(), diag::err_invalid_decl_spec_combination) << "shared";
+        Quals.setLayoutQualifierKind(Qualifiers::LQ_None);
       }
     }
-    if (TypeQuals & DeclSpec::TQ_relaxed)
-      Quals.addRelaxed();
-    if (TypeQuals & DeclSpec::TQ_strict)
-      Quals.addStrict();
+
+
     Result = Context.getQualifiedType(Result, Quals);
   }
 
@@ -1076,6 +1104,28 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
       Qs.removeRestrict();
     }
   }
+
+  // FIXME: is this needed
+#if 0
+
+  if (Qs.hasShared() || Qs.hasRelaxed() || Qs.hasStrict()) {
+    Qualifiers Existing = T.getQualifiers();
+
+    // UPC1.2 6.5.2p7:
+    // No type qualifier list shall include both strict and
+    // relaxed either directly or indirectly through one
+    // or more typedefs.
+    if (Existing.hasRelaxed() && Qs.hasStrict()) {
+      Diag(Loc, diag::err_invalid_decl_spec_combination) << "relaxed";
+      Qs.removeStrict();
+    }
+    if (Existing.hasStrict() && Qs.hasRelaxed()) {
+      Diag(Loc, diag::err_invalid_decl_spec_combination) << "strict";
+      Qs.removeRelaxed();
+    }
+  }
+
+#endif
 
   return Context.getQualifiedType(T, Qs);
 }
@@ -2132,34 +2182,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         break;
       }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
-      if (DeclType.Ptr.TypeQuals || DeclType.Ptr.IsShared ||
-          DeclType.Ptr.IsRelaxed || DeclType.Ptr.IsStrict) {
-        Qualifiers Qs = Qualifiers::fromCVRMask(DeclType.Ptr.TypeQuals);
-        if (DeclType.Ptr.IsShared) {
-          Qs.addShared();
-          Qs.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(DeclType.Ptr.LQKind));
-          if (DeclType.Ptr.LQExpr) {
-            llvm::APSInt Val(S.getASTContext().getTypeSize(S.getASTContext().getSizeType()));
-            if (S.VerifyIntegerConstantExpression(DeclType.Ptr.LQExpr, &Val).isInvalid()) {
-              // FIXME:
-              // S.Diag() << ExprLoc...
-            } else {
-              if (Val.getActiveBits() > 32) {
-                // FIXME:
-                // S.Diag() << too large
-              } else {
-                uint64_t val = Val.getZExtValue();
-                Qs.setLayoutQualifier(uint32_t(val));
-              }
-            }
-          }
-        }
-        if (DeclType.Ptr.IsRelaxed)
-          Qs.addRelaxed();
-        if (DeclType.Ptr.IsStrict)
-          Qs.addStrict();
-        
-        T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
+      if (DeclType.Ptr.TypeQuals) {
+        Qualifiers Qs = computeQualifiers(S, DeclType.Ptr.TypeQuals, DeclType.Ptr.LQKind, DeclType.Ptr.LQExpr);
+        T = S.BuildQualifiedType(T, DeclType.Loc, Qs);
       }
 
       break;
