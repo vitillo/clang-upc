@@ -1220,15 +1220,16 @@ void Qualifiers::getAsStringInternal(std::string &S,
   if (hasShared()) {
     if (!S.empty()) S += ' ';
     S += "shared";
-    switch (getLayoutQualifierKind()) {
-    case Qualifiers::LQ_None: break;
-    case Qualifiers::LQ_Star: S += " [*]"; break;
-    case Qualifiers::LQ_Empty: S += " []"; break;
-    case Qualifiers::LQ_Expr: 
+    if (hasLayoutQualifier()) {
       S += " [";
       S += llvm::utostr_32(getLayoutQualifier());
       S += "]";
-      break;
+    }
+    if (hasLayoutQualifierStar()) {
+      if (hasLayoutQualifier()) {
+        S += " shared";
+      }
+      S += " [*]";
     }
   }
 

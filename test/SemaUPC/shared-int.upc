@@ -1,4 +1,4 @@
-// RUN: %ast_test %s
+// RUN: %ast_test -fupc-threads 1 %s
 
 shared int i; // expected-decl-type{{shared int}}
 shared int * shared pi; // expected-decl-type{{shared int *shared}}
@@ -7,8 +7,8 @@ void fpsi(shared int*); // expected-decl-type{{void (shared int *)}}
 shared int * (* shared pfrsipsi)(shared int *); // expected-decl-type{{shared int *(*shared)(shared int *)}}
 
 shared [3] int s3i; // expected-decl-type{{shared [3] int}}
-shared [] int sei; // expected-decl-type{{shared [] int}}
-shared [*] int ssi; // expected-decl-type{{shared [*] int}}
+shared [] int sei; // expected-decl-type{{shared [0] int}}
+shared [*] int ssi; // expected-decl-type{{shared [1] int}}
 
 typedef shared int int_type;
 int_type * ti; // expected<<ignored>>-decl-type{{shared int *}}

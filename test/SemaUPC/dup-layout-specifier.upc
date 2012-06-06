@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fsyntax-only -fupc-threads 1 -verify %s
 
 // combine shared, shared [], shared[0], shared[1], shared[2], shared[3], shared[*]
 // in every possible way directly, through typedefs and through pointers.
@@ -33,7 +33,7 @@ shared [1] shared [0] int i10; // expected-error{{cannot combine with previous '
 shared [1] shared [1] int i11;
 shared [1] shared [2] int i12; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [1] shared [3] int i13; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [1] shared [*] int i1s; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
+shared [1] shared [*] int i1s;
 
 shared [2] shared     int i2n;
 shared [2] shared [ ] int i2e; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
@@ -54,7 +54,7 @@ shared [3] shared [*] int i3s; // expected-error{{cannot combine with previous '
 shared [*] shared     int isn;
 shared [*] shared [ ] int ise; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [*] shared [0] int is0; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [*] shared [1] int is1; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
+shared [*] shared [1] int is1;
 shared [*] shared [2] int is2; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [*] shared [3] int is3; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [*] shared [*] int iss;
@@ -93,7 +93,7 @@ shared [0] shared_1_int t10; // expected-error{{cannot combine with previous 'sh
 shared [1] shared_1_int t11;
 shared [2] shared_1_int t12; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [3] shared_1_int t13; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [*] shared_1_int t1s; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
+shared [*] shared_1_int t1s;
 
 typedef shared [2] int shared_2_int;
 shared     shared_2_int t2n;
@@ -117,7 +117,7 @@ typedef shared [*] int shared_s_int;
 shared     shared_s_int tsn;
 shared [ ] shared_s_int tse; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [0] shared_s_int ts0; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [1] shared_s_int ts1; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
+shared [1] shared_s_int ts1;
 shared [2] shared_s_int ts2; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [3] shared_s_int ts3; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 shared [*] shared_s_int tss;
@@ -152,7 +152,7 @@ int * shared [1] shared [0] p10; // expected-error{{cannot combine with previous
 int * shared [1] shared [1] p11;
 int * shared [1] shared [2] p12; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 int * shared [1] shared [3] p13; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-int * shared [1] shared [*] p1s; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
+int * shared [1] shared [*] p1s;
 
 int * shared [2] shared     p2n;
 int * shared [2] shared [ ] p2e; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
@@ -173,7 +173,7 @@ int * shared [3] shared [*] p3s; // expected-error{{cannot combine with previous
 int * shared [*] shared     psn;
 int * shared [*] shared [ ] pse; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 int * shared [*] shared [0] ps0; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-int * shared [*] shared [1] ps1; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
+int * shared [*] shared [1] ps1;
 int * shared [*] shared [2] ps2; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 int * shared [*] shared [3] ps3; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 int * shared [*] shared [*] pss;

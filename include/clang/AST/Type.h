@@ -165,13 +165,8 @@ public:
   static const uint64_t Shared = 0x100;
   static const uint64_t Strict = 0x200;
   static const uint64_t Relaxed = 0x400;
-
-  enum LayoutQualifierKind {
-    LQ_None = 0,
-    LQ_Empty = 1,
-    LQ_Star = 2,
-    LQ_Expr = 3
-  };
+  static const uint64_t LQ_Int = 0x800;
+  static const uint64_t LQ_Star = 0x1000;
 
   /// The maximum supported address space number.
   /// 24 bits should be enough for anyone.
@@ -337,28 +332,24 @@ public:
   void addRelaxed() { Mask |= Relaxed; }
   void removeRelaxed() { Mask &= ~Relaxed; }
 
-  LayoutQualifierKind getLayoutQualifierKind() const {
-    return LayoutQualifierKind((Mask & LQMask) >> LQShift);
+  bool hasLayoutQualifierStar() const { return Mask & LQ_Star; }
+  void setLayoutQualifierStar(bool flag) {
+    Mask = (Mask & ~LQ_Star) | (flag? LQ_Star : 0);
   }
-  void setLayoutQualifierKind(LayoutQualifierKind flag) {
-    Mask = (Mask & ~LQMask) | (flag << LQShift);
-    if (flag != LQ_Expr) {
-      LayoutQualifier = 0;
-    }
-  }
+  void addLayoutQualifierStar() { Mask |= LQ_Star; }
+  void removeLayoutQualifierStar() { Mask &= ~LQ_Star; }
 
   bool hasLayoutQualifier() const {
-    return getLayoutQualifierKind() != LQ_None;
+    return Mask & LQ_Int;
   }
   uint32_t getLayoutQualifier() const { return LayoutQualifier; }
   void setLayoutQualifier(uint32_t value) {
-    if (value) {
-      Mask = (Mask & ~LQMask) | (LQ_Expr << LQShift);
-      LayoutQualifier = value;
-    } else {
-      Mask = (Mask & ~LQMask) | (LQ_Empty << LQShift);
-      LayoutQualifier = 0;
-    }
+    Mask |= LQ_Int;
+    LayoutQualifier = value;
+  }
+  void removeLayoutQualifier() {
+    Mask &= ~LQ_Int;
+    LayoutQualifier = 0;
   }
 
   // Fast qualifiers are those that can be allocated directly
@@ -410,10 +401,10 @@ public:
         addObjCLifetime(Q.getObjCLifetime());
       if (Q.hasShared())
 	addShared();
-      if (Q.getLayoutQualifierKind() == LQ_Expr)
-        setLayoutQualifier(Q.getLayoutQualifier());
+      if (Q.hasLayoutQualifierStar())
+        addLayoutQualifierStar();
       if (Q.hasLayoutQualifier())
-        setLayoutQualifierKind(Q.getLayoutQualifierKind());
+        setLayoutQualifier(Q.getLayoutQualifier());
       if (Q.hasStrict())
 	addStrict();
       if (Q.hasRelaxed())
@@ -432,8 +423,7 @@ public:
            !hasObjCLifetime() || !qs.hasObjCLifetime());
     assert(!hasRelaxed() || !qs.hasStrict());
     assert(!hasStrict() || !qs.hasRelaxed());
-    assert((getLayoutQualifierKind() == qs.getLayoutQualifierKind() &&
-            getLayoutQualifier() == qs.getLayoutQualifier()) ||
+    assert(getLayoutQualifier() == qs.getLayoutQualifier() ||
 	   !hasLayoutQualifier() || !qs.hasLayoutQualifier());
     Mask |= qs.Mask;
     if (qs.hasLayoutQualifier())
@@ -457,7 +447,7 @@ public:
       hasShared() == other.hasShared() &&
       hasStrict() == other.hasStrict() &&
       hasRelaxed() == other.hasRelaxed() &&
-      getLayoutQualifierKind() == other.getLayoutQualifierKind() && 
+      hasLayoutQualifierStar() == other.hasLayoutQualifierStar() &&
       getLayoutQualifier() == other.getLayoutQualifier() &&
       // CVR qualifiers may subset.
       (((Mask & CVRMask) | (other.Mask & CVRMask)) == (Mask & CVRMask));

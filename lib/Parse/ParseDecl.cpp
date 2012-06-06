@@ -2438,31 +2438,31 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
       {
         Token SharedTok = Tok;
         ConsumeToken();
-        unsigned LQType;
+        DeclSpec::TQ LQ;
         ExprResult LayoutQualifier;
         if (Tok.getKind() == tok::l_square) {
           ConsumeBracket();
           switch (Tok.getKind()) {
           case tok::r_square:
-            LQType = Qualifiers::LQ_Empty;
+            LQ = DeclSpec::TQ_lqexpr;
             ConsumeBracket();
             break;
           case tok::star:
             if (GetLookAheadToken(1).getKind() == tok::r_square) {
               ConsumeToken();
               ConsumeBracket();
-              LQType = Qualifiers::LQ_Star;
+              LQ = DeclSpec::TQ_lqstar;
               break;
             }
           default:
             LayoutQualifier = ParseConstantExpression();
             ConsumeBracket();
-            LQType = Qualifiers::LQ_Expr;
+            LQ = DeclSpec::TQ_lqexpr;
           }
         } else {
-          LQType = Qualifiers::LQ_None;
+          LQ = DeclSpec::TQ_unspecified;
         }
-        isInvalid = DS.SetTypeQualShared(Actions, Loc, LQType, LayoutQualifier.take(),
+        isInvalid = DS.SetTypeQualShared(Actions, Loc, LQ, LayoutQualifier.take(),
                                          PrevSpec, DiagID);
 
         // If the specifier combination wasn't legal, issue a diagnostic.
@@ -3644,31 +3644,31 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
       {
         Token SharedTok = Tok;
         EndLoc = ConsumeToken();
-        unsigned LQType;
+        DeclSpec::TQ LQ;
         ExprResult LayoutQualifier;
         if (Tok.getKind() == tok::l_square) {
           ConsumeBracket();
           switch (Tok.getKind()) {
           case tok::r_square:
-            LQType = Qualifiers::LQ_Empty;
+            LQ = DeclSpec::TQ_lqexpr;
             ConsumeBracket();
             break;
           case tok::star:
             if (GetLookAheadToken(1).getKind() == tok::r_square) {
               ConsumeToken();
               ConsumeBracket();
-              LQType = Qualifiers::LQ_Star;
+              LQ = DeclSpec::TQ_lqstar;
               break;
             }
           default:
             LayoutQualifier = ParseConstantExpression();
             ConsumeBracket();
-            LQType = Qualifiers::LQ_Expr;
+            LQ = DeclSpec::TQ_lqexpr;
           }
         } else {
-          LQType = Qualifiers::LQ_None;
+          LQ = DeclSpec::TQ_unspecified;
         }
-        isInvalid = DS.SetTypeQualShared(Actions, Loc, LQType, LayoutQualifier.take(),
+        isInvalid = DS.SetTypeQualShared(Actions, Loc, LQ, LayoutQualifier.take(),
                                          PrevSpec, DiagID);
 
         // If the specifier combination wasn't legal, issue a diagnostic.
@@ -3858,7 +3858,6 @@ void Parser::ParseDeclaratorInternal(Declarator &D,
     if (Kind == tok::star)
       // Remember that we parsed a pointer type, and remember the type-quals.
       D.AddTypeInfo(DeclaratorChunk::getPointer(DS.getTypeQualifiers(),
-                                                DS.getUPCLayoutQualifierKind(),
                                                 DS.getUPCLayoutQualifier(),
                                                 Loc,
                                                 DS.getConstSpecLoc(),

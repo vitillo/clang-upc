@@ -592,14 +592,14 @@ uint32_t Sema::CheckLayoutQualifier(Expr * LQExpr) {
   return 0;
 }
 
-static Qualifiers computeQualifiers(Sema &S, unsigned TypeQuals, unsigned LQKind, Expr *LayoutQualifier) {
+static Qualifiers computeQualifiers(Sema &S, unsigned TypeQuals, Expr *LayoutQualifier) {
   Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals & Qualifiers::CVRMask);
   if (TypeQuals & DeclSpec::TQ_shared) {
     Quals.addShared();
-    Quals.setLayoutQualifierKind(Qualifiers::LayoutQualifierKind(LQKind));
-    if (LQKind == Qualifiers::LQ_Expr) {
+    if (TypeQuals & DeclSpec::TQ_lqexpr)
       Quals.setLayoutQualifier(S.CheckLayoutQualifier(LayoutQualifier));
-    }
+    if (TypeQuals & DeclSpec::TQ_lqstar)
+      Quals.addLayoutQualifierStar();
   }
   if (TypeQuals & DeclSpec::TQ_relaxed)
     Quals.addRelaxed();
@@ -1041,7 +1041,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       // in this case.
     }
 
-    Qualifiers Quals = computeQualifiers(S, TypeQuals, DS.getUPCLayoutQualifierKind(), DS.getUPCLayoutQualifier());
+    Qualifiers Quals = computeQualifiers(S, TypeQuals, DS.getUPCLayoutQualifier());
 
     if (S.getLangOpts().UPC) {
       Qualifiers Existing = Result.getQualifiers();
@@ -1063,10 +1063,9 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       // block size, either directly or indirectly through
       // one or more typedefs.
       if (Existing.hasLayoutQualifier() && Quals.hasLayoutQualifier()) {
-        if (Existing.getLayoutQualifierKind() != Quals.getLayoutQualifierKind() ||
-            Existing.getLayoutQualifier() != Quals.getLayoutQualifier()) {
+        if (Existing.getLayoutQualifier() != Quals.getLayoutQualifier()) {
           S.Diag(DS.getSharedSpecLoc(), diag::err_invalid_decl_spec_combination) << "shared";
-          Quals.setLayoutQualifierKind(Qualifiers::LQ_None);
+          Quals.removeLayoutQualifier();
         }
       }
     }
@@ -2100,6 +2099,78 @@ static void checkQualifiedFunction(Sema &S, QualType T,
     << getFunctionQualifiersAsString(T->castAs<FunctionProtoType>());
 }
 
+static QualType FixLayoutQualifierStar(QualType T, uint32_t BlockSize, ASTContext& Context) {
+  Qualifiers Quals = T.getQualifiers();
+  const Type * TP = T.getTypePtr();
+  if (Quals.hasLayoutQualifierStar()) {
+    Quals.removeLayoutQualifierStar();
+    Quals.setLayoutQualifier(BlockSize);
+  }
+  if (const ArrayType * AT = dyn_cast<ArrayType>(TP)) {
+    if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
+      return Context.getQualifiedType(Context.getConstantArrayType(
+        FixLayoutQualifierStar(CAT->getElementType(), BlockSize, Context),
+        CAT->getSize(), CAT->getSizeModifier(), CAT->getIndexTypeCVRQualifiers()), Quals);
+    } else if (const VariableArrayType * VAT = dyn_cast<VariableArrayType>(VAT)) {
+      return Context.getQualifiedType(Context.getVariableArrayType(
+        FixLayoutQualifierStar(VAT->getElementType(), BlockSize, Context),
+        VAT->getSizeExpr(), VAT->getSizeModifier(), VAT->getIndexTypeCVRQualifiers(),
+        VAT->getBracketsRange()), Quals);
+                                          
+      // FIXME: Handle remaining array types
+    }
+  } else {
+    return Context.getQualifiedType(TP, Quals);
+  }
+}
+
+static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out) {
+  uint64_t result = 1;
+  bool hasTHREAD = false;
+  while (const ArrayType * AT = dyn_cast<ArrayType>(q.getTypePtr())) {
+    if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
+      result *= CAT->getSize().getZExtValue();
+    } else if (const VariableArrayType * VAT = dyn_cast<VariableArrayType>(AT)) {
+      // Expr * SizeExpr = VAT->getSizeExpr();
+      // FIXME: Handle dynamic THREADS environment
+    } else if (isa<IncompleteArrayType>(AT)) {
+      // FIXME: Delay until initializer
+      // S.Diag();
+    }
+  }
+  if (hasTHREAD) {
+    Out = result;
+    return true;
+  } else {
+    uint64_t threads = S.getASTContext().getLangOpts().UPCThreads;
+    if (threads == 0) {
+      return false;
+    } else {
+      Out = (result + threads - 1) / threads;
+      return true;
+    }
+  }
+}
+
+static QualType ResolveLayoutQualifierStar(QualType T, Sema& S, SourceLocation Loc) {
+  QualType can = T.getCanonicalType();
+  Qualifiers Quals = can.getQualifiers();
+  if (Quals.hasLayoutQualifierStar()) {
+    uint32_t LayoutQualifier;
+    if (!ComputeLayoutQualifierStar(T, S, LayoutQualifier)) {
+      S.Diag(Loc, diag::err_upc_star_requires_threads);
+      return T;
+    }
+    if (Quals.hasLayoutQualifier() && Quals.getLayoutQualifier() != LayoutQualifier) {
+      LayoutQualifier = Quals.getLayoutQualifier();
+      S.Diag(Loc, diag::err_invalid_decl_spec_combination) << "shared";
+    }
+    return FixLayoutQualifierStar(T, LayoutQualifier, S.getASTContext());
+  } else {
+    return T;
+  }
+}
+
 static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                                 QualType declSpecType,
                                                 TypeSourceInfo *TInfo) {
@@ -2176,7 +2247,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
       }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
       if (DeclType.Ptr.TypeQuals) {
-        Qualifiers Qs = computeQualifiers(S, DeclType.Ptr.TypeQuals, DeclType.Ptr.LQKind, DeclType.Ptr.LQExpr);
+        Qualifiers Qs = computeQualifiers(S, DeclType.Ptr.TypeQuals, DeclType.Ptr.LQExpr);
         T = S.BuildQualifiedType(T, DeclType.Loc, Qs);
       }
 
@@ -2633,6 +2704,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                   FnTy->arg_type_begin(),
                                   FnTy->getNumArgs(), EPI);
     }
+  }
+
+  // Handle shared [*]
+  if (LangOpts.UPC) {
+    T = ResolveLayoutQualifierStar(T, S, D.getDeclSpec().getLocStart());
   }
 
   // Apply any undistributed attributes from the declarator.

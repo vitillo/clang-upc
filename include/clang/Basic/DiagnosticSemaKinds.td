@@ -5461,6 +5461,8 @@ def err_invalid_astype_of_different_size : Error<
 // UPC warnings and errors
 def err_upc_layout_qualifier_too_big : Error<
   "Block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
+def err_upc_star_requires_threads : Error<
+  "THREADS must appear exactly once in an array declaration">;
 
 } // end of sema category
 
