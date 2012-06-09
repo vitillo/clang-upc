@@ -4334,6 +4334,21 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD,
     return false;
   }
 
+  if (getLangOpts().UPC) {
+    QualType type = T.getCanonicalType();
+    if (type.getQualifiers().hasShared()) {
+      if (NewVD->hasLocalStorage()) {
+        Diag(NewVD->getLocation(), diag::err_upc_shared_local);
+        NewVD->setInvalidDecl();
+        return false;
+      } else if (getLangOpts().UPCThreads == 0 && !isa<UPCThreadArrayType>(type.getTypePtr())) {
+        Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
+        NewVD->setInvalidDecl();
+        return false;
+      }
+    }
+  }
+
   if (NewVD->hasLocalStorage() && T.isObjCGCWeak()
       && !NewVD->hasAttr<BlocksAttr>()) {
     if (getLangOpts().getGC() != LangOptions::NonGC)

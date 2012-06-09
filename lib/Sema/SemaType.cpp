@@ -1270,6 +1270,32 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
   return Context.getRValueReferenceType(T);
 }
 
+static bool isArraySizeTHREAD(Sema& S, Expr *ArraySize, llvm::APSInt &SizeVal)
+{
+  // UPC 1.2 6.5.2.1p2
+  // When a UPC program is translated in the dynamic THREADS environment
+  // and an array with shared-qualified elements is declared with
+  // definite blocksize, the THREADS expression shall occur exactly
+  // once in one dimension of the array declarator (including through
+  // typedefs).  Further, the THREADS expression shall only occur either
+  // alone or when multiplied by an integer constant expression.
+  if (isa<UPCThreadExpr>(ArraySize->IgnoreParens())) {
+    SizeVal = 1;
+    return true;
+  } else if(BinaryOperator *BO = dyn_cast<BinaryOperator>(ArraySize->IgnoreParens())) {
+    if (BO->getOpcode() == BO_Mul) {
+      if (isa<UPCThreadExpr>(BO->getLHS()->IgnoreParens()) &&
+          BO->getRHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
+        return true;
+      } else if (isa<UPCThreadExpr>(BO->getRHS()->IgnoreParens()) &&
+          BO->getLHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /// Check whether the specified array size makes the array type a VLA.  If so,
 /// return true, if not, return the size of the array in SizeVal.
 static bool isArraySizeVLA(Sema &S, Expr *ArraySize, llvm::APSInt &SizeVal) {
@@ -1401,10 +1427,17 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
       return QualType();
     }
 
-    // C99: an array with an element type that has a non-constant-size is a VLA.
-    // C99: an array with a non-ICE size is a VLA.  We accept any expression
-    // that we can fold to a non-zero positive value as an extension.
-    T = Context.getVariableArrayType(T, ArraySize, ASM, Quals, Brackets);
+    if (T->isUPCThreadArrayType() && !isArraySizeVLA(*this, ArraySize, ConstVal)) {
+      T = Context.getUPCThreadArrayType(T, ConstVal, false, ASM, Quals);
+    } else if (!T->isDependentType() && (T->isIncompleteType() || T->isConstantSizeType())
+               && isArraySizeTHREAD(*this, ArraySize, ConstVal)) {
+      T = Context.getUPCThreadArrayType(T, ConstVal, true, ASM, Quals);
+    } else {
+      // C99: an array with an element type that has a non-constant-size is a VLA.
+      // C99: an array with a non-ICE size is a VLA.  We accept any expression
+      // that we can fold to a non-zero positive value as an extension.
+      T = Context.getVariableArrayType(T, ArraySize, ASM, Quals, Brackets);
+    }
   } else {
     // C99 6.7.5.2p1: If the expression is a constant expression, it shall
     // have a value greater than zero.
@@ -2111,31 +2144,34 @@ static QualType FixLayoutQualifierStar(QualType T, uint32_t BlockSize, ASTContex
       return Context.getQualifiedType(Context.getConstantArrayType(
         FixLayoutQualifierStar(CAT->getElementType(), BlockSize, Context),
         CAT->getSize(), CAT->getSizeModifier(), CAT->getIndexTypeCVRQualifiers()), Quals);
-    } else if (const VariableArrayType * VAT = dyn_cast<VariableArrayType>(VAT)) {
-      return Context.getQualifiedType(Context.getVariableArrayType(
-        FixLayoutQualifierStar(VAT->getElementType(), BlockSize, Context),
-        VAT->getSizeExpr(), VAT->getSizeModifier(), VAT->getIndexTypeCVRQualifiers(),
-        VAT->getBracketsRange()), Quals);
-                                          
-      // FIXME: Handle remaining array types
+    } else if (const UPCThreadArrayType * TAT = dyn_cast<UPCThreadArrayType>(AT)) {
+      return Context.getQualifiedType(Context.getUPCThreadArrayType(
+        FixLayoutQualifierStar(TAT->getElementType(), BlockSize, Context),
+        TAT->getSize(), TAT->getThread(), TAT->getSizeModifier(),
+        TAT->getIndexTypeCVRQualifiers()), Quals);
+    } else {
+      llvm_unreachable("Expected constant size array type");
     }
   } else {
     return Context.getQualifiedType(TP, Quals);
   }
 }
 
-static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out) {
+static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out, SourceLocation Loc) {
   uint64_t result = 1;
   bool hasTHREAD = false;
   while (const ArrayType * AT = dyn_cast<ArrayType>(q.getTypePtr())) {
     if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
       result *= CAT->getSize().getZExtValue();
-    } else if (const VariableArrayType * VAT = dyn_cast<VariableArrayType>(AT)) {
-      // Expr * SizeExpr = VAT->getSizeExpr();
-      // FIXME: Handle dynamic THREADS environment
+    } else if (const UPCThreadArrayType * TAT = dyn_cast<UPCThreadArrayType>(AT)) {
+      if (TAT->getThread())
+        hasTHREAD = true;
+      result *= CAT->getSize().getZExtValue();
     } else if (isa<IncompleteArrayType>(AT)) {
-      // FIXME: Delay until initializer
-      // S.Diag();
+      return false;
+    } else {
+      // Only constant size arrays can be declared shared.
+      return false;
     }
   }
   if (hasTHREAD) {
@@ -2144,6 +2180,7 @@ static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out) {
   } else {
     uint64_t threads = S.getASTContext().getLangOpts().UPCThreads;
     if (threads == 0) {
+      S.Diag(Loc, diag::err_upc_star_requires_threads);
       return false;
     } else {
       Out = (result + threads - 1) / threads;
@@ -2157,8 +2194,7 @@ static QualType ResolveLayoutQualifierStar(QualType T, Sema& S, SourceLocation L
   Qualifiers Quals = can.getQualifiers();
   if (Quals.hasLayoutQualifierStar()) {
     uint32_t LayoutQualifier;
-    if (!ComputeLayoutQualifierStar(T, S, LayoutQualifier)) {
-      S.Diag(Loc, diag::err_upc_star_requires_threads);
+    if (!ComputeLayoutQualifierStar(T, S, LayoutQualifier, Loc)) {
       return T;
     }
     if (Quals.hasLayoutQualifier() && Quals.getLayoutQualifier() != LayoutQualifier) {

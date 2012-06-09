@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fsyntax-only -fupc-threads 2 -verify %s
 
 relaxed strict shared int i1; // expected-error{{cannot combine with previous 'relaxed' declaration specifier}}
 typedef relaxed shared int relaxed_type;

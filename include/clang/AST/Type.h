@@ -1573,6 +1573,7 @@ public:
   bool isMemberDataPointerType() const;
   bool isArrayType() const;
   bool isConstantArrayType() const;
+  bool isUPCThreadArrayType() const;
   bool isIncompleteArrayType() const;
   bool isVariableArrayType() const;
   bool isDependentSizedArrayType() const;
@@ -2216,6 +2217,7 @@ public:
 
   static bool classof(const Type *T) {
     return T->getTypeClass() == ConstantArray ||
+           T->getTypeClass() == UPCThreadArray ||
            T->getTypeClass() == VariableArray ||
            T->getTypeClass() == IncompleteArray ||
            T->getTypeClass() == DependentSizedArray;
@@ -2274,6 +2276,58 @@ public:
   }
   static bool classof(const ConstantArrayType *) { return true; }
 };
+
+
+/// UPCThreadArrayType - This class represents the canonical version of
+/// UPC arrays that contain THREAD in the array size.
+class UPCThreadArrayType : public ArrayType {
+  llvm::APInt Size; // Allows us to unique the type.
+  bool HasThread;
+
+  UPCThreadArrayType(QualType et, QualType can, const llvm::APInt &size,
+                     bool hasThread, ArraySizeModifier sm, unsigned tq)
+    : ArrayType(UPCThreadArray, et, can, sm, tq,
+                et->containsUnexpandedParameterPack()),
+      Size(size),
+      HasThread(hasThread) {}
+  friend class ASTContext;  // ASTContext creates these.
+public:
+  const llvm::APInt &getSize() const { return Size; }
+  bool getThread() const { return HasThread; }
+  bool isSugared() const { return false; }
+  QualType desugar() const { return QualType(this, 0); }
+
+
+  /// \brief Determine the number of bits required to address a member of
+  // an array with the given element type and number of elements.
+  static unsigned getNumAddressingBits(ASTContext &Context,
+                                       QualType ElementType,
+                                       const llvm::APInt &NumElements);
+
+  /// \brief Determine the maximum number of active bits that an array's size
+  /// can require, which limits the maximum size of the array.
+  static unsigned getMaxSizeBits(ASTContext &Context);
+
+  void Profile(llvm::FoldingSetNodeID &ID) {
+    Profile(ID, getElementType(), getSize(), getThread(),
+            getSizeModifier(), getIndexTypeCVRQualifiers());
+  }
+  static void Profile(llvm::FoldingSetNodeID &ID, QualType ET,
+                      const llvm::APInt &ArraySize, bool hasThread,
+                      ArraySizeModifier SizeMod,
+                      unsigned TypeQuals) {
+    ID.AddPointer(ET.getAsOpaquePtr());
+    ID.AddInteger(ArraySize.getZExtValue());
+    ID.AddBoolean(hasThread);
+    ID.AddInteger(SizeMod);
+    ID.AddInteger(TypeQuals);
+  }
+  static bool classof(const Type *T) {
+    return T->getTypeClass() == UPCThreadArray;
+  }
+  static bool classof(const UPCThreadArrayType *) { return true; }
+};
+
 
 /// IncompleteArrayType - This class represents C arrays with an unspecified
 /// size.  For example 'int A[]' has an IncompleteArrayType where the element
@@ -4835,6 +4889,9 @@ inline bool Type::isArrayType() const {
 }
 inline bool Type::isConstantArrayType() const {
   return isa<ConstantArrayType>(CanonicalType);
+}
+inline bool Type::isUPCThreadArrayType() const {
+  return isa<UPCThreadArrayType>(CanonicalType);
 }
 inline bool Type::isIncompleteArrayType() const {
   return isa<IncompleteArrayType>(CanonicalType);

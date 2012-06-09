@@ -2629,6 +2629,7 @@ public:
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = 0);
   ExprResult ActOnCharacterConstant(const Token &Tok, Scope *UDLScope = 0);
+  ExprResult ActOnUPCThreadsExpr(SourceLocation Loc);
   ExprResult ActOnParenExpr(SourceLocation L, SourceLocation R, Expr *E);
   ExprResult ActOnParenListExpr(SourceLocation L,
                                 SourceLocation R,

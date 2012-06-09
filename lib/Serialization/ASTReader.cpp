@@ -4114,6 +4114,17 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     QualType ValueType = readType(*Loc.F, Record, Idx);
     return Context.getAtomicType(ValueType);
   }
+
+  case TYPE_UPC_THREAD_ARRAY: {
+    QualType ElementType = readType(*Loc.F, Record, Idx);
+    ArrayType::ArraySizeModifier ASM = (ArrayType::ArraySizeModifier)Record[1];
+    unsigned IndexTypeQuals = Record[2];
+    unsigned Idx = 3;
+    llvm::APInt Size = ReadAPInt(Record, Idx);
+    bool HasThread = Record[Idx] != 0;
+    return Context.getUPCThreadArrayType(ElementType, Size, HasThread,
+                                         ASM, IndexTypeQuals);
+  }
   }
   llvm_unreachable("Invalid TypeCode!");
 }
@@ -4193,6 +4204,9 @@ void TypeLocReader::VisitArrayTypeLoc(ArrayTypeLoc TL) {
     TL.setSizeExpr(0);
 }
 void TypeLocReader::VisitConstantArrayTypeLoc(ConstantArrayTypeLoc TL) {
+  VisitArrayTypeLoc(TL);
+}
+void TypeLocReader::VisitUPCThreadArrayTypeLoc(UPCThreadArrayTypeLoc TL) {
   VisitArrayTypeLoc(TL);
 }
 void TypeLocReader::VisitIncompleteArrayTypeLoc(IncompleteArrayTypeLoc TL) {

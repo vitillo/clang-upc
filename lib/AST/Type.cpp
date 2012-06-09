@@ -841,7 +841,7 @@ bool Type::isConstantSizeType() const {
   assert(!isIncompleteType() && "This doesn't make sense for incomplete types");
   assert(!isDependentType() && "This doesn't make sense for dependent types");
   // The VAT must have a size, as it is known to be complete.
-  return !isa<VariableArrayType>(CanonicalType);
+  return !isa<VariableArrayType>(CanonicalType) && !isa<UPCThreadArrayType>(CanonicalType);
 }
 
 /// isIncompleteType - Return true if this is an incomplete type (C99 6.2.5p1)
@@ -2060,6 +2060,7 @@ static CachedProperties computeCachedProperties(const Type *T) {
                  Cache::get(MPT->getPointeeType()));
   }
   case Type::ConstantArray:
+  case Type::UPCThreadArray:
   case Type::IncompleteArray:
   case Type::VariableArray:
     return Cache::get(cast<ArrayType>(T)->getElementType());

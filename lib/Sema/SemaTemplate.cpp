@@ -3254,6 +3254,11 @@ bool UnnamedLocalNoLinkageFinder::VisitConstantArrayType(
   return Visit(T->getElementType());
 }
 
+bool UnnamedLocalNoLinkageFinder::VisitUPCThreadArrayType(
+                                                  const UPCThreadArrayType* T) {
+  return Visit(T->getElementType());
+}
+
 bool UnnamedLocalNoLinkageFinder::VisitIncompleteArrayType(
                                                  const IncompleteArrayType* T) {
   return Visit(T->getElementType());

@@ -275,6 +275,7 @@ KEYWORD(upc_forall                  , KEYUPC)
 KEYWORD(upc_localsizeof             , KEYUPC)
 KEYWORD(upc_notify                  , KEYUPC)
 KEYWORD(upc_wait                    , KEYUPC)
+KEYWORD(THREADS                     , KEYUPC)
 
 
 // C++ 2.11p1: Keywords.

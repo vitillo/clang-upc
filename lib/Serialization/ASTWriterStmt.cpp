@@ -357,6 +357,12 @@ void ASTStmtWriter::VisitCharacterLiteral(CharacterLiteral *E) {
   Code = serialization::EXPR_CHARACTER_LITERAL;
 }
 
+void ASTStmtWriter::VisitUPCThreadExpr(UPCThreadExpr *E) {
+  VisitExpr(E);
+  Writer.AddSourceLocation(E->getLocation(), Record);
+  Code = serialization::EXPR_UPC_THREAD;
+}
+
 void ASTStmtWriter::VisitParenExpr(ParenExpr *E) {
   VisitExpr(E);
   Writer.AddSourceLocation(E->getLParen(), Record);

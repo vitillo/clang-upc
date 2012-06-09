@@ -408,6 +408,11 @@ void ASTStmtReader::VisitCharacterLiteral(CharacterLiteral *E) {
   E->setKind(static_cast<CharacterLiteral::CharacterKind>(Record[Idx++]));
 }
 
+void ASTStmtReader::VisitUPCThreadExpr(UPCThreadExpr *E) {
+  VisitExpr(E);
+  E->setLocation(ReadSourceLocation(Record, Idx));
+}
+
 void ASTStmtReader::VisitParenExpr(ParenExpr *E) {
   VisitExpr(E);
   E->setLParen(ReadSourceLocation(Record, Idx));
@@ -1724,6 +1729,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
 
     case EXPR_CHARACTER_LITERAL:
       S = new (Context) CharacterLiteral(Empty);
+      break;
+
+    case EXPR_UPC_THREAD:
+      S = new (Context) UPCThreadExpr(Empty);
       break;
 
     case EXPR_PAREN:

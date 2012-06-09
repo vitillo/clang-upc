@@ -133,6 +133,7 @@ void TypePrinter::print(const Type *T, Qualifiers Quals, std::string &buffer) {
       break;
       
     case Type::ConstantArray:
+    case Type::UPCThreadArray:
     case Type::IncompleteArray:
     case Type::VariableArray:
     case Type::DependentSizedArray:
@@ -283,6 +284,17 @@ void TypePrinter::printConstantArray(const ConstantArrayType *T,
                                      std::string &S) {
   S += '[';
   S += llvm::utostr(T->getSize().getZExtValue());
+  S += ']';
+  
+  IncludeStrongLifetimeRAII Strong(Policy);
+  print(T->getElementType(), S);
+}
+
+void TypePrinter::printUPCThreadArray(const UPCThreadArrayType *T, 
+                                     std::string &S) {
+  S += '[';
+  S += llvm::utostr(T->getSize().getZExtValue());
+  S += "*THREADS";
   S += ']';
   
   IncludeStrongLifetimeRAII Strong(Policy);

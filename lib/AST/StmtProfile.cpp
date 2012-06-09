@@ -288,6 +288,10 @@ void StmtProfiler::VisitStringLiteral(const StringLiteral *S) {
   ID.AddInteger(S->getKind());
 }
 
+void StmtProfiler::VisitUPCThreadExpr(const UPCThreadExpr *S) {
+  VisitExpr(S);
+}
+
 void StmtProfiler::VisitParenExpr(const ParenExpr *S) {
   VisitExpr(S);
 }

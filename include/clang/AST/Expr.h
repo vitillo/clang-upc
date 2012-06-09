@@ -1471,6 +1471,32 @@ public:
   child_range children() { return child_range(); }
 };
 
+class UPCThreadExpr : public Expr {
+  SourceLocation Loc;
+
+public:
+  UPCThreadExpr(SourceLocation L, QualType Type)
+    : Expr(UPCThreadExprClass, Type, VK_RValue, OK_Ordinary,
+           false, false, false,
+           /*ContainsUnexpandedParameterPack=*/false),
+      Loc(L) { }
+
+  UPCThreadExpr(EmptyShell Empty) : Expr(UPCThreadExprClass, Empty) {}
+
+  SourceLocation getLocation() const { return Loc; }
+  void setLocation(SourceLocation L) { Loc = L; }
+
+  SourceRange getSourceRange() const LLVM_READONLY { return SourceRange(Loc); }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCThreadExprClass;
+  }
+  static bool classof(const UPCThreadExpr *) { return true; }
+
+  // Iterators
+  child_range children() { return child_range(); }
+};
+
 /// ParenExpr - This represents a parethesized expression, e.g. "(1)".  This
 /// AST node is only formed if full location information is requested.
 class ParenExpr : public Expr {

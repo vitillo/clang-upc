@@ -138,6 +138,13 @@ void ASTTypeWriter::VisitConstantArrayType(const ConstantArrayType *T) {
   Code = TYPE_CONSTANT_ARRAY;
 }
 
+void ASTTypeWriter::VisitUPCThreadArrayType(const UPCThreadArrayType *T) {
+  VisitArrayType(T);
+  Writer.AddAPInt(T->getSize(), Record);
+  Record.push_back(T->getThread()? 1 : 0);
+  Code = TYPE_UPC_THREAD_ARRAY;
+}
+
 void ASTTypeWriter::VisitIncompleteArrayType(const IncompleteArrayType *T) {
   VisitArrayType(T);
   Code = TYPE_INCOMPLETE_ARRAY;
@@ -458,6 +465,9 @@ void TypeLocWriter::VisitArrayTypeLoc(ArrayTypeLoc TL) {
 void TypeLocWriter::VisitConstantArrayTypeLoc(ConstantArrayTypeLoc TL) {
   VisitArrayTypeLoc(TL);
 }
+void TypeLocWriter::VisitUPCThreadArrayTypeLoc(UPCThreadArrayTypeLoc TL) {
+  VisitArrayTypeLoc(TL);
+}
 void TypeLocWriter::VisitIncompleteArrayTypeLoc(IncompleteArrayTypeLoc TL) {
   VisitArrayTypeLoc(TL);
 }
@@ -671,6 +681,7 @@ static void AddStmtsExprs(llvm::BitstreamWriter &Stream,
   RECORD(EXPR_IMAGINARY_LITERAL);
   RECORD(EXPR_STRING_LITERAL);
   RECORD(EXPR_CHARACTER_LITERAL);
+  RECORD(EXPR_UPC_THREAD);
   RECORD(EXPR_PAREN);
   RECORD(EXPR_UNARY_OPERATOR);
   RECORD(EXPR_SIZEOF_ALIGN_OF);

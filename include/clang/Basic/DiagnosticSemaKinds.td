@@ -5463,6 +5463,11 @@ def err_upc_layout_qualifier_too_big : Error<
   "Block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
 def err_upc_star_requires_threads : Error<
   "THREADS must appear exactly once in an array declaration">;
+def err_upc_dynamic_threads_requires_threads : Error<
+  "THREADS must appear exactly once in in one dimension of a shared array."
+  >;
+def err_upc_shared_local : Error<
+  "Automatic variables may not be declared shared">;
 
 } // end of sema category
 

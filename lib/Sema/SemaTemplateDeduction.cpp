@@ -1216,6 +1216,26 @@ DeduceTemplateArgumentsByTypeMatch(Sema &S,
                                            Info, Deduced, SubTDF);
     }
 
+    //     T [integer-constant]
+    case Type::UPCThreadArray: {
+      const UPCThreadArrayType *UPCThreadArrayArg =
+        S.Context.getAsUPCThreadArrayType(Arg);
+      if (!UPCThreadArrayArg)
+        return Sema::TDK_NonDeducedMismatch;
+
+      const UPCThreadArrayType *UPCThreadArrayParm =
+        S.Context.getAsUPCThreadArrayType(Param);
+      if (UPCThreadArrayArg->getSize() != UPCThreadArrayParm->getSize() ||
+          UPCThreadArrayArg->getThread() != UPCThreadArrayParm->getThread())
+        return Sema::TDK_NonDeducedMismatch;
+
+      unsigned SubTDF = TDF & TDF_IgnoreQualifiers;
+      return DeduceTemplateArgumentsByTypeMatch(S, TemplateParams,
+                                           UPCThreadArrayParm->getElementType(),
+                                           UPCThreadArrayArg->getElementType(),
+                                           Info, Deduced, SubTDF);
+    }
+
     //     type [i]
     case Type::DependentSizedArray: {
       const ArrayType *ArrayArg = S.Context.getAsArrayType(Arg);
@@ -4241,6 +4261,7 @@ MarkUsedTemplateParameters(ASTContext &Ctx, QualType T,
     // Fall through to check the element type
 
   case Type::ConstantArray:
+  case Type::UPCThreadArray:
   case Type::IncompleteArray:
     MarkUsedTemplateParameters(Ctx,
                                cast<ArrayType>(T)->getElementType(),
