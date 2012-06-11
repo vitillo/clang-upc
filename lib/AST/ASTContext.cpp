@@ -3507,6 +3507,11 @@ const ArrayType *ASTContext::getAsArrayType(QualType T) const {
     return cast<ArrayType>(getConstantArrayType(NewEltTy, CAT->getSize(),
                                                 CAT->getSizeModifier(),
                                            CAT->getIndexTypeCVRQualifiers()));
+  if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(ATy))
+    return cast<ArrayType>(getUPCThreadArrayType(NewEltTy, TAT->getSize(),
+                                                 TAT->getThread(),
+                                                TAT->getSizeModifier(),
+                                           TAT->getIndexTypeCVRQualifiers()));
   if (const IncompleteArrayType *IAT = dyn_cast<IncompleteArrayType>(ATy))
     return cast<ArrayType>(getIncompleteArrayType(NewEltTy,
                                                   IAT->getSizeModifier(),

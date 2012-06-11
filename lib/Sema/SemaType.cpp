@@ -1284,10 +1284,10 @@ static bool isArraySizeTHREAD(Sema& S, Expr *ArraySize, llvm::APSInt &SizeVal)
     return true;
   } else if(BinaryOperator *BO = dyn_cast<BinaryOperator>(ArraySize->IgnoreParens())) {
     if (BO->getOpcode() == BO_Mul) {
-      if (isa<UPCThreadExpr>(BO->getLHS()->IgnoreParens()) &&
+      if (isa<UPCThreadExpr>(BO->getLHS()->IgnoreParenImpCasts()) &&
           BO->getRHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
         return true;
-      } else if (isa<UPCThreadExpr>(BO->getRHS()->IgnoreParens()) &&
+      } else if (isa<UPCThreadExpr>(BO->getRHS()->IgnoreParenImpCasts()) &&
           BO->getLHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
         return true;
       }
@@ -2158,24 +2158,32 @@ static QualType FixLayoutQualifierStar(QualType T, uint32_t BlockSize, ASTContex
 }
 
 static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out, SourceLocation Loc) {
-  uint64_t result = 1;
+  int Size = S.getASTContext().getTypeSize(S.getASTContext().getSizeType());
+  llvm::APInt result(Size, 1);
   bool hasTHREAD = false;
   while (const ArrayType * AT = dyn_cast<ArrayType>(q.getTypePtr())) {
     if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
-      result *= CAT->getSize().getZExtValue();
+      result *= CAT->getSize();
     } else if (const UPCThreadArrayType * TAT = dyn_cast<UPCThreadArrayType>(AT)) {
       if (TAT->getThread())
         hasTHREAD = true;
-      result *= CAT->getSize().getZExtValue();
+      result *= TAT->getSize();
     } else if (isa<IncompleteArrayType>(AT)) {
       return false;
     } else {
       // Only constant size arrays can be declared shared.
       return false;
     }
+    q = AT->getElementType();
   }
   if (hasTHREAD) {
-    Out = result;
+    if (result.getActiveBits() > S.getLangOpts().UPCPhaseBits) {
+      llvm::SmallString<64> ValStr;
+      result.toStringUnsigned(ValStr);
+      S.Diag(Loc, diag::err_upc_layout_qualifier_too_big) << ValStr;
+    } else {
+      Out = result.getZExtValue();
+    }
     return true;
   } else {
     uint64_t threads = S.getASTContext().getLangOpts().UPCThreads;
@@ -2183,7 +2191,14 @@ static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out, Sourc
       S.Diag(Loc, diag::err_upc_star_requires_threads);
       return false;
     } else {
-      Out = (result + threads - 1) / threads;
+      result = (result + threads - 1).udiv(llvm::APInt(Size, threads));
+      if (result.getActiveBits() > S.getLangOpts().UPCPhaseBits) {
+        llvm::SmallString<64> ValStr;
+        result.toStringUnsigned(ValStr);
+        S.Diag(Loc, diag::err_upc_layout_qualifier_too_big) << ValStr;
+      } else {
+        Out = result.getZExtValue();
+      }
       return true;
     }
   }

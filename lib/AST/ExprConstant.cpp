@@ -6630,7 +6630,8 @@ static ICEDiag CheckICE(const Expr* E, ASTContext &Ctx) {
   case Expr::UnaryExprOrTypeTraitExprClass: {
     const UnaryExprOrTypeTraitExpr *Exp = cast<UnaryExprOrTypeTraitExpr>(E);
     if ((Exp->getKind() ==  UETT_SizeOf) &&
-        Exp->getTypeOfArgument()->isVariableArrayType())
+        (Exp->getTypeOfArgument()->isVariableArrayType() ||
+         Exp->getTypeOfArgument()->isUPCThreadArrayType()))
       return ICEDiag(2, E->getLocStart());
     return NoDiag();
   }
