@@ -112,6 +112,8 @@ def err_upc_localsizeof_applied_to_non_shared : Error<
   "The argument of upc_localsizeof must be shared qualified">;
 def err_upc_blocksizeof_applied_to_non_shared : Error<
   "The argument of upc_blocksizeof must be shared qualified">;
+def err_upc_elemsizeof_applied_to_non_shared : Error<
+  "The argument of upc_elemsizeof must be shared qualified">;
 
 // inline asm related.
 let CategoryName = "Inline Assembly Issue" in {

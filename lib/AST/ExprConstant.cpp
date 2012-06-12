@@ -5329,6 +5329,31 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
     }
 
   }
+
+  case UETT_UPC_ElemSizeOf: {
+    QualType SrcTy = E->getTypeOfArgument();
+    // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
+    //   the result is the size of the referenced type."
+    if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
+      SrcTy = Ref->getPointeeType();
+
+    Qualifiers Quals = SrcTy.getQualifiers();
+
+    if (!Quals.hasShared()) {
+      Info.Diag(E->getExprLoc(), diag::err_upc_elemsizeof_applied_to_non_shared);
+      return false;
+    }
+
+    SrcTy = SrcTy.getCanonicalType();
+    while(const ArrayType *AT = dyn_cast<ArrayType>(SrcTy.getTypePtr())) {
+      SrcTy = AT->getElementType();
+    }
+
+    CharUnits Sizeof;
+    if (!HandleSizeof(Info, E->getExprLoc(), SrcTy, Sizeof))
+      return false;
+    return Success(Sizeof, E);
+  }
   }
 
   llvm_unreachable("unknown expr/type trait");
