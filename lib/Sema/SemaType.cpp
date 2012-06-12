@@ -578,18 +578,21 @@ uint32_t Sema::CheckLayoutQualifier(Expr * LQExpr) {
     llvm::APSInt Val(Context.getTypeSize(Context.getSizeType()));
     if (VerifyIntegerConstantExpression(LQExpr, &Val).isInvalid()) {
       // Diagnostic printed by VerifyIntegerConstantExpression
+      return 1;
     } else {
       if (Val.getActiveBits() > getLangOpts().UPCPhaseBits) {
         llvm::SmallString<64> ValStr;
         Val.toStringUnsigned(ValStr);
         Diag(LQExpr->getLocStart(), diag::err_upc_layout_qualifier_too_big)
           << ValStr << LQExpr->getSourceRange();
+        return 1;
       } else {
         return Val.getZExtValue();
       }
     }
+  } else {
+    return 0;
   }
-  return 0;
 }
 
 static Qualifiers computeQualifiers(Sema &S, unsigned TypeQuals, Expr *LayoutQualifier) {
@@ -2192,6 +2195,7 @@ static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, Sourc
       llvm::SmallString<64> ValStr;
       result.toStringUnsigned(ValStr);
       S.Diag(Loc, diag::err_upc_layout_qualifier_too_big) << ValStr;
+      Out = 1;
     } else {
       Out = result.getZExtValue();
     }
@@ -2212,6 +2216,7 @@ static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, Sourc
         llvm::SmallString<64> ValStr;
         result.toStringUnsigned(ValStr);
         S.Diag(Loc, diag::err_upc_layout_qualifier_too_big) << ValStr;
+        Out = 1;
       } else {
         Out = result.getZExtValue();
       }

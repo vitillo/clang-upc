@@ -4341,6 +4341,13 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD,
         Diag(NewVD->getLocation(), diag::err_upc_shared_local);
         NewVD->setInvalidDecl();
         return false;
+      } else if (type.getQualifiers().hasLayoutQualifier() &&
+            type.getQualifiers().getLayoutQualifier() == 0) {
+        if (isa<UPCThreadArrayType>(type.getTypePtr())) {
+          Diag(NewVD->getLocation(), diag::err_upc_indefinite_blocksize_uses_threads);
+          NewVD->setInvalidDecl();
+          return false;
+        }
       } else if (getLangOpts().UPCThreads == 0 &&
                  isa<ArrayType>(type.getTypePtr()) &&
                  !isa<UPCThreadArrayType>(type.getTypePtr())) {

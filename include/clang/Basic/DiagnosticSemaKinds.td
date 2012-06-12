@@ -5464,7 +5464,7 @@ def err_upc_layout_qualifier_too_big : Error<
 def err_upc_star_requires_threads : Error<
   "THREADS must appear exactly once in an array declaration">;
 def err_upc_dynamic_threads_requires_threads : Error<
-  "THREADS must appear exactly once in in one dimension of a shared array."
+  "THREADS must appear exactly once in one dimension of a shared array."
   >;
 def err_upc_shared_local : Error<
   "Automatic variables may not be declared shared">;
@@ -5472,6 +5472,8 @@ def err_upc_shared_field : Error<
   "Fields may not be declared with UPC shared qualifier">;
 def err_upc_shared_star_in_pointer : Error<
   "A layout qualifier of '*' is illegal in a pointer type">;
+def err_upc_indefinite_blocksize_uses_threads : Error<
+  "THREADS may not be used in a shared array with indefinite block size">;
 
 } // end of sema category
 
