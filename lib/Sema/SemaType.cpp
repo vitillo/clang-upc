@@ -2157,10 +2157,11 @@ static QualType FixLayoutQualifierStar(QualType T, uint32_t BlockSize, ASTContex
   }
 }
 
-static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out, SourceLocation Loc) {
+static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, SourceLocation Loc) {
   int Size = S.getASTContext().getTypeSize(S.getASTContext().getSizeType());
   llvm::APInt result(Size, 1);
   bool hasTHREAD = false;
+  QualType q = T;
   while (const ArrayType * AT = dyn_cast<ArrayType>(q.getTypePtr())) {
     if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
       result *= CAT->getSize();
@@ -2188,8 +2189,13 @@ static bool ComputeLayoutQualifierStar(QualType q, Sema& S, uint32_t& Out, Sourc
   } else {
     uint64_t threads = S.getASTContext().getLangOpts().UPCThreads;
     if (threads == 0) {
-      S.Diag(Loc, diag::err_upc_star_requires_threads);
-      return false;
+      if (isa<ArrayType>(q.getTypePtr())) {
+        S.Diag(Loc, diag::err_upc_star_requires_threads);
+        return false;
+      } else {
+        Out = 1;
+        return true;
+      }
     } else {
       result = (result + threads - 1).udiv(llvm::APInt(Size, threads));
       if (result.getActiveBits() > S.getLangOpts().UPCPhaseBits) {

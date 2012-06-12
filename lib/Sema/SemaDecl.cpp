@@ -4341,7 +4341,9 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD,
         Diag(NewVD->getLocation(), diag::err_upc_shared_local);
         NewVD->setInvalidDecl();
         return false;
-      } else if (getLangOpts().UPCThreads == 0 && !isa<UPCThreadArrayType>(type.getTypePtr())) {
+      } else if (getLangOpts().UPCThreads == 0 &&
+                 isa<ArrayType>(type.getTypePtr()) &&
+                 !isa<UPCThreadArrayType>(type.getTypePtr())) {
         Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
         NewVD->setInvalidDecl();
         return false;

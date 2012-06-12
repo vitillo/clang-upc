@@ -1,4 +1,5 @@
 // RUN: %ast_test -fupc-threads 1 %s
+// RUN: %ast_test %s
 
 shared int i; // expected-decl-type{{shared int}}
 shared int * shared pi; // expected-decl-type{{shared int *shared}}
