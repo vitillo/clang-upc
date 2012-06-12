@@ -107,6 +107,10 @@ def note_constexpr_calls_suppressed : Note<
   "see all)">;
 def note_constexpr_call_here : Note<"in call to '%0'">;
 
+// UPC constant expressions
+def err_upc_localsizeof_applied_to_non_shared : Error<
+  "The argument of upc_localsizeof must be shared qualified">;
+
 // inline asm related.
 let CategoryName = "Inline Assembly Issue" in {
   def err_asm_invalid_escape : Error<

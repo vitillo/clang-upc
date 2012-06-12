@@ -5246,6 +5246,67 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
       return false;
     return Success(Sizeof, E);
   }
+
+  case UETT_UPC_LocalSizeOf: {
+    QualType SrcTy = E->getTypeOfArgument();
+    // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
+    //   the result is the size of the referenced type."
+    if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
+      SrcTy = Ref->getPointeeType();
+
+    CharUnits Sizeof;
+
+    if (!SrcTy.getQualifiers().hasShared()) {
+      Info.Diag(E->getExprLoc(), diag::err_upc_localsizeof_applied_to_non_shared);
+      return false;
+    }
+
+    Qualifiers Quals = SrcTy.getQualifiers();
+    QualType CurTy = SrcTy.getCanonicalType();
+
+    if ((Quals.hasLayoutQualifier() &&
+         Quals.getLayoutQualifier() == 0) ||
+        !isa<ArrayType>(CurTy)) {
+
+      // If the type has indefinite block size, upc_localsizeof
+      // is the same as sizeof.
+      if (!HandleSizeof(Info, E->getExprLoc(), CurTy, Sizeof))
+        return false;
+      return Success(Sizeof, E);
+    }
+
+    bool hasTHREADS = false;
+    uint64_t ArrayDim = 1;
+    while (isa<ArrayType>(CurTy.getTypePtr())) {
+      if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(CurTy.getTypePtr())) {
+        ArrayDim *= CAT->getSize().getZExtValue();
+      } else if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(CurTy.getTypePtr())) {
+        ArrayDim *= TAT->getSize().getZExtValue();
+        if (TAT->getThread())
+          hasTHREADS = true;
+      }
+      CurTy = cast<ArrayType>(CurTy.getTypePtr())->getElementType();
+    }
+
+    if (!HandleSizeof(Info, E->getExprLoc(), CurTy, Sizeof))
+      return false;
+
+    uint32_t BlockSize = Quals.hasLayoutQualifier()?
+      Quals.getLayoutQualifier() : uint32_t(1);
+
+    if (hasTHREADS) {
+      Sizeof = Sizeof * (ArrayDim + BlockSize - 1) / BlockSize * BlockSize;
+    } else {
+      uint32_t Threads = Info.Ctx.getLangOpts().UPCThreads;
+      if (Threads == 0) {
+        Threads = 1;
+      }
+      uint64_t Div = BlockSize * Threads;
+      Sizeof = Sizeof * ((ArrayDim + Div - 1) / Div * BlockSize);
+    }
+
+    return Success(Sizeof, E);
+  }
   }
 
   llvm_unreachable("unknown expr/type trait");

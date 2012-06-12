@@ -82,7 +82,10 @@ namespace clang {
   enum UnaryExprOrTypeTrait {
     UETT_SizeOf,
     UETT_AlignOf,
-    UETT_VecStep
+    UETT_VecStep,
+    UETT_UPC_LocalSizeOf,
+    UETT_UPC_BlockSizeOf,
+    UETT_UPC_ElemSizeOf
   };
   
   /// \brief Names for type traits that operate specifically on types.

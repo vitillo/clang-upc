@@ -476,6 +476,15 @@ void StmtDumper::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *Node) {
   case UETT_VecStep:
     OS << " vec_step ";
     break;
+  case UETT_UPC_LocalSizeOf:
+    OS << " upc_localsizeof";
+    break;
+  case UETT_UPC_BlockSizeOf:
+    OS << " upc_blocksizeof";
+    break;
+  case UETT_UPC_ElemSizeOf:
+    OS << " upc_elemsizeof";
+    break;
   }
   if (Node->isArgumentType())
     DumpType(Node->getArgumentType());
