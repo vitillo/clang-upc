@@ -4348,6 +4348,18 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD,
           NewVD->setInvalidDecl();
           return false;
         }
+      } else if (const IncompleteArrayType *IAT = dyn_cast<IncompleteArrayType>(type.getTypePtr())) {
+        if (!NewVD->hasExternalStorage()) {
+          QualType Elem = IAT->getElementType();
+          if (getLangOpts().UPCThreads == 0 &&
+              !isa<UPCThreadArrayType>(Elem.getTypePtr())) {
+            Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
+            NewVD->setInvalidDecl();
+            return false;
+          }
+        } else if (type.getQualifiers().hasLayoutQualifierStar()) {
+          Diag(NewVD->getLocation(), diag::err_upc_shared_star_in_incomplete_array);
+        }
       } else if (getLangOpts().UPCThreads == 0 &&
                  isa<ArrayType>(type.getTypePtr()) &&
                  !isa<UPCThreadArrayType>(type.getTypePtr())) {

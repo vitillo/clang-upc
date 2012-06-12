@@ -2146,7 +2146,7 @@ static void checkQualifiedFunction(Sema &S, QualType T,
 }
 
 static QualType FixLayoutQualifierStar(QualType T, uint32_t BlockSize, ASTContext& Context) {
-  Qualifiers Quals = T.getQualifiers();
+  Qualifiers Quals = T.getLocalQualifiers();
   const Type * TP = T.getTypePtr();
   if (Quals.hasLayoutQualifierStar()) {
     Quals.removeLayoutQualifierStar();
@@ -2225,19 +2225,19 @@ static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, Sourc
   }
 }
 
-static QualType ResolveLayoutQualifierStar(QualType T, Sema& S, SourceLocation Loc) {
+QualType Sema::ResolveLayoutQualifierStar(QualType T, SourceLocation Loc) {
   QualType can = T.getCanonicalType();
   Qualifiers Quals = can.getQualifiers();
   if (Quals.hasLayoutQualifierStar()) {
     uint32_t LayoutQualifier;
-    if (!ComputeLayoutQualifierStar(T, S, LayoutQualifier, Loc)) {
+    if (!ComputeLayoutQualifierStar(T, *this, LayoutQualifier, Loc)) {
       return T;
     }
     if (Quals.hasLayoutQualifier() && Quals.getLayoutQualifier() != LayoutQualifier) {
       LayoutQualifier = Quals.getLayoutQualifier();
-      S.Diag(Loc, diag::err_invalid_decl_spec_combination) << "shared";
+      Diag(Loc, diag::err_invalid_decl_spec_combination) << "shared";
     }
-    return FixLayoutQualifierStar(T, LayoutQualifier, S.getASTContext());
+    return FixLayoutQualifierStar(T, LayoutQualifier, getASTContext());
   } else {
     return T;
   }
@@ -2780,7 +2780,7 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
   // Handle shared [*]
   if (LangOpts.UPC) {
-    T = ResolveLayoutQualifierStar(T, S, D.getDeclSpec().getLocStart());
+    T = S.ResolveLayoutQualifierStar(T, D.getDeclSpec().getLocStart());
   }
 
   // Apply any undistributed attributes from the declarator.

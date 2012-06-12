@@ -871,6 +871,7 @@ public:
   //
 
   uint32_t CheckLayoutQualifier(Expr *);
+  QualType ResolveLayoutQualifierStar(QualType T, SourceLocation Loc);
   QualType BuildQualifiedType(QualType T, SourceLocation Loc, Qualifiers Qs);
   QualType BuildQualifiedType(QualType T, SourceLocation Loc, unsigned CVR) {
     return BuildQualifiedType(T, Loc, Qualifiers::fromCVRMask(CVR));

@@ -5474,6 +5474,8 @@ def err_upc_shared_star_in_pointer : Error<
   "A layout qualifier of '*' is illegal in a pointer type">;
 def err_upc_indefinite_blocksize_uses_threads : Error<
   "THREADS may not be used in a shared array with indefinite block size">;
+def err_upc_shared_star_in_incomplete_array : Error<
+  "Cannot resolve block size of '*' on an incomplete array type">;
 
 } // end of sema category
 

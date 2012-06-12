@@ -293,8 +293,17 @@ void TypePrinter::printConstantArray(const ConstantArrayType *T,
 void TypePrinter::printUPCThreadArray(const UPCThreadArrayType *T, 
                                      std::string &S) {
   S += '[';
-  S += llvm::utostr(T->getSize().getZExtValue());
-  S += "*THREADS";
+  uint64_t val = T->getSize().getZExtValue();
+  if (T->getThread()) {
+    if (val == 1) {
+      S += "THREADS";
+    } else {
+      S += llvm::utostr(val);
+      S += "*THREADS";
+    }
+  } else {
+    S += llvm::utostr(val);
+  }
   S += ']';
   
   IncludeStrongLifetimeRAII Strong(Policy);
