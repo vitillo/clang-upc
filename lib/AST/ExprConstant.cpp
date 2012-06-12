@@ -5254,14 +5254,14 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
     if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
       SrcTy = Ref->getPointeeType();
 
+    Qualifiers Quals = SrcTy.getQualifiers();
     CharUnits Sizeof;
 
-    if (!SrcTy.getQualifiers().hasShared()) {
+    if (!Quals.hasShared()) {
       Info.Diag(E->getExprLoc(), diag::err_upc_localsizeof_applied_to_non_shared);
       return false;
     }
 
-    Qualifiers Quals = SrcTy.getQualifiers();
     QualType CurTy = SrcTy.getCanonicalType();
 
     if ((Quals.hasLayoutQualifier() &&
@@ -5306,6 +5306,28 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
     }
 
     return Success(Sizeof, E);
+  }
+
+  case UETT_UPC_BlockSizeOf: {
+    QualType SrcTy = E->getTypeOfArgument();
+    // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
+    //   the result is the size of the referenced type."
+    if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
+      SrcTy = Ref->getPointeeType();
+
+    Qualifiers Quals = SrcTy.getQualifiers();
+
+    if (!Quals.hasShared()) {
+      Info.Diag(E->getExprLoc(), diag::err_upc_blocksizeof_applied_to_non_shared);
+      return false;
+    }
+
+    if (Quals.hasLayoutQualifier()) {
+      return Success(Quals.getLayoutQualifier(), E);
+    } else {
+      return Success(1, E);
+    }
+
   }
   }
 
