@@ -1201,6 +1201,16 @@ QualType Sema::BuildPointerType(QualType T,
     return QualType();
   }
 
+  if (getLangOpts().UPC) {
+    // UPC 1.2 6.5.2p7
+    // A layout qualifier of '*' shall not appear in the
+    // declaration specifiers of a pointer type.
+    if(T.getCanonicalType().getQualifiers().hasLayoutQualifierStar()) {
+      Diag(Loc, diag::err_upc_shared_star_in_pointer);
+      return QualType();
+    }
+  }
+
   assert(!T->isObjCObjectType() && "Should build ObjCObjectPointerType");
 
   // In ARC, it is forbidden to build pointers to unqualified pointers.

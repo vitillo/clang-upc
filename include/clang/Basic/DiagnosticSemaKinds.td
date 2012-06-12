@@ -5468,7 +5468,10 @@ def err_upc_dynamic_threads_requires_threads : Error<
   >;
 def err_upc_shared_local : Error<
   "Automatic variables may not be declared shared">;
-def err_upc_shared_field : Error<"Fields may not be declared with UPC shared qualifier">;
+def err_upc_shared_field : Error<
+  "Fields may not be declared with UPC shared qualifier">;
+def err_upc_shared_star_in_pointer : Error<
+  "A layout qualifier of '*' is illegal in a pointer type">;
 
 } // end of sema category
 
