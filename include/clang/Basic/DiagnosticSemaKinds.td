@@ -5468,6 +5468,7 @@ def err_upc_dynamic_threads_requires_threads : Error<
   >;
 def err_upc_shared_local : Error<
   "Automatic variables may not be declared shared">;
+def err_upc_shared_field : Error<"Fields may not be declared with UPC shared qualifier">;
 
 } // end of sema category
 
