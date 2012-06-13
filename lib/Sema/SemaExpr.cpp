@@ -4596,6 +4596,13 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   lhptee = S.Context.getQualifiedType(lhptee.getUnqualifiedType(), lhQual);
   rhptee = S.Context.getQualifiedType(rhptee.getUnqualifiedType(), rhQual);
 
+  if (lhQual.hasShared() != rhQual.hasShared()) {
+    S.Diag(Loc, diag::err_typecheck_cond_incompatible_operands)
+      << LHSTy << RHSTy << LHS.get()->getSourceRange()
+      << RHS.get()->getSourceRange();
+    return QualType();
+  }
+
   QualType CompositeTy = S.Context.mergeTypes(lhptee, rhptee);
 
   if (CompositeTy.isNull()) {
@@ -4605,7 +4612,13 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
     // In this situation, we assume void* type. No especially good
     // reason, but this is what gcc does, and we do have to pick
     // to get a consistent AST.
-    QualType incompatTy = S.Context.getPointerType(S.Context.VoidTy);
+    QualType Pointee = S.Context.VoidTy;
+    if (lhQual.hasShared()) {
+      Qualifiers Quals;
+      Quals.addShared();
+      Pointee = S.Context.getQualifiedType(Pointee, Quals);
+    }
+    QualType incompatTy = S.Context.getPointerType(Pointee);
     LHS = S.ImpCastExprToType(LHS.take(), incompatTy, CK_BitCast);
     RHS = S.ImpCastExprToType(RHS.take(), incompatTy, CK_BitCast);
     return incompatTy;

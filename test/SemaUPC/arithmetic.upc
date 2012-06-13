@@ -115,4 +115,8 @@ int main() {
   (void)(p4 <= p6); // expected-error{{comparison of distinct pointer types}}
   (void)(p4 >  p6); // expected-error{{comparison of distinct pointer types}}
   (void)(p4 >= p6); // expected-error{{comparison of distinct pointer types}}
+
+  (void)(1? p1 : p3); // expected-error{{incompatible operand types}}
+  p1 = 1? p1 : p4;
+  shared void * vp = 1? p1 : p5; // expected-warning{{pointer type mismatch}}
 }
