@@ -4075,6 +4075,22 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
     case Type::STK_UPCSharedPointer: {
       QualType SrcPointee = cast<PointerType>(SrcTy.getTypePtr())->getPointeeType();
       QualType DestPointee = cast<PointerType>(DestTy.getTypePtr())->getPointeeType();
+      // UPC 1.2 6.4.3p3
+      // If a generic pointer-to-shared is cast to a non-generic
+      // pointer-to-shared type with indefinite block size or
+      // with block size of one, the result is a pointer with
+      // phase of zero.
+      if (SrcPointee->isVoidType() &&
+          DestPointee.getQualifiers().getLayoutQualifier() <= 1)
+        return CK_UPCBitCastZeroPhase;
+      // UPC 1.2 6.4.3p2
+      // The casting or assignment from one pointer-to-shared to
+      // another in which either the type size or the block size
+      // differs results in a pointer with zero phase, unless one
+      // of the types is a qualified or unqualified version of
+      // shared void *, the generic pointer-to-shared, in which
+      // case the phase is preserved unchanged in the resulting
+      // pointer value.
       if (SrcPointee->isVoidType() || DestPointee->isVoidType())
         return CK_BitCast;
       if (SrcPointee.getQualifiers().getLayoutQualifier() !=

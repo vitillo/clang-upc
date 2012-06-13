@@ -10,6 +10,8 @@ shared struct incomplete1 * ptr1;
 shared struct complete1 * ptr2;
 struct incomplete1 * ptr3;
 int * ptr4;
+shared [3] int * ptr5;
+shared void * ptr6;
 
 int main() { // CHECK: int main()
     (void)(shared struct incomplete1 *)ptr1;
@@ -82,4 +84,18 @@ int main() { // CHECK: int main()
     (void)(shared struct complete1 *)ptr4; // expected-error{{cannot convert local pointer to pointer-to-shared}}
     (void)(shared int *)ptr4; // expected-error{{cannot convert local pointer to pointer-to-shared}}
 #endif
+
+    (void)(shared void *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared void *' <BitCast>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+
+    (void)(shared int *)ptr6;
+    // CHECK: CStyleCastExpr {{.*}} 'shared int *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr6'
+    (void)(shared [] int *)ptr6;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [0] int *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr6'
+    (void)(shared [2] int *)ptr6;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <BitCast>
+    // CHECK: DeclRefExpr {{.*}} 'ptr6'
 }
