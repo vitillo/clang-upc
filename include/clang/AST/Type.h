@@ -178,7 +178,7 @@ public:
   /// The fast qualifier mask.
   static const uint64_t FastMask = (1 << FastWidth) - 1;
 
-  Qualifiers() : Mask(0), LayoutQualifier(0) {}
+  Qualifiers() : Mask(0), LayoutQualifier(1) {}
 
   static Qualifiers fromFastMask(unsigned Mask) {
     Qualifiers Qs;
@@ -349,7 +349,7 @@ public:
   }
   void removeLayoutQualifier() {
     Mask &= ~LQ_Int;
-    LayoutQualifier = 0;
+    LayoutQualifier = 1;
   }
 
   // Fast qualifiers are those that can be allocated directly

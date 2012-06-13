@@ -6323,7 +6323,13 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
         }
       } else {
         // Pointee types must be compatible C99 6.5.6p3
-        if (!Context.typesAreCompatible(
+        Qualifiers LQuals = lpointee.getCanonicalType().getQualifiers();
+        Qualifiers RQuals = rpointee.getCanonicalType().getQualifiers();
+        if (LQuals.hasShared() != RQuals.hasShared() ||
+            LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier()) {
+          diagnosePointerIncompatibility(*this, Loc, LHS.get(), RHS.get());
+          return QualType();
+        } else if (!Context.typesAreCompatible(
                 Context.getCanonicalType(lpointee).getUnqualifiedType(),
                 Context.getCanonicalType(rpointee).getUnqualifiedType())) {
           diagnosePointerIncompatibility(*this, Loc, LHS.get(), RHS.get());
@@ -6748,8 +6754,13 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
       else
         return ResultTy;
     }
+    Qualifiers LQuals = LCanPointeeTy.getQualifiers();
+    Qualifiers RQuals = RCanPointeeTy.getQualifiers();
     // C99 6.5.9p2 and C99 6.5.8p2
-    if (Context.typesAreCompatible(LCanPointeeTy.getUnqualifiedType(),
+    if (LQuals.hasShared() != RQuals.hasShared() ||
+        LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier()) {
+      diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/true);
+    } else if (Context.typesAreCompatible(LCanPointeeTy.getUnqualifiedType(),
                                    RCanPointeeTy.getUnqualifiedType())) {
       // Valid unless a relational comparison of function pointers
       if (IsRelational && LCanPointeeTy->isFunctionType()) {

@@ -5939,9 +5939,16 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
         LQuals.getAddressSpace() != RQuals.getAddressSpace() ||
         LQuals.getObjCLifetime() != RQuals.getObjCLifetime() ||
         LQuals.hasShared() != RQuals.hasShared() ||
-        LQuals.hasLayoutQualifier() != RQuals.hasLayoutQualifier() ||
         LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier())
       return QualType();
+
+    Qualifiers LayoutQual;
+    LayoutQual.setLayoutQualifier(1);
+
+    if (LQuals.hasLayoutQualifier() && !RQuals.hasLayoutQualifier())
+      return mergeTypes(LHS, getQualifiedType(RHS, LayoutQual));
+    if (!LQuals.hasLayoutQualifier() && RQuals.hasLayoutQualifier())
+      return mergeTypes(getQualifiedType(LHS, LayoutQual), RHS);
 
     // Exactly one GC qualifier difference is allowed: __strong is
     // okay if the other type has no GC qualifier but is an Objective
