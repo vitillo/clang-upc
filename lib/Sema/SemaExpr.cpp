@@ -4070,6 +4070,39 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
   case Type::STK_MemberPointer:
     llvm_unreachable("member pointer type in C");
 
+  case Type::STK_UPCSharedPointer:
+    switch (DestTy->getScalarTypeKind()) {
+    case Type::STK_UPCSharedPointer: {
+      QualType SrcPointee = cast<PointerType>(SrcTy.getTypePtr())->getPointeeType();
+      QualType DestPointee = cast<PointerType>(DestTy.getTypePtr())->getPointeeType();
+      if (SrcPointee->isVoidType() || DestPointee->isVoidType())
+        return CK_BitCast;
+      if (SrcPointee.getQualifiers().getLayoutQualifier() !=
+          DestPointee.getQualifiers().getLayoutQualifier())
+        return CK_UPCBitCastZeroPhase;
+      // FIXME: Is this the correct behavior?
+      if (SrcPointee->isIncompleteType() || DestPointee->isIncompleteType())
+        return CK_BitCast;
+      if (Context.getTypeSize(SrcPointee) !=
+          Context.getTypeSize(DestPointee))
+        return CK_UPCBitCastZeroPhase;
+      return CK_BitCast;
+    }
+    case Type::STK_CPointer:
+      return CK_UPCSharedToLocal;
+    case Type::STK_Bool:
+      return CK_PointerToBoolean;
+    case Type::STK_Integral:
+      return CK_PointerToIntegral;
+    case Type::STK_BlockPointer:
+    case Type::STK_ObjCObjectPointer:
+    case Type::STK_Floating:
+    case Type::STK_FloatingComplex:
+    case Type::STK_IntegralComplex:
+    case Type::STK_MemberPointer:
+      llvm_unreachable("illegal cast from pointer");
+    }
+
   case Type::STK_CPointer:
   case Type::STK_BlockPointer:
   case Type::STK_ObjCObjectPointer:
@@ -4090,6 +4123,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
       return CK_PointerToBoolean;
     case Type::STK_Integral:
       return CK_PointerToIntegral;
+    case Type::STK_UPCSharedPointer:
     case Type::STK_Floating:
     case Type::STK_FloatingComplex:
     case Type::STK_IntegralComplex:
@@ -4104,6 +4138,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
     case Type::STK_CPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
+    case Type::STK_UPCSharedPointer:
       if (Src.get()->isNullPointerConstant(Context,
                                            Expr::NPC_ValueDependentIsNull))
         return CK_NullToPointer;
@@ -4148,6 +4183,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
                               CK_FloatingToIntegral);
       return CK_IntegralRealToComplex;
     case Type::STK_CPointer:
+    case Type::STK_UPCSharedPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
       llvm_unreachable("valid float->pointer cast?");
@@ -4177,6 +4213,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
                               CK_FloatingComplexToReal);
       return CK_FloatingToIntegral;
     case Type::STK_CPointer:
+    case Type::STK_UPCSharedPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
       llvm_unreachable("valid complex float->pointer cast?");
@@ -4206,6 +4243,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
                               CK_IntegralComplexToReal);
       return CK_IntegralToFloating;
     case Type::STK_CPointer:
+    case Type::STK_UPCSharedPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
       llvm_unreachable("valid complex int->pointer cast?");

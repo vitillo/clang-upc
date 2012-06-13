@@ -298,6 +298,7 @@ CastKind Sema::ScalarTypeToBooleanCastKind(QualType ScalarTy) {
   switch (ScalarTy->getScalarTypeKind()) {
   case Type::STK_Bool: return CK_NoOp;
   case Type::STK_CPointer: return CK_PointerToBoolean;
+  case Type::STK_UPCSharedPointer: return CK_PointerToBoolean;
   case Type::STK_BlockPointer: return CK_PointerToBoolean;
   case Type::STK_ObjCObjectPointer: return CK_PointerToBoolean;
   case Type::STK_MemberPointer: return CK_MemberPointerToBoolean;

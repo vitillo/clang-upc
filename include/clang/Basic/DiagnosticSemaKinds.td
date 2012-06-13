@@ -5476,6 +5476,14 @@ def err_upc_indefinite_blocksize_uses_threads : Error<
   "THREADS may not be used in a shared array with indefinite block size">;
 def err_upc_shared_star_in_incomplete_array : Error<
   "Cannot resolve block size of '*' on an incomplete array type">;
+def err_upc_cast_local_to_shared : Error<
+  "cannot convert local pointer to pointer-to-shared "
+  "%select{assigning to|passing|returning|converting|initializing|sending|casting}2"
+  " %0 "
+  "%select{from incompatible type|to parameter of incompatible type|"
+  "from a function with incompatible result type|to incompatible type|"
+  "with an expression of incompatible type|to parameter of incompatible type|"
+  "to incompatible type}2 %1">;
 
 } // end of sema category
 

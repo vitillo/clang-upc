@@ -794,7 +794,9 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
     if (BT->isInteger()) return STK_Integral;
     if (BT->isFloatingPoint()) return STK_Floating;
     llvm_unreachable("unknown scalar builtin type");
-  } else if (isa<PointerType>(T)) {
+  } else if (const PointerType * PT = dyn_cast<PointerType>(T)) {
+    if (PT->getPointeeType().getQualifiers().hasShared())
+      return STK_UPCSharedPointer;
     return STK_CPointer;
   } else if (isa<BlockPointerType>(T)) {
     return STK_BlockPointer;

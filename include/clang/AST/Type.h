@@ -1617,6 +1617,7 @@ public:
 
   enum ScalarTypeKind {
     STK_CPointer,
+    STK_UPCSharedPointer,
     STK_BlockPointer,
     STK_ObjCObjectPointer,
     STK_MemberPointer,

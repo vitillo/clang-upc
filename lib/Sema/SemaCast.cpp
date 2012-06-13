@@ -2032,6 +2032,21 @@ void CastOperation::CheckCStyleCast() {
     }
   }
 
+  // If the destination is a pointer-to-shared, the
+  // source cannot be a pointer-to-local
+  if (const PointerType *CastPtr = DestType->getAs<PointerType>()) {
+    if (const PointerType *ExprPtr = SrcType->getAs<PointerType>()) {
+      Qualifiers CastQuals = CastPtr->getPointeeType().getQualifiers();
+      Qualifiers ExprQuals = ExprPtr->getPointeeType().getQualifiers();
+      if (CastQuals.hasShared() && !ExprQuals.hasShared()) {
+        Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_cast_local_to_shared)
+          << SrcType << DestType << Sema::AA_Casting
+          << SrcExpr.get()->getSourceRange();
+        return;
+      }
+    }
+  }
+
   // ARC imposes extra restrictions on casts.
   if (Self.getLangOpts().ObjCAutoRefCount) {
     checkObjCARCConversion(Sema::CCK_CStyleCast);

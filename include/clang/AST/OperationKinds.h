@@ -288,7 +288,16 @@ enum CastKind {
   ///
   /// This particular cast kind is used for the conversion from a C++11
   /// lambda expression to a block pointer.
-  CK_CopyAndAutoreleaseBlockObject
+  CK_CopyAndAutoreleaseBlockObject,
+
+  /// \brief [UPC] Converts from a UPC pointer-to-shared to
+  // a regular C pointer.
+  CK_UPCSharedToLocal,
+
+  /// \brief [UPC] Converts between two UPC pointer-to-shared
+  /// types where either the pointee size or the block size
+  /// is different.
+  CK_UPCBitCastZeroPhase
 };
 
 #define CK_Invalid ((CastKind) -1)
