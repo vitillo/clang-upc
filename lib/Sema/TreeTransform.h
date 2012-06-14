@@ -1159,6 +1159,38 @@ public:
     return getSema().ActOnReturnStmt(ReturnLoc, Result);
   }
 
+  /// \brief Build a new upc_notify statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCNotifyStmt(SourceLocation Loc, Expr *Id) {
+    return getSema().ActOnUPCNotifyStmt(Loc, Id);
+  }
+
+  /// \brief Build a new upc_wait statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCWaitStmt(SourceLocation Loc, Expr *Id) {
+    return getSema().ActOnUPCWaitStmt(Loc, Id);
+  }
+
+  /// \brief Build a new upc_barrier statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCBarrierStmt(SourceLocation Loc, Expr *Id) {
+    return getSema().ActOnUPCBarrierStmt(Loc, Id);
+  }
+
+  /// \brief Build a new upc_fence statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCFenceStmt(SourceLocation Loc) {
+    return getSema().ActOnUPCFenceStmt(Loc);
+  }
+
   /// \brief Build a new declaration statement.
   ///
   /// By default, performs semantic analysis to build the new statement.
@@ -5549,6 +5581,56 @@ TreeTransform<Derived>::TransformReturnStmt(ReturnStmt *S) {
   // FIXME: We always rebuild the return statement because there is no way
   // to tell whether the return type of the function has changed.
   return getDerived().RebuildReturnStmt(S->getReturnLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCNotifyStmt(UPCNotifyStmt *S) {
+  ExprResult Result = getDerived().TransformExpr(S->getIdValue());
+  if (Result.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Result.get() == S->getIdValue())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCNotifyStmt(S->getNotifyLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCWaitStmt(UPCWaitStmt *S) {
+  ExprResult Result = getDerived().TransformExpr(S->getIdValue());
+  if (Result.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Result.get() == S->getIdValue())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCWaitStmt(S->getWaitLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCBarrierStmt(UPCBarrierStmt *S) {
+  ExprResult Result = getDerived().TransformExpr(S->getIdValue());
+  if (Result.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Result.get() == S->getIdValue())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCBarrierStmt(S->getBarrierLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCFenceStmt(UPCFenceStmt *S) {
+  if (!getDerived().AlwaysRebuild())
+    return SemaRef.Owned(S);
+  return getDerived().RebuildUPCFenceStmt(S->getFenceLoc());
 }
 
 template<typename Derived>

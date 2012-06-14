@@ -2322,6 +2322,10 @@ public:
                                          bool AllowFunctionParameters);
 
   StmtResult ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
+  StmtResult ActOnUPCNotifyStmt(SourceLocation NotifyLoc, Expr *IdExp);
+  StmtResult ActOnUPCWaitStmt(SourceLocation WaitLoc, Expr *IdExp);
+  StmtResult ActOnUPCBarrierStmt(SourceLocation BarrierLoc, Expr *IdExp);
+  StmtResult ActOnUPCFenceStmt(SourceLocation FenceLoc);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
 
   StmtResult ActOnAsmStmt(SourceLocation AsmLoc,

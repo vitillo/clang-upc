@@ -265,6 +265,27 @@ SourceRange ReturnStmt::getSourceRange() const {
     return SourceRange(RetLoc);
 }
 
+SourceRange UPCNotifyStmt::getSourceRange() const {
+  if (IdExpr)
+    return SourceRange(NotifyLoc, IdExpr->getLocEnd());
+  else
+    return SourceRange(NotifyLoc);
+}
+
+SourceRange UPCWaitStmt::getSourceRange() const {
+  if (IdExpr)
+    return SourceRange(WaitLoc, IdExpr->getLocEnd());
+  else
+    return SourceRange(WaitLoc);
+}
+
+SourceRange UPCBarrierStmt::getSourceRange() const {
+  if (IdExpr)
+    return SourceRange(BarrierLoc, IdExpr->getLocEnd());
+  else
+    return SourceRange(BarrierLoc);
+}
+
 bool Stmt::hasImplicitControlFlow() const {
   switch (StmtBits.sClass) {
     default:

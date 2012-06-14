@@ -28,6 +28,12 @@ def SwitchCase : Stmt<1>;
 def CaseStmt : DStmt<SwitchCase>;
 def DefaultStmt : DStmt<SwitchCase>;
 
+// UPC Statements
+def UPCNotifyStmt : Stmt;
+def UPCWaitStmt : Stmt;
+def UPCBarrierStmt : Stmt;
+def UPCFenceStmt : Stmt;
+
 // GNU Extensions
 def AsmStmt : Stmt;
 

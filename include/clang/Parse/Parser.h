@@ -1554,6 +1554,10 @@ private:
   StmtResult ParseContinueStatement();
   StmtResult ParseBreakStatement();
   StmtResult ParseReturnStatement();
+  StmtResult ParseUPCNotifyStatement();
+  StmtResult ParseUPCWaitStatement();
+  StmtResult ParseUPCBarrierStatement();
+  StmtResult ParseUPCFenceStatement();
   StmtResult ParseAsmStatement(bool &msAsm);
   StmtResult ParseMicrosoftAsmStatement(SourceLocation AsmLoc);
 

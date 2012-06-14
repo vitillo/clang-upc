@@ -158,6 +158,22 @@ void StmtProfiler::VisitReturnStmt(const ReturnStmt *S) {
   VisitStmt(S);
 }
 
+void StmtProfiler::VisitUPCNotifyStmt(const UPCNotifyStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCWaitStmt(const UPCWaitStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCBarrierStmt(const UPCBarrierStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCFenceStmt(const UPCFenceStmt *S) {
+  VisitStmt(S);
+}
+
 void StmtProfiler::VisitAsmStmt(const AsmStmt *S) {
   VisitStmt(S);
   ID.AddBoolean(S->isVolatile());

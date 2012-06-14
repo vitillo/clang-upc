@@ -1358,6 +1358,127 @@ public:
   }
 };
 
+class UPCNotifyStmt : public Stmt {
+  Stmt *IdExpr;
+  SourceLocation NotifyLoc;
+
+public:
+  UPCNotifyStmt(SourceLocation RL, Expr *E = 0)
+    : Stmt(UPCNotifyStmtClass), IdExpr(reinterpret_cast<Stmt*>(E)), NotifyLoc(RL) { }
+
+  /// \brief Build an empty upc_notify expression.
+  explicit UPCNotifyStmt(EmptyShell Empty) : Stmt(UPCNotifyStmtClass, Empty) { }
+
+  const Expr *getIdValue() const { return reinterpret_cast<Expr*>(IdExpr); }
+  Expr *getIdValue() { return reinterpret_cast<Expr*>(IdExpr); }
+  void setIdValue(Expr *E) { IdExpr = reinterpret_cast<Stmt*>(E); }
+
+  SourceLocation getNotifyLoc() const { return NotifyLoc; }
+  void setNotifyLoc(SourceLocation L) { NotifyLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCNotifyStmtClass;
+  }
+  static bool classof(const UPCNotifyStmt *) { return true; }
+
+  SourceRange getSourceRange() const LLVM_READONLY;
+
+  // Iterators
+  child_range children() {
+    if (IdExpr) return child_range(&IdExpr, &IdExpr+1);
+    return child_range();
+  }
+};
+
+class UPCWaitStmt : public Stmt {
+  Stmt *IdExpr;
+  SourceLocation WaitLoc;
+
+public:
+  UPCWaitStmt(SourceLocation RL, Expr *E = 0)
+    : Stmt(UPCWaitStmtClass), IdExpr(reinterpret_cast<Stmt*>(E)), WaitLoc(RL) { }
+
+  /// \brief Build an empty upc_wait expression.
+  explicit UPCWaitStmt(EmptyShell Empty) : Stmt(UPCWaitStmtClass, Empty) { }
+
+  const Expr *getIdValue() const { return reinterpret_cast<Expr*>(IdExpr); }
+  Expr *getIdValue() { return reinterpret_cast<Expr*>(IdExpr); }
+  void setIdValue(Expr *E) { IdExpr = reinterpret_cast<Stmt*>(E); }
+
+  SourceLocation getWaitLoc() const { return WaitLoc; }
+  void setWaitLoc(SourceLocation L) { WaitLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCWaitStmtClass;
+  }
+  static bool classof(const UPCWaitStmt *) { return true; }
+
+  SourceRange getSourceRange() const LLVM_READONLY;
+
+  // Iterators
+  child_range children() {
+    if (IdExpr) return child_range(&IdExpr, &IdExpr+1);
+    return child_range();
+  }
+};
+
+class UPCBarrierStmt : public Stmt {
+  Stmt *IdExpr;
+  SourceLocation BarrierLoc;
+
+public:
+  UPCBarrierStmt(SourceLocation RL, Expr *E = 0)
+    : Stmt(UPCBarrierStmtClass), IdExpr(reinterpret_cast<Stmt*>(E)), BarrierLoc(RL) { }
+
+  /// \brief Build an empty upc_barrier expression.
+  explicit UPCBarrierStmt(EmptyShell Empty) : Stmt(UPCBarrierStmtClass, Empty) { }
+
+  const Expr *getIdValue() const { return reinterpret_cast<Expr*>(IdExpr); }
+  Expr *getIdValue() { return reinterpret_cast<Expr*>(IdExpr); }
+  void setIdValue(Expr *E) { IdExpr = reinterpret_cast<Stmt*>(E); }
+
+  SourceLocation getBarrierLoc() const { return BarrierLoc; }
+  void setBarrierLoc(SourceLocation L) { BarrierLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCBarrierStmtClass;
+  }
+  static bool classof(const UPCBarrierStmt *) { return true; }
+
+  SourceRange getSourceRange() const LLVM_READONLY;
+
+  // Iterators
+  child_range children() {
+    if (IdExpr) return child_range(&IdExpr, &IdExpr+1);
+    return child_range();
+  }
+};
+
+class UPCFenceStmt : public Stmt {
+  SourceLocation FenceLoc;
+public:
+  UPCFenceStmt(SourceLocation RL)
+    : Stmt(UPCFenceStmtClass), FenceLoc(RL) { }
+
+  /// \brief Build an empty upc_fence expression.
+  explicit UPCFenceStmt(EmptyShell Empty) : Stmt(UPCFenceStmtClass, Empty) { }
+
+  SourceLocation getFenceLoc() const { return FenceLoc; }
+  void setFenceLoc(SourceLocation L) { FenceLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCFenceStmtClass;
+  }
+  static bool classof(const UPCFenceStmt *) { return true; }
+
+  SourceRange getSourceRange() const {
+    return SourceRange(FenceLoc);
+  }
+
+  // Iterators
+  child_range children() { return child_range(); }
+};
+
 /// AsmStmt - This represents a GNU inline-assembly statement extension.
 ///
 class AsmStmt : public Stmt {

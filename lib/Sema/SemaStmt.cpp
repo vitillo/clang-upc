@@ -2112,6 +2112,40 @@ Sema::ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   return Owned(Result);
 }
 
+StmtResult Sema::ActOnUPCNotifyStmt(SourceLocation NotifyLoc, Expr *IdExp) {
+  ExprResult Res;
+  if (IdExp) {
+    InitializedEntity Entity =
+      InitializedEntity::InitializeTemporary(Context.IntTy);        
+    Res = PerformCopyInitialization(Entity, NotifyLoc, IdExp);
+  }
+  return Owned(new (Context) UPCNotifyStmt(NotifyLoc, Res.take()));
+}
+
+StmtResult Sema::ActOnUPCWaitStmt(SourceLocation WaitLoc, Expr *IdExp) {
+  ExprResult Res;
+  if (IdExp) {
+    InitializedEntity Entity =
+      InitializedEntity::InitializeTemporary(Context.IntTy);        
+    Res = PerformCopyInitialization(Entity, WaitLoc, IdExp);
+  }
+  return Owned(new (Context) UPCWaitStmt(WaitLoc, Res.take()));
+}
+
+StmtResult Sema::ActOnUPCBarrierStmt(SourceLocation BarrierLoc, Expr *IdExp) {
+  ExprResult Res;
+  if (IdExp) {
+    InitializedEntity Entity =
+      InitializedEntity::InitializeTemporary(Context.IntTy);        
+    Res = PerformCopyInitialization(Entity, BarrierLoc, IdExp);
+  }
+  return Owned(new (Context) UPCBarrierStmt(BarrierLoc, Res.take()));
+}
+
+StmtResult Sema::ActOnUPCFenceStmt(SourceLocation FenceLoc) {
+  return Owned(new (Context) UPCFenceStmt(FenceLoc));
+}
+
 /// CheckAsmLValue - GNU C has an extremely ugly extension whereby they silently
 /// ignore "noop" casts in places where an lvalue is required by an inline asm.
 /// We emulate this behavior when -fheinous-gnu-extensions is specified, but

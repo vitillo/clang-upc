@@ -206,6 +206,33 @@ void ASTStmtWriter::VisitReturnStmt(ReturnStmt *S) {
   Code = serialization::STMT_RETURN;
 }
 
+void ASTStmtWriter::VisitUPCNotifyStmt(UPCNotifyStmt *S) {
+  VisitStmt(S);
+  Writer.AddStmt(S->getIdValue());
+  Writer.AddSourceLocation(S->getNotifyLoc(), Record);
+  Code = serialization::STMT_UPC_NOTIFY;
+}
+
+void ASTStmtWriter::VisitUPCWaitStmt(UPCWaitStmt *S) {
+  VisitStmt(S);
+  Writer.AddStmt(S->getIdValue());
+  Writer.AddSourceLocation(S->getWaitLoc(), Record);
+  Code = serialization::STMT_UPC_NOTIFY;
+}
+
+void ASTStmtWriter::VisitUPCBarrierStmt(UPCBarrierStmt *S) {
+  VisitStmt(S);
+  Writer.AddStmt(S->getIdValue());
+  Writer.AddSourceLocation(S->getBarrierLoc(), Record);
+  Code = serialization::STMT_UPC_NOTIFY;
+}
+
+void ASTStmtWriter::VisitUPCFenceStmt(UPCFenceStmt *S) {
+  VisitStmt(S);
+  Writer.AddSourceLocation(S->getFenceLoc(), Record);
+  Code = serialization::STMT_UPC_NOTIFY;
+}
+
 void ASTStmtWriter::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   Writer.AddSourceLocation(S->getStartLoc(), Record);

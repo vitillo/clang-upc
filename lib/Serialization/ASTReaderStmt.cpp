@@ -264,6 +264,29 @@ void ASTStmtReader::VisitReturnStmt(ReturnStmt *S) {
   S->setNRVOCandidate(ReadDeclAs<VarDecl>(Record, Idx));
 }
 
+void ASTStmtReader::VisitUPCNotifyStmt(UPCNotifyStmt *S) {
+  VisitStmt(S);
+  S->setIdValue(Reader.ReadSubExpr());
+  S->setNotifyLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCWaitStmt(UPCWaitStmt *S) {
+  VisitStmt(S);
+  S->setIdValue(Reader.ReadSubExpr());
+  S->setWaitLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCBarrierStmt(UPCBarrierStmt *S) {
+  VisitStmt(S);
+  S->setIdValue(Reader.ReadSubExpr());
+  S->setBarrierLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCFenceStmt(UPCFenceStmt *S) {
+  VisitStmt(S);
+  S->setFenceLoc(ReadSourceLocation(Record, Idx));
+}
+
 void ASTStmtReader::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   S->setStartLoc(ReadSourceLocation(Record, Idx));
@@ -2209,6 +2232,19 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                          NumArrayIndexVars);
       break;
     }
+
+    case STMT_UPC_NOTIFY:
+      S = new (Context) UPCNotifyStmt(Empty);
+      break;
+    case STMT_UPC_WAIT:
+      S = new (Context) UPCWaitStmt(Empty);
+      break;
+    case STMT_UPC_BARRIER:
+      S = new (Context) UPCBarrierStmt(Empty);
+      break;
+    case STMT_UPC_FENCE:
+      S = new (Context) UPCFenceStmt(Empty);
+      break;
     }
     
     // We hit a STMT_STOP, so we're done with this expression.

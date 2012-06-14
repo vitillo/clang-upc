@@ -2226,6 +2226,10 @@ DEF_TRAVERSE_STMT(ObjCDictionaryLiteral, { })
 DEF_TRAVERSE_STMT(AsTypeExpr, { })
 
 // Traverse UPC
+DEF_TRAVERSE_STMT(UPCNotifyStmt, { })
+DEF_TRAVERSE_STMT(UPCWaitStmt, { })
+DEF_TRAVERSE_STMT(UPCBarrierStmt, { })
+DEF_TRAVERSE_STMT(UPCFenceStmt, { })
 DEF_TRAVERSE_STMT(UPCThreadExpr, { })
 
 // FIXME: look at the following tricky-seeming exprs to see if we

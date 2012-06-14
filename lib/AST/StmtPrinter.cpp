@@ -366,6 +366,37 @@ void StmtPrinter::VisitReturnStmt(ReturnStmt *Node) {
   OS << ";\n";
 }
 
+void StmtPrinter::VisitUPCNotifyStmt(UPCNotifyStmt *Node) {
+  Indent() << "upc_notify";
+  if (Node->getIdValue()) {
+    OS << " ";
+    PrintExpr(Node->getIdValue());
+  }
+  OS << ";\n";
+}
+
+void StmtPrinter::VisitUPCWaitStmt(UPCWaitStmt *Node) {
+  Indent() << "upc_wait";
+  if (Node->getIdValue()) {
+    OS << " ";
+    PrintExpr(Node->getIdValue());
+  }
+  OS << ";\n";
+}
+
+void StmtPrinter::VisitUPCBarrierStmt(UPCBarrierStmt *Node) {
+  Indent() << "upc_barrier";
+  if (Node->getIdValue()) {
+    OS << " ";
+    PrintExpr(Node->getIdValue());
+  }
+  OS << ";\n";
+}
+
+void StmtPrinter::VisitUPCFenceStmt(UPCFenceStmt *Node) {
+  Indent() << "upc_fence;\n";
+}
+
 
 void StmtPrinter::VisitAsmStmt(AsmStmt *Node) {
   Indent() << "asm ";

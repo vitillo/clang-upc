@@ -283,6 +283,23 @@ Retry:
     SemiError = "return";
     break;
 
+  case tok::kw_upc_notify:
+    Res = ParseUPCNotifyStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_wait:
+    Res = ParseUPCWaitStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_barrier:
+    Res = ParseUPCBarrierStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_fence:
+    Res = ParseUPCFenceStatement();
+    SemiError = "upc_notify";
+    break;
+
   case tok::kw_asm: {
     ProhibitAttributes(Attrs);
     bool msAsm = false;
@@ -1613,6 +1630,69 @@ StmtResult Parser::ParseReturnStatement() {
     }
   }
   return Actions.ActOnReturnStmt(ReturnLoc, R.take());
+}
+
+/// ParseUPCNotifyStatement
+///       synchronization-statement:
+///         'upc_notify' expression[opt] ';'
+StmtResult Parser::ParseUPCNotifyStatement() {
+  assert(Tok.is(tok::kw_upc_notify) && "Not a upc_notify stmt!");
+  SourceLocation NotifyLoc = ConsumeToken();  // eat the 'upc_barrier'.
+
+  ExprResult R;
+  if (Tok.isNot(tok::semi)) {
+    R = ParseExpression();
+    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
+      SkipUntil(tok::semi, false, true);
+      return StmtError();
+    }
+  }
+  return Actions.ActOnUPCNotifyStmt(NotifyLoc, R.take());
+}
+
+/// ParseUPCWaitStatement
+///       synchronization-statement:
+///         'upc_wait' expression[opt] ';'
+StmtResult Parser::ParseUPCWaitStatement() {
+  assert(Tok.is(tok::kw_upc_wait) && "Not a upc_wait stmt!");
+  SourceLocation WaitLoc = ConsumeToken();  // eat the 'upc_wait'.
+
+  ExprResult R;
+  if (Tok.isNot(tok::semi)) {
+    R = ParseExpression();
+    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
+      SkipUntil(tok::semi, false, true);
+      return StmtError();
+    }
+  }
+  return Actions.ActOnUPCWaitStmt(WaitLoc, R.take());
+}
+
+/// ParseUPCBarrierStatement
+///       synchronization-statement:
+///         'upc_barrier' expression[opt] ';'
+StmtResult Parser::ParseUPCBarrierStatement() {
+  assert(Tok.is(tok::kw_upc_barrier) && "Not a upc_barrier stmt!");
+  SourceLocation BarrierLoc = ConsumeToken();  // eat the 'upc_barrier'.
+
+  ExprResult R;
+  if (Tok.isNot(tok::semi)) {
+    R = ParseExpression();
+    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
+      SkipUntil(tok::semi, false, true);
+      return StmtError();
+    }
+  }
+  return Actions.ActOnUPCBarrierStmt(BarrierLoc, R.take());
+}
+
+/// ParseUPCFenceStatement
+///       synchronization-statement:
+///         'upc_fence' expression[opt] ';'
+StmtResult Parser::ParseUPCFenceStatement() {
+  assert(Tok.is(tok::kw_upc_fence) && "Not a upc_fence stmt!");
+  SourceLocation FenceLoc = ConsumeToken();  // eat the 'return'.
+  return Actions.ActOnUPCFenceStmt(FenceLoc);
 }
 
 /// ParseMicrosoftAsmStatement. When -fms-extensions/-fasm-blocks is enabled,

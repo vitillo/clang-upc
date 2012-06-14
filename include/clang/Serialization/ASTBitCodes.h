@@ -1198,7 +1198,13 @@ namespace clang {
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
       
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
-      EXPR_LAMBDA                 // LambdaExpr
+      EXPR_LAMBDA,                // LambdaExpr
+
+      // UPC
+      STMT_UPC_NOTIFY,            // UPCNotifyStmt
+      STMT_UPC_WAIT,              // UPCWaitStmt
+      STMT_UPC_BARRIER,           // UPCBarrierStmt
+      STMT_UPC_FENCE              // UPCFenceStmt
     };
 
     /// \brief The kinds of designators that can occur in a
