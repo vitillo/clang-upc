@@ -392,6 +392,20 @@ ExprResult Sema::DefaultLvalueConversion(Expr *E) {
 
   CheckForNullPointerDereference(*this, E);
 
+  // Mark shared access as either strict or relaxed
+  if (getLangOpts().UPC) {
+    Qualifiers Quals = T.getQualifiers();
+    if (Quals.hasShared() && !Quals.hasStrict() && !Quals.hasRelaxed()) {
+      if (IsUPCDefaultStrict())
+        Quals.addStrict();
+      else
+        Quals.addRelaxed();
+      E = ImplicitCastExpr::Create(
+        Context, Context.getQualifiedType(T.getUnqualifiedType(), Quals),
+        CK_LValueBitCast, E, 0, VK_LValue);
+    }
+  }
+
   // C++ [conv.lval]p1:
   //   [...] If T is a non-class type, the type of the prvalue is the
   //   cv-unqualified version of T. Otherwise, the type of the
