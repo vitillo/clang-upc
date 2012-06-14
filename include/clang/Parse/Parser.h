@@ -159,6 +159,7 @@ class Parser : public CodeCompletionHandler {
   OwningPtr<PragmaHandler> GCCVisibilityHandler;
   OwningPtr<PragmaHandler> OptionsHandler;
   OwningPtr<PragmaHandler> PackHandler;
+  OwningPtr<PragmaHandler> UPCHandler;
   OwningPtr<PragmaHandler> MSStructHandler;
   OwningPtr<PragmaHandler> UnusedHandler;
   OwningPtr<PragmaHandler> WeakHandler;
@@ -415,6 +416,10 @@ private:
   /// \brief Handle the annotation token produced for
   /// #pragma pack...
   void HandlePragmaPack();
+
+  /// \brief Handle the annotation token produced for
+  /// #pragma upc...
+  void HandlePragmaUPC();
 
   /// GetLookAheadToken - This peeks ahead N tokens and returns that token
   /// without consuming any tokens.  LookAhead(0) returns 'Tok', LookAhead(1)

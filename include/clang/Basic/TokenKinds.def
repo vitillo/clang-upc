@@ -600,6 +600,11 @@ ANNOTATION(pragma_vis)
 // handles them.
 ANNOTATION(pragma_pack)
 
+// Annotation for #pragma upc [relaxed|strict]
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_upc)
+
 #undef ANNOTATION
 #undef TESTING_KEYWORD
 #undef OBJC2_AT_KEYWORD

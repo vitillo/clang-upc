@@ -224,6 +224,10 @@ public:
   /// of 0 indicates default alignment.
   void *PackContext; // Really a "PragmaPackStack*"
 
+  /// UPCIsStrict - Indicates whether the global #pragma upc
+  /// state is strict or relaxed.
+  bool UPCIsStrict;
+
   bool MSStructPragmaOn; // True when #pragma ms_struct on
 
   /// VisContext - Manages the stack for #pragma GCC visibility.
@@ -6032,6 +6036,11 @@ public:
     PPK_Pop      // #pragma pack(pop, [identifier], [n])
   };
 
+  enum PragmaUPCKind {
+    PUPCK_Relaxed,
+    PUPCK_Strict
+  };
+
   enum PragmaMSStructKind {
     PMSST_OFF,  // #pragms ms_struct off
     PMSST_ON    // #pragms ms_struct on
@@ -6044,6 +6053,9 @@ public:
                        SourceLocation PragmaLoc,
                        SourceLocation LParenLoc,
                        SourceLocation RParenLoc);
+
+  /// ActOnPragmaUPC - Called on well formed #pragma upc [relaxed|strict].
+  void ActOnPragmaUPC(SourceLocation PragmaLoc, PragmaUPCKind Kind);
 
   /// ActOnPragmaMSStruct - Called on well formed #pragms ms_struct [on|off].
   void ActOnPragmaMSStruct(PragmaMSStructKind Kind);
@@ -6206,6 +6218,10 @@ public:
   // responsible for emitting appropriate error diagnostics.
   QualType UsualArithmeticConversions(ExprResult &LHS, ExprResult &RHS,
                                       bool IsCompAssign = false);
+
+  /// IsUPCDefaultStrict - returns true if the default access for
+  /// UPC shared variables is strict and false if it is relaxed.
+  bool IsUPCDefaultStrict() const;
 
   /// AssignConvertType - All of the 'assignment' semantic checks return this
   /// enum to indicate whether the assignment was allowed.  These checks are

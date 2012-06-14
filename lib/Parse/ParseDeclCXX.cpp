@@ -2301,6 +2301,11 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         continue;
       }
 
+      if (Tok.is(tok::annot_pragma_upc)) {
+        HandlePragmaUPC();
+        continue;
+      }
+
       AccessSpecifier AS = getAccessSpecifierIfPresent();
       if (AS != AS_none) {
         // Current token is a C++ access specifier.

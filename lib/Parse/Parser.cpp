@@ -78,6 +78,11 @@ Parser::Parser(Preprocessor &pp, Sema &actions, bool SkipFunctionBodies)
 
     PP.AddPragmaHandler("OPENCL", FPContractHandler.get());
   }
+
+  if (getLangOpts().UPC) {
+    UPCHandler.reset(new PragmaUPCHandler(actions));
+    PP.AddPragmaHandler(UPCHandler.get());
+  }
       
   PP.setCodeCompletionHandler(*this);
 }
@@ -394,6 +399,11 @@ Parser::~Parser() {
     PP.RemovePragmaHandler("OPENCL", FPContractHandler.get());
   }
 
+  if (getLangOpts().UPC) {
+    PP.RemovePragmaHandler(UPCHandler.get());
+    UPCHandler.reset();
+  }
+
   PP.RemovePragmaHandler("STDC", FPContractHandler.get());
   FPContractHandler.reset();
   PP.clearCodeCompletionHandler();
@@ -580,6 +590,9 @@ Parser::ParseExternalDeclaration(ParsedAttributesWithRange &attrs,
     return DeclGroupPtrTy();
   case tok::annot_pragma_pack:
     HandlePragmaPack();
+    return DeclGroupPtrTy();
+  case tok::annot_pragma_upc:
+    HandlePragmaUPC();
     return DeclGroupPtrTy();
   case tok::semi:
     Diag(Tok, getLangOpts().CPlusPlus0x ?

@@ -17,6 +17,7 @@
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Scope.h"
+#include "clang/Sema/ScopeInfo.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/SourceManager.h"
@@ -325,6 +326,11 @@ Retry:
   case tok::annot_pragma_pack:
     ProhibitAttributes(Attrs);
     HandlePragmaPack();
+    return StmtEmpty();
+
+  case tok::annot_pragma_upc:
+    ProhibitAttributes(Attrs);
+    HandlePragmaUPC();
     return StmtEmpty();
   }
 
@@ -848,8 +854,10 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       }
     }
 
-    if (R.isUsable())
+    if (R.isUsable()) {
+      Actions.getCurCompoundScope().PragmaUPCAllowed = false;
       Stmts.push_back(R.release());
+    }
   }
 
   SourceLocation CloseLoc = Tok.getLocation();
