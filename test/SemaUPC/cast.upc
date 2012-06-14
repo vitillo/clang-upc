@@ -30,7 +30,7 @@ int main() { // CHECK: int main()
     // CHECK: CStyleCastExpr {{.*}} 'shared [1] int *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr1'
     (void)(shared [2] int *)ptr1;
-    // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <UPCBitCastZeroPhase>
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr1'
     (void)(struct incomplete1 *)ptr1;
     // CHECK: CStyleCastExpr {{.*}} 'struct incomplete1 *' <UPCSharedToLocal>
@@ -43,25 +43,25 @@ int main() { // CHECK: int main()
     // CHECK: CStyleCastExpr {{.*}} 'shared struct incomplete1 *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared [2] struct incomplete1 *)ptr2;
-    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct incomplete1 *' <UPCBitCastZeroPhase>
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct incomplete1 *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared struct complete1 *)ptr2;
     // CHECK: CStyleCastExpr {{.*}} 'shared struct complete1 *' <NoOp>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared [2] struct complete1 *)ptr2;
-    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct complete1 *' <UPCBitCastZeroPhase>
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct complete1 *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared struct complete2 *)ptr2;
     // CHECK: CStyleCastExpr {{.*}} 'shared struct complete2 *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared [2] struct complete2 *)ptr2;
-    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct complete2 *' <UPCBitCastZeroPhase>
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct complete2 *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared int *)ptr2;
-    // CHECK: CStyleCastExpr {{.*}} 'shared int *' <UPCBitCastZeroPhase>
+    // CHECK: CStyleCastExpr {{.*}} 'shared int *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(shared [2] int *)ptr2;
-    // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <UPCBitCastZeroPhase>
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr2'
     (void)(struct complete1 *)ptr2;
     // CHECK: CStyleCastExpr {{.*}} 'struct complete1 *' <UPCSharedToLocal>
@@ -85,8 +85,47 @@ int main() { // CHECK: int main()
     (void)(shared int *)ptr4; // expected-error{{cannot convert local pointer to pointer-to-shared}}
 #endif
 
+    (void)(shared struct incomplete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared struct incomplete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared [2] struct incomplete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct incomplete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared struct complete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared struct complete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared [2] struct complete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct complete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared struct complete2 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared struct complete2 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared [2] struct complete2 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] struct complete2 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared int *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared int *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(shared [2] int *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(struct complete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'struct complete1 *' <UPCSharedToLocal>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(struct incomplete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'struct incomplete1 *' <UPCSharedToLocal>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+    (void)(int *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'int *' <UPCSharedToLocal>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
     (void)(shared void *)ptr5;
     // CHECK: CStyleCastExpr {{.*}} 'shared void *' <BitCast>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
+#ifdef ERRORS
+    (void)(shared [3] struct incomplete1 *)ptr5; // expected-error{{converting a pointer-to-shared requires the pointee type to be complete}}
+#endif
+    (void)(shared [3] struct complete1 *)(ptr5);
+    // CHECK: CStyleCastExpr {{.*}} 'shared [3] struct complete1 *' <UPCBitCastZeroPhase>
     // CHECK: DeclRefExpr {{.*}} 'ptr5'
 
     (void)(shared int *)ptr6;
