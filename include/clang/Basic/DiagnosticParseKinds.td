@@ -686,6 +686,8 @@ def warn_pragma_unused_expected_punc : Warning<
 // - #pragma upc
 def warn_pragma_upc_invalid : Warning<
   "expected 'strict' or 'relaxed' after '#pragma upc' - ignored">;
+def warn_pragma_upc_must_precede_statements : Warning<
+  "#pragma upc must precede all explicit declarations and statements in a compound statement">;
 
 // OpenCL Section 6.8.g
 def err_not_opencl_storage_class_specifier : Error<

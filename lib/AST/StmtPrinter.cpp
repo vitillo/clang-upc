@@ -397,6 +397,13 @@ void StmtPrinter::VisitUPCFenceStmt(UPCFenceStmt *Node) {
   Indent() << "upc_fence;\n";
 }
 
+void StmtPrinter::VisitUPCPragmaStmt(UPCPragmaStmt *Node) {
+  if (Node->getStrict())
+    Indent() << "#pragma upc strict\n";
+  else
+    Indent() << "#pragma upc relaxed\n";
+}
+
 
 void StmtPrinter::VisitAsmStmt(AsmStmt *Node) {
   Indent() << "asm ";

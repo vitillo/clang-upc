@@ -287,6 +287,12 @@ void ASTStmtReader::VisitUPCFenceStmt(UPCFenceStmt *S) {
   S->setFenceLoc(ReadSourceLocation(Record, Idx));
 }
 
+void ASTStmtReader::VisitUPCPragmaStmt(UPCPragmaStmt *S) {
+  VisitStmt(S);
+  S->setStrict(Record[Idx++] != 0);
+  S->setPragmaLoc(ReadSourceLocation(Record, Idx));
+}
+
 void ASTStmtReader::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   S->setStartLoc(ReadSourceLocation(Record, Idx));
@@ -2244,6 +2250,9 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     case STMT_UPC_FENCE:
       S = new (Context) UPCFenceStmt(Empty);
+      break;
+    case STMT_UPC_PRAGMA:
+      S = new (Context) UPCPragmaStmt(Empty);
       break;
     }
     

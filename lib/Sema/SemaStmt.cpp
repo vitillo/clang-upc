@@ -51,17 +51,13 @@ StmtResult Sema::ActOnNullStmt(SourceLocation SemiLoc,
   return Owned(new (Context) NullStmt(SemiLoc, HasLeadingEmptyMacro));
 }
 
-void Sema::ActOnPragmaUPC(SourceLocation PragmaLoc, PragmaUPCKind Kind) {
+StmtResult Sema::ActOnPragmaUPC(SourceLocation PragmaLoc, PragmaUPCKind Kind) {
   bool IsStrict = (Kind == PUPCK_Strict);
   if (getCurFunction()->CompoundScopes.empty())
     UPCIsStrict = IsStrict;
-  else {
-    sema::CompoundScopeInfo& Info = getCurCompoundScope();
-    if (!Info.PragmaUPCAllowed) {
-      Diag(PragmaLoc, diag::warn_pragma_upc_must_precede_statements);
-    }
-    Info.UPCIsStrict = IsStrict;
-  }
+  else
+    getCurCompoundScope().UPCIsStrict = IsStrict;
+  return Owned(new (Context) UPCPragmaStmt(PragmaLoc, IsStrict));
 }
 
 StmtResult Sema::ActOnDeclStmt(DeclGroupPtrTy dg, SourceLocation StartLoc,

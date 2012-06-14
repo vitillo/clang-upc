@@ -5500,8 +5500,6 @@ def err_upc_pointer_cast_requires_complete_type : Error<
   "from a function with incompatible result type|to incompatible type|"
   "with an expression of incompatible type|to parameter of incompatible type|"
   "to incompatible type}2 %1">;
-def warn_pragma_upc_must_precede_statements : Warning<
-  "#pragma upc must precede all explicit declarations and statements in a compound statement">;
 
 } // end of sema category
 

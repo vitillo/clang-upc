@@ -233,6 +233,13 @@ void ASTStmtWriter::VisitUPCFenceStmt(UPCFenceStmt *S) {
   Code = serialization::STMT_UPC_NOTIFY;
 }
 
+void ASTStmtWriter::VisitUPCPragmaStmt(UPCPragmaStmt *S) {
+  VisitStmt(S);
+  Record.push_back(S->getStrict()? 1 : 0);
+  Writer.AddSourceLocation(S->getPragmaLoc(), Record);
+  Code = serialization::STMT_UPC_PRAGMA;
+}
+
 void ASTStmtWriter::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   Writer.AddSourceLocation(S->getStartLoc(), Record);

@@ -1479,6 +1479,35 @@ public:
   child_range children() { return child_range(); }
 };
 
+class UPCPragmaStmt : public Stmt {
+  SourceLocation PragmaLoc;
+  bool IsStrict;
+public:
+  UPCPragmaStmt(SourceLocation RL, bool Strict)
+    : Stmt(UPCPragmaStmtClass), PragmaLoc(RL), IsStrict(Strict) { }
+
+  /// \brief Build an empty upc_fence expression.
+  explicit UPCPragmaStmt(EmptyShell Empty) : Stmt(UPCPragmaStmtClass, Empty) { }
+
+  bool getStrict() const { return IsStrict; }
+  void setStrict(bool Strict) { IsStrict = Strict; }
+
+  SourceLocation getPragmaLoc() const { return PragmaLoc; }
+  void setPragmaLoc(SourceLocation L) { PragmaLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCPragmaStmtClass;
+  }
+  static bool classof(const UPCPragmaStmt *) { return true; }
+
+  SourceRange getSourceRange() const {
+    return SourceRange(PragmaLoc);
+  }
+
+  // Iterators
+  child_range children() { return child_range(); }
+};
+
 /// AsmStmt - This represents a GNU inline-assembly statement extension.
 ///
 class AsmStmt : public Stmt {

@@ -419,7 +419,7 @@ private:
 
   /// \brief Handle the annotation token produced for
   /// #pragma upc...
-  void HandlePragmaUPC();
+  StmtResult HandlePragmaUPC();
 
   /// GetLookAheadToken - This peeks ahead N tokens and returns that token
   /// without consuming any tokens.  LookAhead(0) returns 'Tok', LookAhead(1)

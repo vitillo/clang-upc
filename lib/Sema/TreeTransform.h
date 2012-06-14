@@ -1191,6 +1191,14 @@ public:
     return getSema().ActOnUPCFenceStmt(Loc);
   }
 
+  /// \brief Build a new #pragma upc statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCPragmaStmt(SourceLocation Loc, Sema::PragmaUPCKind Access) {
+    return getSema().ActOnPragmaUPC(Loc, Access);
+  }
+
   /// \brief Build a new declaration statement.
   ///
   /// By default, performs semantic analysis to build the new statement.
@@ -5631,6 +5639,15 @@ TreeTransform<Derived>::TransformUPCFenceStmt(UPCFenceStmt *S) {
   if (!getDerived().AlwaysRebuild())
     return SemaRef.Owned(S);
   return getDerived().RebuildUPCFenceStmt(S->getFenceLoc());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCPragmaStmt(UPCPragmaStmt *S) {
+  // Always rebuild because we need the flag to be set
+  return getDerived().RebuildUPCPragmaStmt(
+    S->getPragmaLoc(),
+    S->getStrict()? Sema::PUPCK_Strict : Sema::PUPCK_Relaxed);
 }
 
 template<typename Derived>

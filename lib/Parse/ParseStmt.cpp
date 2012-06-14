@@ -17,7 +17,6 @@
 #include "clang/Sema/DeclSpec.h"
 #include "clang/Sema/PrettyDeclStackTrace.h"
 #include "clang/Sema/Scope.h"
-#include "clang/Sema/ScopeInfo.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/PrettyStackTrace.h"
 #include "clang/Basic/SourceManager.h"
@@ -330,8 +329,8 @@ Retry:
 
   case tok::annot_pragma_upc:
     ProhibitAttributes(Attrs);
-    HandlePragmaUPC();
-    return StmtEmpty();
+    Diag(Tok.getLocation(), diag::warn_pragma_upc_must_precede_statements);
+    return HandlePragmaUPC();
   }
 
   // If we reached this code, the statement must end in a semicolon.
@@ -767,6 +766,14 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
 
   StmtVector Stmts(Actions);
 
+  // #pragma upc [relaxed|strict] is only allowed at the
+  // start of a compound statement
+  while(Tok.is(tok::annot_pragma_upc)) {
+    StmtResult R = HandlePragmaUPC();
+    if (R.isUsable())
+      Stmts.push_back(R.release());
+  }
+
   // "__label__ X, Y, Z;" is the GNU "Local Label" extension.  These are
   // only allowed at the start of a compound stmt regardless of the language.
   while (Tok.is(tok::kw___label__)) {
@@ -854,10 +861,8 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
       }
     }
 
-    if (R.isUsable()) {
-      Actions.getCurCompoundScope().PragmaUPCAllowed = false;
+    if (R.isUsable())
       Stmts.push_back(R.release());
-    }
   }
 
   SourceLocation CloseLoc = Tok.getLocation();

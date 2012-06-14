@@ -54,12 +54,12 @@ void Parser::HandlePragmaPack() {
                           Info->LParenLoc, Info->RParenLoc);
 }
 
-void Parser::HandlePragmaUPC() {
+StmtResult Parser::HandlePragmaUPC() {
   assert(Tok.is(tok::annot_pragma_upc));
   const Sema::PragmaUPCKind *Kind =
     static_cast<Sema::PragmaUPCKind *>(Tok.getAnnotationValue());
   SourceLocation PragmaLoc = ConsumeToken();
-  Actions.ActOnPragmaUPC(PragmaLoc, *Kind);
+  return Actions.ActOnPragmaUPC(PragmaLoc, *Kind);
 }
 
 // #pragma GCC visibility comes in two variants:

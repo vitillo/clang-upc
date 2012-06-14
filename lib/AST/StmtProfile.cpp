@@ -174,6 +174,11 @@ void StmtProfiler::VisitUPCFenceStmt(const UPCFenceStmt *S) {
   VisitStmt(S);
 }
 
+void StmtProfiler::VisitUPCPragmaStmt(const UPCPragmaStmt *S) {
+  VisitStmt(S);
+  ID.AddBoolean(S->getStrict());
+}
+
 void StmtProfiler::VisitAsmStmt(const AsmStmt *S) {
   VisitStmt(S);
   ID.AddBoolean(S->isVolatile());

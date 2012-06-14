@@ -33,6 +33,7 @@ def UPCNotifyStmt : Stmt;
 def UPCWaitStmt : Stmt;
 def UPCBarrierStmt : Stmt;
 def UPCFenceStmt : Stmt;
+def UPCPragmaStmt : Stmt;
 
 // GNU Extensions
 def AsmStmt : Stmt;

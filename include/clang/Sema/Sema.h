@@ -6055,7 +6055,7 @@ public:
                        SourceLocation RParenLoc);
 
   /// ActOnPragmaUPC - Called on well formed #pragma upc [relaxed|strict].
-  void ActOnPragmaUPC(SourceLocation PragmaLoc, PragmaUPCKind Kind);
+  StmtResult ActOnPragmaUPC(SourceLocation PragmaLoc, PragmaUPCKind Kind);
 
   /// ActOnPragmaMSStruct - Called on well formed #pragms ms_struct [on|off].
   void ActOnPragmaMSStruct(PragmaMSStructKind Kind);

@@ -1204,7 +1204,8 @@ namespace clang {
       STMT_UPC_NOTIFY,            // UPCNotifyStmt
       STMT_UPC_WAIT,              // UPCWaitStmt
       STMT_UPC_BARRIER,           // UPCBarrierStmt
-      STMT_UPC_FENCE              // UPCFenceStmt
+      STMT_UPC_FENCE,             // UPCFenceStmt
+      STMT_UPC_PRAGMA             // UPCPragmaStmt
     };
 
     /// \brief The kinds of designators that can occur in a
