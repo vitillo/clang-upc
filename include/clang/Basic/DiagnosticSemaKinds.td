@@ -5484,6 +5484,14 @@ def err_upc_cast_local_to_shared : Error<
   "from a function with incompatible result type|to incompatible type|"
   "with an expression of incompatible type|to parameter of incompatible type|"
   "to incompatible type}2 %1">;
+def err_upc_typecheck_discard_shared : Error<
+  "cannot convert pointer-to-shared to local pointer "
+  "%select{assigning to|passing|returning|converting|initializing|sending|casting}2"
+  " %0 "
+  "%select{from incompatible type|to parameter of incompatible type|"
+  "from a function with incompatible result type|to incompatible type|"
+  "with an expression of incompatible type|to parameter of incompatible type|"
+  "to incompatible type}2 %1">;
 
 } // end of sema category
 

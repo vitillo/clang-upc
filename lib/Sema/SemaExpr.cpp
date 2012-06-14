@@ -4050,6 +4050,39 @@ CastKind Sema::PrepareCastToObjCObjectPointer(ExprResult &E) {
   }
 }
 
+
+static CastKind CheckPointerToSharedConversion(ASTContext& Context, QualType SrcPointee, QualType DestPointee) {
+  // UPC 1.2 6.4.3p3
+  // If a generic pointer-to-shared is cast to a non-generic
+  // pointer-to-shared type with indefinite block size or
+  // with block size of one, the result is a pointer with
+  // phase of zero.
+  if (SrcPointee->isVoidType() &&
+      DestPointee.getQualifiers().getLayoutQualifier() <= 1)
+    return CK_UPCBitCastZeroPhase;
+  // UPC 1.2 6.4.3p2
+  // The casting or assignment from one pointer-to-shared to
+  // another in which either the type size or the block size
+  // differs results in a pointer with zero phase, unless one
+  // of the types is a qualified or unqualified version of
+  // shared void *, the generic pointer-to-shared, in which
+  // case the phase is preserved unchanged in the resulting
+  // pointer value.
+  if (SrcPointee->isVoidType() || DestPointee->isVoidType())
+    return CK_BitCast;
+  if (SrcPointee.getQualifiers().getLayoutQualifier() !=
+      DestPointee.getQualifiers().getLayoutQualifier())
+    return CK_UPCBitCastZeroPhase;
+  // FIXME: Is this the correct behavior?
+  if (SrcPointee->isIncompleteType() || DestPointee->isIncompleteType())
+    return CK_BitCast;
+  if (Context.getTypeSize(SrcPointee) !=
+      Context.getTypeSize(DestPointee))
+    return CK_UPCBitCastZeroPhase;
+  return CK_BitCast;
+}
+
+
 /// Prepares for a scalar cast, performing all the necessary stages
 /// except the final cast and returning the kind required.
 CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
@@ -4075,34 +4108,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
     case Type::STK_UPCSharedPointer: {
       QualType SrcPointee = cast<PointerType>(SrcTy.getTypePtr())->getPointeeType();
       QualType DestPointee = cast<PointerType>(DestTy.getTypePtr())->getPointeeType();
-      // UPC 1.2 6.4.3p3
-      // If a generic pointer-to-shared is cast to a non-generic
-      // pointer-to-shared type with indefinite block size or
-      // with block size of one, the result is a pointer with
-      // phase of zero.
-      if (SrcPointee->isVoidType() &&
-          DestPointee.getQualifiers().getLayoutQualifier() <= 1)
-        return CK_UPCBitCastZeroPhase;
-      // UPC 1.2 6.4.3p2
-      // The casting or assignment from one pointer-to-shared to
-      // another in which either the type size or the block size
-      // differs results in a pointer with zero phase, unless one
-      // of the types is a qualified or unqualified version of
-      // shared void *, the generic pointer-to-shared, in which
-      // case the phase is preserved unchanged in the resulting
-      // pointer value.
-      if (SrcPointee->isVoidType() || DestPointee->isVoidType())
-        return CK_BitCast;
-      if (SrcPointee.getQualifiers().getLayoutQualifier() !=
-          DestPointee.getQualifiers().getLayoutQualifier())
-        return CK_UPCBitCastZeroPhase;
-      // FIXME: Is this the correct behavior?
-      if (SrcPointee->isIncompleteType() || DestPointee->isIncompleteType())
-        return CK_BitCast;
-      if (Context.getTypeSize(SrcPointee) !=
-          Context.getTypeSize(DestPointee))
-        return CK_UPCBitCastZeroPhase;
-      return CK_BitCast;
+      return CheckPointerToSharedConversion(Context, SrcPointee, DestPointee);
     }
     case Type::STK_CPointer:
       return CK_UPCSharedToLocal;
@@ -5243,6 +5249,13 @@ checkPointerTypesForAssignment(Sema &S, QualType LHSType, QualType RHSType) {
     rhq.removeObjCLifetime();
   }
 
+  // If either argument is the generic pointer-to-shared,
+  // it's okay if the other has a layout qualifier.
+  if (lhptee->isVoidType() || rhptee->isVoidType()) {
+    lhq.removeLayoutQualifier();
+    rhq.removeLayoutQualifier();
+  }
+
   if (!lhq.compatiblyIncludes(rhq)) {
     // Treat address-space mismatches as fatal.  TODO: address subspaces
     if (lhq.getAddressSpace() != rhq.getAddressSpace())
@@ -5259,6 +5272,12 @@ checkPointerTypesForAssignment(Sema &S, QualType LHSType, QualType RHSType) {
     // Treat lifetime mismatches as fatal.
     else if (lhq.getObjCLifetime() != rhq.getObjCLifetime())
       ConvTy = Sema::IncompatiblePointerDiscardsQualifiers;
+
+    else if (lhq.hasShared() != rhq.hasShared())
+      return Sema::IncompatiblePointerDiscardsQualifiers;
+
+    else if (lhq.getLayoutQualifier() != rhq.getLayoutQualifier())
+      ConvTy = Sema::IncompatiblePointer;
     
     // For GCC compatibility, other qualifier mismatches are treated
     // as still compatible in C.
@@ -5418,6 +5437,7 @@ Sema::CheckAssignmentConstraints(SourceLocation Loc,
   return CheckAssignmentConstraints(LHSType, RHSPtr, K);
 }
 
+
 /// CheckAssignmentConstraints (C99 6.5.16) - This routine currently
 /// has code to accommodate several GCC extensions when type checking
 /// pointers. Here are some objectionable examples that GCC considers warnings:
@@ -5533,8 +5553,16 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
   // Conversions to normal pointers.
   if (const PointerType *LHSPointer = dyn_cast<PointerType>(LHSType)) {
     // U* -> T*
-    if (isa<PointerType>(RHSType)) {
-      Kind = CK_BitCast;
+    if (const PointerType *RHSPointer = dyn_cast<PointerType>(RHSType)) {
+      QualType LHSPointee = LHSPointer->getPointeeType();
+      QualType RHSPointee = RHSPointer->getPointeeType();
+      if (RHSPointee.getQualifiers().hasShared())
+        if (LHSPointee.getQualifiers().hasShared()) 
+          Kind = CheckPointerToSharedConversion(Context, RHSPointee, LHSPointee);
+        else
+          Kind = CK_UPCSharedToLocal;
+      else
+        Kind = CK_BitCast;
       return checkPointerTypesForAssignment(*this, LHSType, RHSType);
     }
 
@@ -9413,6 +9441,12 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
 
     } else if (lhq.getObjCLifetime() != rhq.getObjCLifetime()) {
       DiagKind = diag::err_typecheck_incompatible_ownership;
+      break;
+    } else if (lhq.hasShared() && !rhq.hasShared()) {
+      DiagKind = diag::err_upc_typecheck_discard_shared;
+      break;
+    } else if (!lhq.hasShared() && rhq.hasShared()) {
+      DiagKind = diag::err_upc_cast_local_to_shared;
       break;
     }
 
