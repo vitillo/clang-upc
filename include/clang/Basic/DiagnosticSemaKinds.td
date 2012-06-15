@@ -5500,6 +5500,12 @@ def err_upc_pointer_cast_requires_complete_type : Error<
   "from a function with incompatible result type|to incompatible type|"
   "with an expression of incompatible type|to parameter of incompatible type|"
   "to incompatible type}2 %1">;
+def err_upc_func_returning_shared : Error<
+  "function cannot return shared qualified type %0">;
+def err_upc_function_shared : Error<
+  "shared qualifier on function type %0">;
+def err_upc_arg_shared : Error<
+  "shared qualifier on function parameter">;
 
 } // end of sema category
 

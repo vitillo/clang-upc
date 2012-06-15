@@ -1009,8 +1009,12 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         Loc = DS.getStrictSpecLoc();
       else
         assert(false && "Has CVR quals but not C, V, or R?");
-      S.Diag(Loc, diag::warn_typecheck_function_qualifiers)
-        << Result << DS.getSourceRange();
+      if (TypeQuals & DeclSpec::TQ_shared)
+        S.Diag(DS.getSharedSpecLoc(), diag::err_upc_function_shared)
+          << Result << DS.getSourceRange();
+      else
+        S.Diag(Loc, diag::warn_typecheck_function_qualifiers)
+          << Result << DS.getSourceRange();
     }
 
     // C++ [dcl.ref]p1:
@@ -1599,6 +1603,10 @@ QualType Sema::BuildFunctionType(QualType T,
     Diag(Loc, diag::err_func_returning_array_function) 
       << T->isFunctionType() << T;
     return QualType();
+  }
+
+  if (T.getQualifiers().hasShared()) {
+    Diag(Loc, diag::err_upc_func_returning_shared) << T;
   }
 
   // Functions cannot return half FP.
@@ -2419,6 +2427,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           diagID = diag::err_block_returning_array_function;
         S.Diag(DeclType.Loc, diagID) << T->isFunctionType() << T;
         T = Context.IntTy;
+        D.setInvalidType(true);
+      }
+
+      // The return type may not be shared qualified
+      if (T.getQualifiers().hasShared()) {
+        S.Diag(DeclType.Loc, diag::err_upc_func_returning_shared) << T;
         D.setInvalidType(true);
       }
 

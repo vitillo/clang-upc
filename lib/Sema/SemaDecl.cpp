@@ -7184,6 +7184,11 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
     New->setInvalidDecl();
   }   
 
+  if (T.getQualifiers().hasShared()) {
+    Diag(NameLoc, diag::err_upc_arg_shared);
+    New->setInvalidDecl();
+  }
+
   return New;
 }
 
