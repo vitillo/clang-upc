@@ -2039,7 +2039,7 @@ void CastOperation::CheckCStyleCast() {
       Qualifiers CastQuals = CastPtr->getPointeeType().getQualifiers();
       Qualifiers ExprQuals = ExprPtr->getPointeeType().getQualifiers();
       if (CastQuals.hasShared() && !ExprQuals.hasShared() &&
-          !SrcExpr.get()->IgnoreParenCasts()->isNullPointerConstant(
+          !SrcExpr.get()->isNullPointerConstant(
             Self.getASTContext(), Expr::NPC_NeverValueDependent)) {
         Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_cast_local_to_shared)
           << SrcType << DestType << Sema::AA_Casting

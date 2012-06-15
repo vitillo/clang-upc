@@ -4178,9 +4178,8 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
     case Type::STK_Integral:
       return CK_PointerToIntegral;
     case Type::STK_UPCSharedPointer:
-      assert (Src.get()->IgnoreParenCasts()->
-              isNullPointerConstant(Context,
-                                    Expr::NPC_ValueDependentIsNull));
+      assert (Src.get()->isNullPointerConstant(Context,
+                                               Expr::NPC_ValueDependentIsNull));
       return CK_NullToPointer;
     case Type::STK_Floating:
     case Type::STK_FloatingComplex:
@@ -6897,8 +6896,9 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
     Qualifiers LQuals = LCanPointeeTy.getQualifiers();
     Qualifiers RQuals = RCanPointeeTy.getQualifiers();
     // C99 6.5.9p2 and C99 6.5.8p2
-    if (LQuals.hasShared() != RQuals.hasShared() ||
-        LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier()) {
+    if ((LQuals.hasShared() != RQuals.hasShared() ||
+         LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier()) &&
+        !LHSIsNull && !RHSIsNull) {
       diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/true);
     } else if (Context.typesAreCompatible(LCanPointeeTy.getUnqualifiedType(),
                                    RCanPointeeTy.getUnqualifiedType())) {
