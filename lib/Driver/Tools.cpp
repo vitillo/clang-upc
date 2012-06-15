@@ -2529,6 +2529,7 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddLastArg(CmdArgs, options::OPT_fupc_packed_bits_EQ);
+  Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_EQ);
 
   // -fcaret-diagnostics is default.
   if (!Args.hasFlag(options::OPT_fcaret_diagnostics,

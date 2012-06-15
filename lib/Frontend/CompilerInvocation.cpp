@@ -1912,30 +1912,46 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.Static = Args.hasArg(OPT_static_define);
 
   Opts.UPCThreads = Args.getLastArgIntValue(OPT_fupc_threads, 0, Diags);
-  if (Arg * A = Args.getLastArg(OPT_fupc_packed_bits_EQ)) {
-    llvm::SmallVector<llvm::StringRef, 3> Bits;
-    StringRef(A->getValue(Args)).split(Bits, ",");
-    bool okay = true;
-    int Values[3];
-    if (Bits.size() == 3) {
-      for (int i = 0; i < 3; ++i)
-        if (Bits[i].getAsInteger(10, Values[i]))
-          okay = false;
-      if (Values[0] + Values[1] + Values[2] != 64)
-        okay = false;
-    } else {
-      okay = false;
-    }
 
-    if (okay) {
-      Opts.UPCPhaseBits = Values[0];
-      Opts.UPCThreadBits = Values[1];
-      Opts.UPCAddrBits = Values[2];
+  StringRef UPCPts = Args.getLastArgValue(OPT_fupc_pts_EQ, "packed");
+  if (UPCPts == "packed") {
+    if (Arg * A = Args.getLastArg(OPT_fupc_packed_bits_EQ)) {
+      llvm::SmallVector<llvm::StringRef, 3> Bits;
+      StringRef(A->getValue(Args)).split(Bits, ",");
+      bool okay = true;
+      int Values[3];
+      if (Bits.size() == 3) {
+        for (int i = 0; i < 3; ++i)
+          if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
+            okay = false;
+        if (Values[0] + Values[1] + Values[2] != 64)
+          okay = false;
+      } else {
+        okay = false;
+      }
+
+      if (okay) {
+        Opts.UPCPhaseBits = Values[0];
+        Opts.UPCThreadBits = Values[1];
+        Opts.UPCAddrBits = Values[2];
+      }
+      else
+        Diags.Report(diag::err_drv_invalid_value)
+          << A->getAsString(Args) << A->getValue(Args);
     }
-    else
-      Diags.Report(diag::err_drv_invalid_value)
-        << A->getAsString(Args) << A->getValue(Args);
+  } else if(UPCPts == "struct") {
+    Opts.UPCPhaseBits = 32;
+    Opts.UPCThreadBits = 32;
+    Opts.UPCAddrBits = 64;
+    if (Args.hasArg(OPT_fupc_packed_bits_EQ))
+      Diags.Report(diag::err_drv_argument_not_allowed_with)
+        << Args.getLastArg(OPT_fupc_packed_bits_EQ)->getAsString(Args)
+        << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args);
+  } else {
+    Diags.Report(diag::err_drv_invalid_value)
+      << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args) << UPCPts;
   }
+
   Opts.DumpRecordLayoutsSimple = Args.hasArg(OPT_fdump_record_layouts_simple);
   Opts.DumpRecordLayouts = Opts.DumpRecordLayoutsSimple 
                         || Args.hasArg(OPT_fdump_record_layouts);

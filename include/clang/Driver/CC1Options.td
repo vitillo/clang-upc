@@ -848,6 +848,9 @@ def fcuda_is_device : Flag<"-fcuda-is-device">,
 def fupc_threads : Separate<"-fupc-threads">,
   HelpText<"Set the number of threads">;
 
+def fupc_pts_EQ : Joined<"-fupc-pts=">,
+  HelpText<"Sets the pointer-to-shared representation">;
+
 def fupc_packed_bits_EQ : Joined<"-fupc-packed-bits=">,
   HelpText<"Allows the user to specify the number of bits allocated "
            "for each field of the shared pointer">;

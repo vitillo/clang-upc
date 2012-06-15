@@ -11,3 +11,11 @@
 // CHECK5: invalid value '32,err,32'
 // RUN: %clang_cc1 %s -fsyntax-only -fupc-packed-bits=32,32,err 2>&1 | FileCheck -check-prefix=CHECK6
 // CHECK6: invalid value '32,32,err'
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-packed-bits=32,32,0 2>&1 | FileCheck -check-prefix=CHECK7
+// CHECK7: invalid value '32,32,0'
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=error 2>&1 | FileCheck -check-prefix=CHECK8
+// CHECK8: invalid value 'error'
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=struct
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=packed
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=struct -fupc-packed-bits=10,20,34 2>&1 | FileCheck -check-prefix=CHECK9
+// CHECK9: invalid argument '-fupc-packed-bits=10,20,34' not allowed with '-fupc-pts=struct'
