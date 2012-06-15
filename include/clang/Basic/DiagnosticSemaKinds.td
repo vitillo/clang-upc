@@ -5460,22 +5460,22 @@ def err_invalid_astype_of_different_size : Error<
 
 // UPC warnings and errors
 def err_upc_layout_qualifier_too_big : Error<
-  "Block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
+  "block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
 def err_upc_star_requires_threads : Error<
   "THREADS must appear exactly once in an array declaration">;
 def err_upc_dynamic_threads_requires_threads : Error<
   "THREADS must appear exactly once in one dimension of a shared array."
   >;
 def err_upc_shared_local : Error<
-  "Automatic variables may not be declared shared">;
+  "shared qualifier on automatic variable">;
 def err_upc_shared_field : Error<
-  "Fields may not be declared with UPC shared qualifier">;
+  "shared qualifier on field">;
 def err_upc_shared_star_in_pointer : Error<
-  "A layout qualifier of '*' is illegal in a pointer type">;
+  "a layout qualifier of '*' is illegal in a pointer type">;
 def err_upc_indefinite_blocksize_uses_threads : Error<
   "THREADS may not be used in a shared array with indefinite block size">;
 def err_upc_shared_star_in_incomplete_array : Error<
-  "Cannot resolve block size of '*' on an incomplete array type">;
+  "cannot resolve block size of '*' on an incomplete array type">;
 def err_upc_cast_local_to_shared : Error<
   "cannot convert local pointer to pointer-to-shared "
   "%select{assigning to|passing|returning|converting|initializing|sending|casting}2"

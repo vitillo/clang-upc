@@ -24,4 +24,4 @@ extern shared int array2[];
 
 shared int array3[] = { 1, 2, 3 }; // expected-error{{THREADS must appear exactly once in one dimension of a shared array}}
 
-extern shared [*] int array4[][THREADS]; // expected-error{{Cannot resolve block size of '*' on an incomplete array type}}
+extern shared [*] int array4[][THREADS]; // expected-error{{cannot resolve block size of '*' on an incomplete array type}}
