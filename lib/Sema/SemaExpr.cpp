@@ -358,6 +358,30 @@ static void CheckForNullPointerDereference(Sema &S, Expr *E) {
   }
 }
 
+static void CheckUPCReferenceType(Sema &S, Expr *&E) {
+  QualType T = E->getType();
+  Qualifiers Quals = T.getQualifiers();
+  if (Quals.hasShared() && !Quals.hasStrict() && !Quals.hasRelaxed()) {
+
+    if (S.IsUPCDefaultStrict())
+      Quals.addStrict();
+    else
+      Quals.addRelaxed();
+
+    QualType NewType =
+      S.getASTContext().getQualifiedType(T.getUnqualifiedType(), Quals);
+    E = ImplicitCastExpr::Create(
+      S.getASTContext(), NewType,
+      CK_LValueBitCast, E, 0, VK_LValue);
+  }
+}
+
+static void CheckUPCReferenceType(Sema &S, ExprResult &E) {
+  Expr *Temp = E.take();
+  CheckUPCReferenceType(S, Temp);
+  E = S.Owned(Temp);
+}
+
 ExprResult Sema::DefaultLvalueConversion(Expr *E) {
   // Handle any placeholder expressions which made it here.
   if (E->getType()->isPlaceholderType()) {
@@ -393,18 +417,8 @@ ExprResult Sema::DefaultLvalueConversion(Expr *E) {
   CheckForNullPointerDereference(*this, E);
 
   // Mark shared access as either strict or relaxed
-  if (getLangOpts().UPC) {
-    Qualifiers Quals = T.getQualifiers();
-    if (Quals.hasShared() && !Quals.hasStrict() && !Quals.hasRelaxed()) {
-      if (IsUPCDefaultStrict())
-        Quals.addStrict();
-      else
-        Quals.addRelaxed();
-      E = ImplicitCastExpr::Create(
-        Context, Context.getQualifiedType(T.getUnqualifiedType(), Quals),
-        CK_LValueBitCast, E, 0, VK_LValue);
-    }
-  }
+  if (getLangOpts().UPC)
+    CheckUPCReferenceType(*this, E);
 
   // C++ [conv.lval]p1:
   //   [...] If T is a non-class type, the type of the prvalue is the
@@ -7437,16 +7451,16 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
 
 
 // C99 6.5.16.1
-QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
+QualType Sema::CheckAssignmentOperands(ExprResult &LHS, ExprResult &RHS,
                                        SourceLocation Loc,
                                        QualType CompoundType) {
-  assert(!LHSExpr->hasPlaceholderType(BuiltinType::PseudoObject));
+  assert(!LHS.get()->hasPlaceholderType(BuiltinType::PseudoObject));
 
   // Verify that LHS is a modifiable lvalue, and emit error if not.
-  if (CheckForModifiableLvalue(LHSExpr, Loc, *this))
+  if (CheckForModifiableLvalue(LHS.get(), Loc, *this))
     return QualType();
 
-  QualType LHSType = LHSExpr->getType();
+  QualType LHSType = LHS.get()->getType();
   QualType RHSType = CompoundType.isNull() ? RHS.get()->getType() :
                                              CompoundType;
   AssignConvertType ConvTy;
@@ -7492,9 +7506,9 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
 
     if (ConvTy == Compatible) {
       if (LHSType.getObjCLifetime() == Qualifiers::OCL_Strong)
-        checkRetainCycles(LHSExpr, RHS.get());
+        checkRetainCycles(LHS.get(), RHS.get());
       else if (getLangOpts().ObjCAutoRefCount)
-        checkUnsafeExprAssigns(Loc, LHSExpr, RHS.get());
+        checkUnsafeExprAssigns(Loc, LHS.get(), RHS.get());
     }
   } else {
     // Compound assignment "x += y"
@@ -7505,7 +7519,10 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
                                RHS.get(), AA_Assigning))
     return QualType();
 
-  CheckForNullPointerDereference(*this, LHSExpr);
+  CheckForNullPointerDereference(*this, LHS.get());
+
+  if (getLangOpts().UPC)
+    CheckUPCReferenceType(*this, LHS);
 
   // C99 6.5.16p3: The type of an assignment expression is the type of the
   // left operand unless the left operand has qualified type, in which case
@@ -8039,7 +8056,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
 
   switch (Opc) {
   case BO_Assign:
-    ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, QualType());
+    ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, QualType());
     if (getLangOpts().CPlusPlus &&
         LHS.get()->getObjectKind() != OK_ObjCProperty) {
       VK = LHS.get()->getValueKind();
@@ -8096,30 +8113,30 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
                                                Opc == BO_DivAssign);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_RemAssign:
     CompResultTy = CheckRemainderOperands(LHS, RHS, OpLoc, true);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_AddAssign:
     CompResultTy = CheckAdditionOperands(LHS, RHS, OpLoc, Opc, &CompLHSTy);
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_SubAssign:
     CompResultTy = CheckSubtractionOperands(LHS, RHS, OpLoc, &CompLHSTy);
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_ShlAssign:
   case BO_ShrAssign:
     CompResultTy = CheckShiftOperands(LHS, RHS, OpLoc, Opc, true);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_AndAssign:
   case BO_XorAssign:
@@ -8127,7 +8144,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     CompResultTy = CheckBitwiseOperands(LHS, RHS, OpLoc, true);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_Comma:
     ResultTy = CheckCommaOperands(*this, LHS, RHS, OpLoc);

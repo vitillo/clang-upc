@@ -16,6 +16,39 @@ void f() { // CHECK: void f()
     int j1 = i;
     // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
     // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i = 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i += 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i -= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i *= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i /= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i %= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i &= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i |= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i ^= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i <<= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
+    i >>= 1;
+    // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
+    // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
 }
 
 void g() { // CHECK: void g()
