@@ -4178,6 +4178,10 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
     case Type::STK_Integral:
       return CK_PointerToIntegral;
     case Type::STK_UPCSharedPointer:
+      assert (Src.get()->IgnoreParenCasts()->
+              isNullPointerConstant(Context,
+                                    Expr::NPC_ValueDependentIsNull));
+      return CK_NullToPointer;
     case Type::STK_Floating:
     case Type::STK_FloatingComplex:
     case Type::STK_IntegralComplex:

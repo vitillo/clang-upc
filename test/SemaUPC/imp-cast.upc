@@ -141,4 +141,7 @@ int main() {
 #ifdef ERRORS
     f10(ptr7); // expected-error{{converting a pointer-to-shared requires the pointee type to be complete}}
 #endif
+
+    f4((void*)0);
+    // CHECK: ImplicitCastExpr {{.*}} 'shared int *' <NullToPointer>
 }

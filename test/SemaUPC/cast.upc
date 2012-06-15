@@ -137,4 +137,7 @@ int main() { // CHECK: int main()
     (void)(shared [2] int *)ptr6;
     // CHECK: CStyleCastExpr {{.*}} 'shared [2] int *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr6'
+
+    (void)(shared int*)(void*)0;
+    // CHECK: CStyleCastExpr {{.*}} 'shared int *' <NullToPointer>
 }
