@@ -6130,7 +6130,8 @@ QualType Sema::CheckRemainderOperands(
 /// \brief Diagnose invalid arithmetic on two void pointers.
 static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
                                                 Expr *LHSExpr, Expr *RHSExpr) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
+  S.Diag(Loc, (S.getLangOpts().CPlusPlus ||
+               LHSExpr->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared())
                 ? diag::err_typecheck_pointer_arith_void_type
                 : diag::ext_gnu_void_ptr)
     << 1 /* two pointers */ << LHSExpr->getSourceRange()
@@ -6140,7 +6141,8 @@ static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
 /// \brief Diagnose invalid arithmetic on a void pointer.
 static void diagnoseArithmeticOnVoidPointer(Sema &S, SourceLocation Loc,
                                             Expr *Pointer) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
+  S.Diag(Loc, (S.getLangOpts().CPlusPlus ||
+               Pointer->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared())
                 ? diag::err_typecheck_pointer_arith_void_type
                 : diag::ext_gnu_void_ptr)
     << 0 /* one pointer */ << Pointer->getSourceRange();

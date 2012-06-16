@@ -5,6 +5,7 @@ int * p3;
 shared [1] int *p4;
 shared [] int *p5;
 shared [2] int *p6;
+shared void * p7;
 
 int main() {
   p2 = p1 + 1;
@@ -119,4 +120,8 @@ int main() {
   (void)(1? p1 : p3); // expected-error{{incompatible operand types}}
   p1 = 1? p1 : p4;
   shared void * vp = 1? p1 : p5; // expected-warning{{pointer type mismatch}}
+  (void)(vp + 1); // expected-error{{arithmetic on a pointer to void}}
+  (void)(1 + vp); // expected-error{{arithmetic on a pointer to void}}
+  (void)(vp - 1); // expected-error{{arithmetic on a pointer to void}}
+  (void)(vp - vp); // expected-error{{arithmetic on pointers to void}}
 }
