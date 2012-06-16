@@ -293,6 +293,20 @@ void ASTStmtReader::VisitUPCPragmaStmt(UPCPragmaStmt *S) {
   S->setPragmaLoc(ReadSourceLocation(Record, Idx));
 }
 
+void ASTStmtReader::VisitUPCForAllStmt(UPCForAllStmt *S) {
+  VisitStmt(S);
+  S->setInit(Reader.ReadSubStmt());
+  S->setCond(Reader.ReadSubExpr());
+  S->setConditionVariable(Reader.getContext(),
+                          ReadDeclAs<VarDecl>(Record, Idx));
+  S->setInc(Reader.ReadSubExpr());
+  S->setAfnty(Reader.ReadSubExpr());
+  S->setBody(Reader.ReadSubStmt());
+  S->setForLoc(ReadSourceLocation(Record, Idx));
+  S->setLParenLoc(ReadSourceLocation(Record, Idx));
+  S->setRParenLoc(ReadSourceLocation(Record, Idx));
+}
+
 void ASTStmtReader::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   S->setStartLoc(ReadSourceLocation(Record, Idx));
@@ -2253,6 +2267,9 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       break;
     case STMT_UPC_PRAGMA:
       S = new (Context) UPCPragmaStmt(Empty);
+      break;
+    case STMT_UPC_FORALL:
+      S = new (Context) UPCForAllStmt(Empty);
       break;
     }
     

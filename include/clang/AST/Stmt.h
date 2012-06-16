@@ -1508,6 +1508,73 @@ public:
   child_range children() { return child_range(); }
 };
 
+
+/// UPCForAllStmt - This represents a 'upc_forall (init;cond;inc;afnty)' stmt.  Note that any of
+/// the init/cond/inc/afnty parts of the UPCForAllStmt will be null if they were not
+/// specified in the source.
+///
+class UPCForAllStmt : public Stmt {
+  enum { INIT, CONDVAR, COND, INC, AFNTY, BODY, END_EXPR };
+  Stmt* SubExprs[END_EXPR]; // SubExprs[INIT] is an expression or declstmt.
+  SourceLocation ForLoc;
+  SourceLocation LParenLoc, RParenLoc;
+
+public:
+  UPCForAllStmt(ASTContext &C, Stmt *Init, Expr *Cond, VarDecl *condVar, Expr *Inc,
+                Expr *Afnty, Stmt *Body, SourceLocation FL, SourceLocation LP, SourceLocation RP);
+
+  /// \brief Build an empty upc_forall statement.
+  explicit UPCForAllStmt(EmptyShell Empty) : Stmt(UPCForAllStmtClass, Empty) { }
+
+  Stmt *getInit() { return SubExprs[INIT]; }
+
+  VarDecl *getConditionVariable() const;
+  void setConditionVariable(ASTContext &C, VarDecl *V);
+
+  /// If this ForStmt has a condition variable, return the faux DeclStmt
+  /// associated with the creation of that condition variable.
+  const DeclStmt *getConditionVariableDeclStmt() const {
+    return reinterpret_cast<DeclStmt*>(SubExprs[CONDVAR]);
+  }
+
+  Expr *getCond() { return reinterpret_cast<Expr*>(SubExprs[COND]); }
+  Expr *getInc()  { return reinterpret_cast<Expr*>(SubExprs[INC]); }
+  Expr *getAfnty()  { return reinterpret_cast<Expr*>(SubExprs[AFNTY]); }
+  Stmt *getBody() { return SubExprs[BODY]; }
+
+  const Stmt *getInit() const { return SubExprs[INIT]; }
+  const Expr *getCond() const { return reinterpret_cast<Expr*>(SubExprs[COND]);}
+  const Expr *getInc()  const { return reinterpret_cast<Expr*>(SubExprs[INC]); }
+  const Expr *getAfnty() const { return reinterpret_cast<Expr*>(SubExprs[AFNTY]); }
+  const Stmt *getBody() const { return SubExprs[BODY]; }
+
+  void setInit(Stmt *S) { SubExprs[INIT] = S; }
+  void setCond(Expr *E) { SubExprs[COND] = reinterpret_cast<Stmt*>(E); }
+  void setInc(Expr *E) { SubExprs[INC] = reinterpret_cast<Stmt*>(E); }
+  void setAfnty(Expr *E) { SubExprs[AFNTY] = reinterpret_cast<Stmt*>(E); }
+  void setBody(Stmt *S) { SubExprs[BODY] = S; }
+
+  SourceLocation getForLoc() const { return ForLoc; }
+  void setForLoc(SourceLocation L) { ForLoc = L; }
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation L) { LParenLoc = L; }
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation L) { RParenLoc = L; }
+
+  SourceRange getSourceRange() const LLVM_READONLY {
+    return SourceRange(ForLoc, SubExprs[BODY]->getLocEnd());
+  }
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCForAllStmtClass;
+  }
+  static bool classof(const UPCForAllStmt *) { return true; }
+
+  // Iterators
+  child_range children() {
+    return child_range(&SubExprs[0], &SubExprs[0]+END_EXPR);
+  }
+};
+
 /// AsmStmt - This represents a GNU inline-assembly statement extension.
 ///
 class AsmStmt : public Stmt {

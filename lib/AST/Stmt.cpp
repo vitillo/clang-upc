@@ -752,6 +752,38 @@ void ForStmt::setConditionVariable(ASTContext &C, VarDecl *V) {
                                        VarRange.getEnd());
 }
 
+UPCForAllStmt::UPCForAllStmt(ASTContext &C, Stmt *Init, Expr *Cond, VarDecl *condVar, 
+                             Expr *Inc, Expr *Afnty, Stmt *Body, SourceLocation FL, SourceLocation LP, 
+                             SourceLocation RP)
+  : Stmt(UPCForAllStmtClass), ForLoc(FL), LParenLoc(LP), RParenLoc(RP) 
+{
+  SubExprs[INIT] = Init;
+  setConditionVariable(C, condVar);
+  SubExprs[COND] = reinterpret_cast<Stmt*>(Cond);
+  SubExprs[INC] = reinterpret_cast<Stmt*>(Inc);
+  SubExprs[AFNTY] = reinterpret_cast<Stmt*>(Afnty);
+  SubExprs[BODY] = Body;
+}
+
+VarDecl *UPCForAllStmt::getConditionVariable() const {
+  if (!SubExprs[CONDVAR])
+    return 0;
+  
+  DeclStmt *DS = cast<DeclStmt>(SubExprs[CONDVAR]);
+  return cast<VarDecl>(DS->getSingleDecl());
+}
+
+void UPCForAllStmt::setConditionVariable(ASTContext &C, VarDecl *V) {
+  if (!V) {
+    SubExprs[CONDVAR] = 0;
+    return;
+  }
+  
+  SourceRange VarRange = V->getSourceRange();
+  SubExprs[CONDVAR] = new (C) DeclStmt(DeclGroupRef(V), VarRange.getBegin(),
+                                       VarRange.getEnd());
+}
+
 SwitchStmt::SwitchStmt(ASTContext &C, VarDecl *Var, Expr *cond) 
   : Stmt(SwitchStmtClass), FirstCase(0), AllEnumCasesCovered(0) 
 {

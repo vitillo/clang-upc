@@ -5506,6 +5506,14 @@ def err_upc_function_shared : Error<
   "shared qualifier on function type %0">;
 def err_upc_arg_shared : Error<
   "shared qualifier on function parameter">;
+def err_upc_forall_bad_affinity : Error<
+  "affinity type %0 is not an integer or pointer-to-shared type">;
+def warn_upc_exits_upc_forall : Warning<
+  "exiting upc_forall with '%0' has undefined behavior">,
+  InGroup<UPCControl>;
+def warn_upc_enter_upc_forall : Warning<
+  "entering upc_forall with '%0' has undefined behavior">,
+  InGroup<UPCControl>;
 
 } // end of sema category
 

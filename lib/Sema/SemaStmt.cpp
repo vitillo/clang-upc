@@ -1092,6 +1092,76 @@ Sema::ActOnForStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
                                      RParenLoc));
 }
 
+StmtResult
+Sema::ActOnUPCForAllStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
+                         Stmt *First, FullExprArg second, Decl *secondVar,
+                         FullExprArg third, FullExprArg fourth,
+                         SourceLocation RParenLoc, Stmt *Body) {
+  if (!getLangOpts().CPlusPlus) {
+    if (DeclStmt *DS = dyn_cast_or_null<DeclStmt>(First)) {
+      // C99 6.8.5p3: The declaration part of a 'for' statement shall only
+      // declare identifiers for objects having storage class 'auto' or
+      // 'register'.
+      for (DeclStmt::decl_iterator DI=DS->decl_begin(), DE=DS->decl_end();
+           DI!=DE; ++DI) {
+        VarDecl *VD = dyn_cast<VarDecl>(*DI);
+        if (VD && VD->isLocalVarDecl() && !VD->hasLocalStorage())
+          VD = 0;
+        if (VD == 0)
+          Diag((*DI)->getLocation(), diag::err_non_variable_decl_in_for);
+        // FIXME: mark decl erroneous!
+      }
+    }
+  }
+
+  ExprResult SecondResult(second.release());
+  VarDecl *ConditionVar = 0;
+  if (secondVar) {
+    ConditionVar = cast<VarDecl>(secondVar);
+    SecondResult = CheckConditionVariable(ConditionVar, ForLoc, true);
+    if (SecondResult.isInvalid())
+      return StmtError();
+  }
+
+  Expr *Third  = third.release().takeAs<Expr>();
+
+  DiagnoseUnusedExprResult(First);
+  DiagnoseUnusedExprResult(Third);
+  DiagnoseUnusedExprResult(Body);
+
+  Expr *Fourth = fourth.release().takeAs<Expr>();
+  if (Fourth) {
+    ExprResult E = DefaultFunctionArrayLvalueConversion(Fourth);
+    if (E.isInvalid())
+      Fourth = 0;
+    else {
+      Fourth = E.take();
+      QualType T = Fourth->getType();
+      // UPC 1.2 6.6.2p4
+      // The expression for affinity shall have pointer-to-shared
+      // type or integer type
+      if (const PointerType *PT = dyn_cast<PointerType>(T.getTypePtr())) {
+        if (!PT->getPointeeType().getQualifiers().hasShared())
+          Diag(Fourth->getExprLoc(), diag::err_upc_forall_bad_affinity)
+            << Fourth->getType() << Fourth->getSourceRange();
+      } else if (!T->isIntegralType(Context)) {
+        Diag(Fourth->getExprLoc(), diag::err_upc_forall_bad_affinity)
+          << Fourth->getType() << Fourth->getSourceRange();
+      }
+    }
+  }
+
+  if (isa<NullStmt>(Body))
+    getCurCompoundScope().setHasEmptyLoopBodies();
+
+  getCurFunction()->setHasBranchProtectedScope();
+
+  return Owned(new (Context) UPCForAllStmt(Context, First,
+                                           SecondResult.take(), ConditionVar,
+                                           Third, Fourth, Body, ForLoc, LParenLoc,
+                                           RParenLoc));
+}
+
 /// In an Objective C collection iteration statement:
 ///   for (x in y)
 /// x can be an arbitrary l-value expression.  Bind it up as a
@@ -1692,6 +1762,8 @@ Sema::ActOnBreakStmt(SourceLocation BreakLoc, Scope *CurScope) {
   if (!S) {
     // C99 6.8.6.3p1: A break shall appear only in or as a switch/loop body.
     return StmtError(Diag(BreakLoc, diag::err_break_not_in_loop_or_switch));
+  } else if (S->isUPCForAllScope()) {
+    Diag(BreakLoc, diag::warn_upc_exits_upc_forall) << "break";
   }
 
   return Owned(new (Context) BreakStmt(BreakLoc));
@@ -2117,6 +2189,17 @@ Sema::ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
   if (getLangOpts().CPlusPlus && FnRetType->isRecordType() &&
       !CurContext->isDependentContext())
     FunctionScopes.back()->Returns.push_back(Result);
+
+  // Check for return from inside a upc_forall statement
+  if (getLangOpts().UPC) {
+    Scope * S = CurScope->getBreakParent();
+    while (S) {
+      if (S->isUPCForAllScope()) {
+        Diag(ReturnLoc, diag::warn_upc_exits_upc_forall) << "return";
+        break;
+      }
+    }
+  }
   
   return Owned(Result);
 }

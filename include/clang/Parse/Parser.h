@@ -1555,6 +1555,7 @@ private:
   StmtResult ParseWhileStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseDoStatement();
   StmtResult ParseForStatement(SourceLocation *TrailingElseLoc);
+  StmtResult ParseUPCForAllStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseGotoStatement();
   StmtResult ParseContinueStatement();
   StmtResult ParseBreakStatement();

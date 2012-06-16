@@ -82,7 +82,10 @@ public:
     SwitchScope = 0x800,
 
     /// TryScope - This is the scope of a C++ try statement.
-    TryScope = 0x1000
+    TryScope = 0x1000,
+
+    /// UPCForAllScope - This is the scope of a upc_forall statement.
+    UPCForAllScope = 0x2000
   };
 private:
   /// The parent scope for this scope.  This is null for the translation-unit
@@ -291,6 +294,9 @@ public:
   
   /// \brief Determine whether this scope is a C++ 'try' block.
   bool isTryScope() const { return getFlags() & Scope::TryScope; }
+
+  /// \brief Determine whether this scope is a 'upc_forall' block.
+  bool isUPCForAllScope() const { return getFlags() & Scope::UPCForAllScope; }
 
   /// containedInPrototypeScope - Return true if this or a parent scope
   /// is a FunctionPrototypeScope.

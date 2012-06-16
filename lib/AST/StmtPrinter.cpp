@@ -404,6 +404,41 @@ void StmtPrinter::VisitUPCPragmaStmt(UPCPragmaStmt *Node) {
     Indent() << "#pragma upc relaxed\n";
 }
 
+void StmtPrinter::VisitUPCForAllStmt(UPCForAllStmt *Node) {
+  Indent() << "upc_forall (";
+  if (Node->getInit()) {
+    if (DeclStmt *DS = dyn_cast<DeclStmt>(Node->getInit()))
+      PrintRawDeclStmt(DS);
+    else
+      PrintExpr(cast<Expr>(Node->getInit()));
+  }
+  OS << ";";
+  if (Node->getCond()) {
+    OS << " ";
+    PrintExpr(Node->getCond());
+  }
+  OS << ";";
+  if (Node->getInc()) {
+    OS << " ";
+    PrintExpr(Node->getInc());
+  }
+  OS << ";";
+  if (Node->getAfnty()) {
+    OS << " ";
+    PrintExpr(Node->getAfnty());
+  } else {
+    OS << " continue";
+  }
+  OS << ") ";
+
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(Node->getBody())) {
+    PrintRawCompoundStmt(CS);
+    OS << "\n";
+  } else {
+    OS << "\n";
+    PrintStmt(Node->getBody());
+  }
+}
 
 void StmtPrinter::VisitAsmStmt(AsmStmt *Node) {
   Indent() << "asm ";

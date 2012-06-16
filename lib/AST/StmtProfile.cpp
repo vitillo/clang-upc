@@ -179,6 +179,10 @@ void StmtProfiler::VisitUPCPragmaStmt(const UPCPragmaStmt *S) {
   ID.AddBoolean(S->getStrict());
 }
 
+void StmtProfiler::VisitUPCForAllStmt(const UPCForAllStmt *S) {
+  VisitStmt(S);
+}
+
 void StmtProfiler::VisitAsmStmt(const AsmStmt *S) {
   VisitStmt(S);
   ID.AddBoolean(S->isVolatile());

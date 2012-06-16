@@ -1199,6 +1199,19 @@ public:
     return getSema().ActOnPragmaUPC(Loc, Access);
   }
 
+  /// \brief Build a new upc_forall statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCForAllStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
+                                  Stmt *Init, Sema::FullExprArg Cond, 
+                                  VarDecl *CondVar, Sema::FullExprArg Inc,
+                                  Sema::FullExprArg Afnty,
+                                  SourceLocation RParenLoc, Stmt *Body) {
+    return getSema().ActOnUPCForAllStmt(ForLoc, LParenLoc, Init, Cond, 
+                                        CondVar, Inc, Afnty, RParenLoc, Body);
+  }
+
   /// \brief Build a new declaration statement.
   ///
   /// By default, performs semantic analysis to build the new statement.
@@ -5649,6 +5662,84 @@ TreeTransform<Derived>::TransformUPCPragmaStmt(UPCPragmaStmt *S) {
     S->getPragmaLoc(),
     S->getStrict()? Sema::PUPCK_Strict : Sema::PUPCK_Relaxed);
 }
+
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCForAllStmt(UPCForAllStmt *S) {
+  // Transform the initialization statement
+  StmtResult Init = getDerived().TransformStmt(S->getInit());
+  if (Init.isInvalid())
+    return StmtError();
+
+  // Transform the condition
+  ExprResult Cond;
+  VarDecl *ConditionVar = 0;
+  if (S->getConditionVariable()) {
+    ConditionVar 
+      = cast_or_null<VarDecl>(
+                   getDerived().TransformDefinition(
+                                      S->getConditionVariable()->getLocation(),
+                                                    S->getConditionVariable()));
+    if (!ConditionVar)
+      return StmtError();
+  } else {
+    Cond = getDerived().TransformExpr(S->getCond());
+    
+    if (Cond.isInvalid())
+      return StmtError();
+
+    if (S->getCond()) {
+      // Convert the condition to a boolean value.
+      ExprResult CondE = getSema().ActOnBooleanCondition(0, S->getForLoc(), 
+                                                         Cond.get());
+      if (CondE.isInvalid())
+        return StmtError();
+
+      Cond = CondE.get();
+    }
+  }
+
+  Sema::FullExprArg FullCond(getSema().MakeFullExpr(Cond.take()));  
+  if (!S->getConditionVariable() && S->getCond() && !FullCond.get())
+    return StmtError();
+
+  // Transform the increment
+  ExprResult Inc = getDerived().TransformExpr(S->getInc());
+  if (Inc.isInvalid())
+    return StmtError();
+
+  Sema::FullExprArg FullInc(getSema().MakeFullExpr(Inc.get()));
+  if (S->getInc() && !FullInc.get())
+    return StmtError();
+
+  // Transform the affinity
+  ExprResult Afnty = getDerived().TransformExpr(S->getAfnty());
+  if (Afnty.isInvalid())
+    return StmtError();
+
+  Sema::FullExprArg FullAfnty(getSema().MakeFullExpr(Afnty.get()));
+  if (S->getAfnty() && !FullAfnty.get())
+    return StmtError();
+
+  // Transform the body
+  StmtResult Body = getDerived().TransformStmt(S->getBody());
+  if (Body.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Init.get() == S->getInit() &&
+      FullCond.get() == S->getCond() &&
+      Inc.get() == S->getInc() &&
+      Afnty.get() == S->getAfnty() &&
+      Body.get() == S->getBody())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCForAllStmt(S->getForLoc(), S->getLParenLoc(),
+                                           Init.get(), FullCond, ConditionVar,
+                                           FullInc, FullAfnty, S->getRParenLoc(), Body.get());
+}
+
 
 template<typename Derived>
 StmtResult

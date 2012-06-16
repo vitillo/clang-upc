@@ -34,6 +34,7 @@ def UPCWaitStmt : Stmt;
 def UPCBarrierStmt : Stmt;
 def UPCFenceStmt : Stmt;
 def UPCPragmaStmt : Stmt;
+def UPCForAllStmt : Stmt;
 
 // GNU Extensions
 def AsmStmt : Stmt;

@@ -2295,6 +2295,14 @@ public:
                           FullExprArg Third,
                           SourceLocation RParenLoc,
                           Stmt *Body);
+  StmtResult ActOnUPCForAllStmt(SourceLocation ForLoc,
+                                SourceLocation LParenLoc,
+                                Stmt *First, FullExprArg Second,
+                                Decl *SecondVar,
+                                FullExprArg Third,
+                                FullExprArg Fourth,
+                                SourceLocation RParenLoc,
+                                Stmt *Body);
   ExprResult ActOnObjCForCollectionOperand(SourceLocation forLoc,
                                            Expr *collection);
   StmtResult ActOnObjCForCollectionStmt(SourceLocation ForColLoc,

@@ -240,6 +240,20 @@ void ASTStmtWriter::VisitUPCPragmaStmt(UPCPragmaStmt *S) {
   Code = serialization::STMT_UPC_PRAGMA;
 }
 
+void ASTStmtWriter::VisitUPCForAllStmt(UPCForAllStmt *S) {
+  VisitStmt(S);
+  Writer.AddStmt(S->getInit());
+  Writer.AddStmt(S->getCond());
+  Writer.AddDeclRef(S->getConditionVariable(), Record);
+  Writer.AddStmt(S->getInc());
+  Writer.AddStmt(S->getAfnty());
+  Writer.AddStmt(S->getBody());
+  Writer.AddSourceLocation(S->getForLoc(), Record);
+  Writer.AddSourceLocation(S->getLParenLoc(), Record);
+  Writer.AddSourceLocation(S->getRParenLoc(), Record);
+  Code = serialization::STMT_UPC_FORALL;
+}
+
 void ASTStmtWriter::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   Writer.AddSourceLocation(S->getStartLoc(), Record);
