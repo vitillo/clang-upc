@@ -2440,23 +2440,24 @@ void Parser::ParseDeclarationSpecifiers(DeclSpec &DS,
         ConsumeToken();
         DeclSpec::TQ LQ;
         ExprResult LayoutQualifier;
-        if (Tok.getKind() == tok::l_square) {
-          ConsumeBracket();
+
+        BalancedDelimiterTracker T(*this, tok::l_square);
+        if (!T.consumeOpen()) {
           switch (Tok.getKind()) {
           case tok::r_square:
             LQ = DeclSpec::TQ_lqexpr;
-            ConsumeBracket();
+            T.consumeClose();
             break;
           case tok::star:
             if (GetLookAheadToken(1).getKind() == tok::r_square) {
               ConsumeToken();
-              ConsumeBracket();
+              T.consumeClose();
               LQ = DeclSpec::TQ_lqstar;
               break;
             }
           default:
             LayoutQualifier = ParseConstantExpression();
-            ConsumeBracket();
+            T.consumeClose();
             LQ = DeclSpec::TQ_lqexpr;
           }
         } else {
@@ -3646,23 +3647,24 @@ void Parser::ParseTypeQualifierListOpt(DeclSpec &DS,
         EndLoc = ConsumeToken();
         DeclSpec::TQ LQ;
         ExprResult LayoutQualifier;
-        if (Tok.getKind() == tok::l_square) {
-          ConsumeBracket();
+
+        BalancedDelimiterTracker T(*this, tok::l_square);
+        if (!T.consumeOpen()) {
           switch (Tok.getKind()) {
           case tok::r_square:
             LQ = DeclSpec::TQ_lqexpr;
-            ConsumeBracket();
+            T.consumeClose();
             break;
           case tok::star:
             if (GetLookAheadToken(1).getKind() == tok::r_square) {
               ConsumeToken();
-              ConsumeBracket();
+              T.consumeClose();
               LQ = DeclSpec::TQ_lqstar;
               break;
             }
           default:
             LayoutQualifier = ParseConstantExpression();
-            ConsumeBracket();
+            T.consumeClose();
             LQ = DeclSpec::TQ_lqexpr;
           }
         } else {

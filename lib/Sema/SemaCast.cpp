@@ -2033,7 +2033,7 @@ void CastOperation::CheckCStyleCast() {
   }
 
   // If the destination is a pointer-to-shared, the
-  // source cannot be a pointer-to-local
+  // source must be a pointer-to-shared or a null pointer constant.
   if (const PointerType *CastPtr = DestType->getAs<PointerType>()) {
     if (const PointerType *ExprPtr = SrcType->getAs<PointerType>()) {
       Qualifiers CastQuals = CastPtr->getPointeeType().getQualifiers();
@@ -2056,7 +2056,33 @@ void CastOperation::CheckCStyleCast() {
           << SrcExpr.get()->getSourceRange();
         return;
       }
+    } else if (CastPtr->getPointeeType().getQualifiers().hasShared() &&
+               !SrcExpr.get()->isNullPointerConstant(
+                 Self.getASTContext(), Expr::NPC_NeverValueDependent)) {
+      Self.Diag(SrcExpr.get()->getLocStart(), diag::err_typecheck_convert_incompatible)
+        << SrcType << DestType << Sema::AA_Casting
+        << 0 << 0
+        << SrcExpr.get()->getSourceRange();
+      return;
     }
+  }
+
+  // A pointer-to-shared type cannot be converted to a non-pointer type
+  if (const PointerType *ExprPtr = SrcType->getAs<PointerType>()) {
+    if (ExprPtr->getPointeeType().getQualifiers().hasShared() &&
+        !isa<PointerType>(DestType.getTypePtr())) {
+      Self.Diag(SrcExpr.get()->getLocStart(), diag::err_typecheck_convert_incompatible)
+        << SrcType << DestType << Sema::AA_Casting
+        << 0 << 0
+        << SrcExpr.get()->getSourceRange();
+      return;
+    }
+  }
+
+  if (DestType.getQualifiers().hasShared()) {
+    Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_cast_to_shared)
+      << DestType
+      << SrcExpr.get()->getSourceRange();
   }
 
   // ARC imposes extra restrictions on casts.

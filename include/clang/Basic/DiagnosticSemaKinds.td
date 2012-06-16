@@ -5514,6 +5514,10 @@ def warn_upc_exits_upc_forall : Warning<
 def warn_upc_enter_upc_forall : Warning<
   "entering upc_forall with '%0' has undefined behavior">,
   InGroup<UPCControl>;
+def err_upc_cast_to_shared : Error<
+  "cast to shared-qualified type %0">;
+def err_upc_layout_qualifier_on_void : Error<
+  "layout qualifier on generic pointer-to-shared">;
 
 } // end of sema category
 

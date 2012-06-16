@@ -19,3 +19,5 @@ struct S {
 };
 
 shared [*] int *ptr; // expected-error{{a layout qualifier of '*' is illegal in a pointer type}}
+
+shared [1] void *vptr; // expected-error{{layout qualifier on generic pointer-to-shared}}

@@ -1212,8 +1212,12 @@ QualType Sema::BuildPointerType(QualType T,
     // UPC 1.2 6.5.2p7
     // A layout qualifier of '*' shall not appear in the
     // declaration specifiers of a pointer type.
-    if(T.getCanonicalType().getQualifiers().hasLayoutQualifierStar()) {
+    if(T.getQualifiers().hasLayoutQualifierStar()) {
       Diag(Loc, diag::err_upc_shared_star_in_pointer);
+      return QualType();
+    }
+    if (T->isVoidType() && T.getQualifiers().hasLayoutQualifier()) {
+      Diag(Loc, diag::err_upc_layout_qualifier_on_void);
       return QualType();
     }
   }

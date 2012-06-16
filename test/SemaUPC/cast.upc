@@ -140,4 +140,10 @@ int main() { // CHECK: int main()
 
     (void)(shared int*)(void*)0;
     // CHECK: CStyleCastExpr {{.*}} 'shared int *' <NullToPointer>
+
+#ifdef ERRORS
+    (void)(shared void *)1; // expected-error{{casting 'int' to incompatible type 'shared void *'}}
+    (void)(int)ptr1; // expected-error{{casting 'shared struct incomplete1 *' to incompatible type 'int'}}
+    (void)(shared int)0; // expected-error{{cast to shared-qualified type 'shared int'}}
+#endif
 }
