@@ -5518,6 +5518,8 @@ def err_upc_cast_to_shared : Error<
   "cast to shared-qualified type %0">;
 def err_upc_layout_qualifier_on_void : Error<
   "layout qualifier on generic pointer-to-shared">;
+def err_upc_reference_type_qualifier_requires_shared : Error<
+  "'%1' illegal on shared-unqualified type %0">;
 
 } // end of sema category
 

@@ -7,3 +7,8 @@ strict relaxed_type i2; // expected-error{{cannot combine with previous 'relaxed
 relaxed strict_type i3; // expected-error{{cannot combine with previous 'strict' declaration specifier}}
 strict strict_type i4;
 relaxed relaxed_type i5;
+
+relaxed int i6; // expected-error{{'relaxed' illegal on shared-unqualified type 'int'}}
+strict int i7; // expected-error{{'strict' illegal on shared-unqualified type 'int'}}
+int * relaxed ip1; // expected-error{{'relaxed' illegal on shared-unqualified type 'int *'}}
+int * strict ip2; // expected-error{{'strict' illegal on shared-unqualified type 'int *'}}

@@ -1075,6 +1075,21 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
           Quals.removeLayoutQualifier();
         }
       }
+
+      // UPC 1.2 6.5.1p4
+      // A reference type qualifier shall appear in a qualifier list
+      // only when the list also contains a shared type qualifier.
+      if (!Quals.hasShared() && !Existing.hasShared()) {
+        if (Quals.hasRelaxed()) {
+          S.Diag(DS.getRelaxedSpecLoc(), diag::err_upc_reference_type_qualifier_requires_shared)
+            << Result << "relaxed";
+          Quals.removeRelaxed();
+        } else if (Quals.hasStrict()) {
+          S.Diag(DS.getStrictSpecLoc(), diag::err_upc_reference_type_qualifier_requires_shared)
+            << Result << "strict";
+          Quals.removeStrict();
+        }
+      }
     }
 
     Result = Context.getQualifiedType(Result, Quals);
@@ -1123,6 +1138,21 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
     if (DiagID) {
       Diag(Loc, DiagID) << ProblemTy;
       Qs.removeRestrict();
+    }
+  }
+
+  // UPC 1.2 6.5.1p4
+  // A reference type qualifier shall appear in a qualifier list
+  // only when the list also contains a shared type qualifier.
+  if (!Qs.hasShared() && !T.getQualifiers().hasShared()) {
+    if (Qs.hasRelaxed()) {
+      Diag(Loc, diag::err_upc_reference_type_qualifier_requires_shared)
+        << T << "relaxed";
+      Qs.removeRelaxed();
+    } else if (Qs.hasStrict()) {
+      Diag(Loc, diag::err_upc_reference_type_qualifier_requires_shared)
+        << T << "strict";
+      Qs.removeStrict();
     }
   }
 
