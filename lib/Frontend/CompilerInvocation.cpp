@@ -1911,8 +1911,6 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PIELevel = Args.getLastArgIntValue(OPT_pie_level, 0, Diags);
   Opts.Static = Args.hasArg(OPT_static_define);
 
-  Opts.UPCThreads = Args.getLastArgIntValue(OPT_fupc_threads, 0, Diags);
-
   StringRef UPCPts = Args.getLastArgValue(OPT_fupc_pts_EQ, "packed");
   if (UPCPts == "packed") {
     if (Arg * A = Args.getLastArg(OPT_fupc_packed_bits_EQ)) {
@@ -1950,6 +1948,16 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   } else {
     Diags.Report(diag::err_drv_invalid_value)
       << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args) << UPCPts;
+  }
+
+  int Threads = Args.getLastArgIntValue(OPT_fupc_threads, 0, Diags);
+  if (Threads < 0) {
+    Diags.Report(diag::err_drv_invalid_int_value)
+      << Args.getLastArg(OPT_fupc_threads)->getAsString(Args) << Threads;
+  } else if (Threads >= (uint64_t(1u) << Opts.UPCThreadBits)) {
+    Diags.Report(diag::err_drv_invalid_upc_threads) << Threads << (1u << Opts.UPCThreadBits);
+  } else {
+    Opts.UPCThreads = Threads;
   }
 
   Opts.DumpRecordLayoutsSimple = Args.hasArg(OPT_fdump_record_layouts_simple);

@@ -19,3 +19,7 @@
 // RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=packed
 // RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=struct -fupc-packed-bits=10,20,34 2>&1 | FileCheck -check-prefix=CHECK9
 // CHECK9: invalid argument '-fupc-packed-bits=10,20,34' not allowed with '-fupc-pts=struct'
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-threads 1025 2>&1 | FileCheck -check-prefix=CHECK10
+// CHECK10: THREADS value '1025' exceeds UPC implementation limit of '1024'
+// RUN: %clang_cc1 %s -fsyntax-only -fupc-threads 50 -fupc-packed-bits=15,5,34 2>&1 | FileCheck -check-prefix=CHECK10
+// CHECK10: THREADS value '50' exceeds UPC implementation limit of '32'
