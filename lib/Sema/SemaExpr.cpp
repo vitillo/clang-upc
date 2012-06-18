@@ -4171,8 +4171,8 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
   case Type::STK_UPCSharedPointer:
     switch (DestTy->getScalarTypeKind()) {
     case Type::STK_UPCSharedPointer: {
-      QualType SrcPointee = cast<PointerType>(SrcTy.getTypePtr())->getPointeeType();
-      QualType DestPointee = cast<PointerType>(DestTy.getTypePtr())->getPointeeType();
+      QualType SrcPointee = SrcTy->getAs<PointerType>()->getPointeeType();
+      QualType DestPointee = DestTy->getAs<PointerType>()->getPointeeType();
       return CheckPointerToSharedConversion(Context, SrcPointee, DestPointee);
     }
     case Type::STK_CPointer:

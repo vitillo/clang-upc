@@ -5467,9 +5467,9 @@ def err_invalid_astype_of_different_size : Error<
 def err_upc_layout_qualifier_too_big : Error<
   "block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
 def err_upc_star_requires_threads : Error<
-  "THREADS must appear exactly once in an array declaration">;
+  "THREADS must appear exactly once in one dimension of a shared array">;
 def err_upc_dynamic_threads_requires_threads : Error<
-  "THREADS must appear exactly once in one dimension of a shared array."
+  "THREADS must appear exactly once in one dimension of a shared array"
   >;
 def err_upc_shared_local : Error<
   "shared qualifier on automatic variable">;

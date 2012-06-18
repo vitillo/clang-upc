@@ -1140,7 +1140,7 @@ Sema::ActOnUPCForAllStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
       // UPC 1.2 6.6.2p4
       // The expression for affinity shall have pointer-to-shared
       // type or integer type
-      if (const PointerType *PT = dyn_cast<PointerType>(T.getTypePtr())) {
+      if (const PointerType *PT = T->getAs<PointerType>()) {
         if (!PT->getPointeeType().getQualifiers().hasShared())
           Diag(Fourth->getExprLoc(), diag::err_upc_forall_bad_affinity)
             << Fourth->getType() << Fourth->getSourceRange();

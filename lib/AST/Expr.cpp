@@ -1185,15 +1185,15 @@ void CastExpr::CheckCastConsistency() const {
   case CK_UPCSharedToLocal:
     assert(getType()->isPointerType());
     assert(getSubExpr()->getType()->isPointerType());
-    assert(!cast<PointerType>(getType().getTypePtr())->getPointeeType().getQualifiers().hasShared());
-    assert(cast<PointerType>(getSubExpr()->getType().getTypePtr())->getPointeeType().getQualifiers().hasShared());
+    assert(!getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
+    assert(getSubExpr()->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
     goto CheckNoBasePath;
 
   case CK_UPCBitCastZeroPhase:
     assert(getType()->isPointerType());
     assert(getSubExpr()->getType()->isPointerType());
-    assert(cast<PointerType>(getType().getTypePtr())->getPointeeType().getQualifiers().hasShared());
-    assert(cast<PointerType>(getSubExpr()->getType().getTypePtr())->getPointeeType().getQualifiers().hasShared());
+    assert(getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
+    assert(getSubExpr()->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
     goto CheckNoBasePath;
       
   // These should not have an inheritance path.

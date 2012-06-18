@@ -13,6 +13,9 @@ TEST(upc_localsizeof(shared [] char[10]) == 10);
 TEST(upc_localsizeof(shared [3] char [5][THREADS]) == 6);
 TEST(upc_localsizeof(shared [3] char [THREADS][5]) == 6);
 
+typedef shared char array_type[10][THREADS];
+TEST(upc_localsizeof(array_type) == 10);
+
 #ifdef __UPC_DYNAMIC_THREADS__
 TEST(upc_localsizeof(shared char[10]) == 10);
 TEST(upc_localsizeof(shared [3] char [10]) == 12);

@@ -2070,7 +2070,7 @@ void CastOperation::CheckCStyleCast() {
   // A pointer-to-shared type cannot be converted to a non-pointer type
   if (const PointerType *ExprPtr = SrcType->getAs<PointerType>()) {
     if (ExprPtr->getPointeeType().getQualifiers().hasShared() &&
-        !isa<PointerType>(DestType.getTypePtr())) {
+        !DestType->isPointerType()) {
       Self.Diag(SrcExpr.get()->getLocStart(), diag::err_typecheck_convert_incompatible)
         << SrcType << DestType << Sema::AA_Casting
         << 0 << 0

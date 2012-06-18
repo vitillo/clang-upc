@@ -2216,8 +2216,8 @@ static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, Sourc
   int Size = S.getASTContext().getTypeSize(S.getASTContext().getSizeType());
   llvm::APInt result(Size, 1);
   bool hasTHREAD = false;
-  QualType q = T;
-  while (const ArrayType * AT = dyn_cast<ArrayType>(q.getTypePtr())) {
+  QualType CurType = T.getCanonicalType();
+  while (const ArrayType * AT = dyn_cast<ArrayType>(CurType.getTypePtr())) {
     if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
       result *= CAT->getSize();
     } else if (const UPCThreadArrayType * TAT = dyn_cast<UPCThreadArrayType>(AT)) {
@@ -2230,7 +2230,7 @@ static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, Sourc
       // Only constant size arrays can be declared shared.
       return false;
     }
-    q = AT->getElementType();
+    CurType = AT->getElementType();
   }
   if (hasTHREAD) {
     if (result.getActiveBits() > S.getLangOpts().UPCPhaseBits) {
@@ -2245,7 +2245,7 @@ static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, Sourc
   } else {
     uint64_t threads = S.getASTContext().getLangOpts().UPCThreads;
     if (threads == 0) {
-      if (isa<ArrayType>(q.getTypePtr())) {
+      if (T->isArrayType()) {
         S.Diag(Loc, diag::err_upc_star_requires_threads);
         return false;
       } else {

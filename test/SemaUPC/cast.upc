@@ -146,4 +146,11 @@ int main() { // CHECK: int main()
     (void)(int)ptr1; // expected-error{{casting 'shared struct incomplete1 *' to incompatible type 'int'}}
     (void)(shared int)0; // expected-error{{cast to shared-qualified type 'shared int'}}
 #endif
+
+    typedef shared [2] int * shared2_pointer_t;
+    typedef int * ptr_to_int_t;
+    (void)(shared [3] int *)(shared2_pointer_t)ptr6;
+    (void)(shared2_pointer_t)(shared [3] int *)ptr6;
+    (void)(int *)(shared2_pointer_t)ptr6;
+    (void)(ptr_to_int_t)(shared [2] int *)ptr6;
 }

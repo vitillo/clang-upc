@@ -16,6 +16,8 @@ int main() {
     upc_forall(int i = 0; i < THREADS; ++i; 1.0) {} // expected-error{{affinity type 'double' is not an integer or pointer-to-shared type}}
     upc_forall(int i = 0; i < THREADS; ++i; (void*)0) {} // expected-error{{affinity type 'void *' is not an integer or pointer-to-shared type}}
 
+    typedef shared int * shared_pointer_type;
+    upc_forall(int i = 0; i < THREADS; ++i; (shared_pointer_type)(array1 + i)) {}
 }
 
 void f(int val) {
