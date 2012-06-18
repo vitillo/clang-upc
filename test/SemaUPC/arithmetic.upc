@@ -124,4 +124,6 @@ int main() {
   (void)(1 + vp); // expected-error{{arithmetic on a pointer to void}}
   (void)(vp - 1); // expected-error{{arithmetic on a pointer to void}}
   (void)(vp - vp); // expected-error{{arithmetic on pointers to void}}
+  (void)(vp == p6);
+  (void)(p6 == vp);
 }

@@ -6932,7 +6932,8 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
     Qualifiers RQuals = RCanPointeeTy.getQualifiers();
     // C99 6.5.9p2 and C99 6.5.8p2
     if ((LQuals.hasShared() != RQuals.hasShared() ||
-         LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier()) &&
+         (LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier() &&
+          !LCanPointeeTy->isVoidType() && !RCanPointeeTy->isVoidType())) &&
         !LHSIsNull && !RHSIsNull) {
       diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/true);
     } else if (Context.typesAreCompatible(LCanPointeeTy.getUnqualifiedType(),
