@@ -2797,8 +2797,15 @@ static bool CheckExtensionTraitOperandType(Sema &S, QualType T,
   // C99 6.5.3.4p1:
   if (T->isFunctionType()) {
     // alignof(function) is allowed as an extension.
-    if (TraitKind == UETT_SizeOf)
-      S.Diag(Loc, diag::ext_sizeof_function_type) << ArgRange;
+    switch (TraitKind) {
+    case UETT_SizeOf:
+    case UETT_UPC_LocalSizeOf:
+    case UETT_UPC_BlockSizeOf:
+    case UETT_UPC_ElemSizeOf:
+      S.Diag(Loc, diag::ext_sizeof_function_type) << TraitKind << ArgRange;
+      break;
+    default: break;
+    }
     return false;
   }
 
@@ -2847,6 +2854,19 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(Expr *E,
   if (ExprKind == UETT_VecStep)
     return CheckVecStepTraitOperandType(*this, ExprTy, E->getExprLoc(),
                                         E->getSourceRange());
+
+  // Can only be appied to shared qualified types
+  switch (ExprKind) {
+  case UETT_UPC_LocalSizeOf:
+  case UETT_UPC_BlockSizeOf:
+  case UETT_UPC_ElemSizeOf:
+    if (!ExprTy.getQualifiers().hasShared()) {
+      Diag(E->getExprLoc(), diag::err_upc_xsizeof_applied_to_non_shared)
+        << ExprKind << E->getSourceRange();
+      return true;
+    }
+  default: break;
+  }
 
   // Whitelist some types as extensions
   if (!CheckExtensionTraitOperandType(*this, ExprTy, E->getExprLoc(),
@@ -2907,6 +2927,19 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
   if (ExprType->isDependentType())
     return false;
 
+  // Can only be appied to shared qualified types
+  switch (ExprKind) {
+  case UETT_UPC_LocalSizeOf:
+  case UETT_UPC_BlockSizeOf:
+  case UETT_UPC_ElemSizeOf:
+    if (!ExprType.getQualifiers().hasShared()) {
+      Diag(OpLoc, diag::err_upc_xsizeof_applied_to_non_shared)
+        << ExprKind << ExprRange;
+      return true;
+    }
+  default: break;
+  }
+
   // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
   //   the result is the size of the referenced type."
   // C++ [expr.alignof]p3: "When alignof is applied to a reference type, the
@@ -2947,7 +2980,7 @@ static bool CheckAlignOfExpr(Sema &S, Expr *E) {
 
   if (E->getBitField()) {
     S.Diag(E->getExprLoc(), diag::err_sizeof_alignof_bitfield)
-       << 1 << E->getSourceRange();
+       << UETT_AlignOf << E->getSourceRange();
     return true;
   }
 
@@ -3011,10 +3044,10 @@ Sema::CreateUnaryExprOrTypeTraitExpr(Expr *E, SourceLocation OpLoc,
   } else if (ExprKind == UETT_VecStep) {
     isInvalid = CheckVecStepExpr(E);
   } else if (E->getBitField()) {  // C99 6.5.3.4p1.
-    Diag(E->getExprLoc(), diag::err_sizeof_alignof_bitfield) << 0;
+    Diag(E->getExprLoc(), diag::err_sizeof_alignof_bitfield) << ExprKind;
     isInvalid = true;
   } else {
-    isInvalid = CheckUnaryExprOrTypeTraitOperand(E, UETT_SizeOf);
+    isInvalid = CheckUnaryExprOrTypeTraitOperand(E, ExprKind);
   }
 
   if (isInvalid)

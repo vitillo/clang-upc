@@ -5257,11 +5257,6 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
     Qualifiers Quals = SrcTy.getQualifiers();
     CharUnits Sizeof;
 
-    if (!Quals.hasShared()) {
-      Info.Diag(E->getExprLoc(), diag::err_upc_localsizeof_applied_to_non_shared);
-      return false;
-    }
-
     QualType CurTy = SrcTy.getCanonicalType();
 
     if ((Quals.hasLayoutQualifier() &&
@@ -5317,11 +5312,6 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
 
     Qualifiers Quals = SrcTy.getQualifiers();
 
-    if (!Quals.hasShared()) {
-      Info.Diag(E->getExprLoc(), diag::err_upc_blocksizeof_applied_to_non_shared);
-      return false;
-    }
-
     if (Quals.hasLayoutQualifier()) {
       return Success(Quals.getLayoutQualifier(), E);
     } else {
@@ -5338,11 +5328,6 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
       SrcTy = Ref->getPointeeType();
 
     Qualifiers Quals = SrcTy.getQualifiers();
-
-    if (!Quals.hasShared()) {
-      Info.Diag(E->getExprLoc(), diag::err_upc_elemsizeof_applied_to_non_shared);
-      return false;
-    }
 
     SrcTy = SrcTy.getCanonicalType();
     while(const ArrayType *AT = dyn_cast<ArrayType>(SrcTy.getTypePtr())) {

@@ -3486,15 +3486,20 @@ def err_atomic_specifier_bad_type : Error<
 
 // Expressions.
 def ext_sizeof_function_type : Extension<
-  "invalid application of 'sizeof' to a function type">, InGroup<PointerArith>;
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to a function type">,
+  InGroup<PointerArith>;
 def ext_sizeof_void_type : Extension<
-  "invalid application of '%select{sizeof|__alignof|vec_step}0' to a void "
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to a void "
   "type">, InGroup<PointerArith>;
 def err_sizeof_alignof_incomplete_type : Error<
-  "invalid application of '%select{sizeof|__alignof|vec_step}0' to an "
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to an "
   "incomplete type %1">;
 def err_sizeof_alignof_bitfield : Error<
-  "invalid application of '%select{sizeof|__alignof}0' to bit-field">;
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to bit-field">;
 def err_vecstep_non_scalar_vector_type : Error<
   "'vec_step' requires built-in scalar or vector type, %0 invalid">;
 def err_offsetof_incomplete_type : Error<
@@ -5520,6 +5525,8 @@ def err_upc_layout_qualifier_on_void : Error<
   "layout qualifier on generic pointer-to-shared">;
 def err_upc_reference_type_qualifier_requires_shared : Error<
   "'%1' illegal on shared-unqualified type %0">;
+def err_upc_xsizeof_applied_to_non_shared : Error<
+  "invalid application of 'upc_%select{|||local|block|elem}0sizeof' to a shared-unqualified type">;
 
 } // end of sema category
 
