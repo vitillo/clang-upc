@@ -1547,6 +1547,11 @@ BuildFieldReferenceExpr(Sema &S, Expr *BaseExpr, bool IsArrow,
     
     // GC attributes are never picked up by members.
     BaseQuals.removeObjCGCAttr();
+
+    // The layout qualifier of a member of a shared
+    // struct is shared []
+    if (BaseQuals.hasShared())
+      BaseQuals.setLayoutQualifier(0);
     
     // CVR attributes from the base are picked up by members,
     // except that 'mutable' members don't pick up 'const'.

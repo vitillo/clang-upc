@@ -15,3 +15,10 @@ typedef shared int int_type;
 int_type * ti; // expected<<ignored>>-decl-type{{shared int *}}
 
 shared [4] int *(*shared [4] psf4)(shared [4] int *); // expected-decl-type{{shared [4] int *(*shared [4])(shared [4] int *)}}
+
+struct struct_type {
+  int value;
+};
+
+shared struct struct_type s;
+shared [] int * struct_element_ptr = &s.value;
