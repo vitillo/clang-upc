@@ -2206,10 +2206,15 @@ Sema::ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
 
 StmtResult Sema::ActOnUPCNotifyStmt(SourceLocation NotifyLoc, Expr *IdExp) {
   ExprResult Res;
-  if (IdExp) {
-    InitializedEntity Entity =
-      InitializedEntity::InitializeTemporary(Context.IntTy);        
-    Res = PerformCopyInitialization(Entity, NotifyLoc, IdExp);
+   if (IdExp) {
+     if (!IdExp->getType()->isIntegerType()) {
+       Diag(NotifyLoc, diag::err_upc_barrier_not_int)
+         << "upc_notify" << IdExp->getType()  << IdExp->getSourceRange();
+     } else {
+       InitializedEntity Entity =
+         InitializedEntity::InitializeTemporary(Context.IntTy);        
+       Res = PerformCopyInitialization(Entity, NotifyLoc, IdExp);
+     }
   }
   return Owned(new (Context) UPCNotifyStmt(NotifyLoc, Res.take()));
 }
@@ -2217,9 +2222,14 @@ StmtResult Sema::ActOnUPCNotifyStmt(SourceLocation NotifyLoc, Expr *IdExp) {
 StmtResult Sema::ActOnUPCWaitStmt(SourceLocation WaitLoc, Expr *IdExp) {
   ExprResult Res;
   if (IdExp) {
-    InitializedEntity Entity =
-      InitializedEntity::InitializeTemporary(Context.IntTy);        
-    Res = PerformCopyInitialization(Entity, WaitLoc, IdExp);
+     if (!IdExp->getType()->isIntegerType()) {
+       Diag(WaitLoc, diag::err_upc_barrier_not_int)
+         << "upc_wait" << IdExp->getType() << IdExp->getSourceRange();
+     } else {
+       InitializedEntity Entity =
+         InitializedEntity::InitializeTemporary(Context.IntTy);        
+       Res = PerformCopyInitialization(Entity, WaitLoc, IdExp);
+     }
   }
   return Owned(new (Context) UPCWaitStmt(WaitLoc, Res.take()));
 }
@@ -2227,9 +2237,14 @@ StmtResult Sema::ActOnUPCWaitStmt(SourceLocation WaitLoc, Expr *IdExp) {
 StmtResult Sema::ActOnUPCBarrierStmt(SourceLocation BarrierLoc, Expr *IdExp) {
   ExprResult Res;
   if (IdExp) {
-    InitializedEntity Entity =
-      InitializedEntity::InitializeTemporary(Context.IntTy);        
-    Res = PerformCopyInitialization(Entity, BarrierLoc, IdExp);
+     if (!IdExp->getType()->isIntegerType()) {
+       Diag(BarrierLoc, diag::err_upc_barrier_not_int)
+         << "upc_barrier" << IdExp->getType() << IdExp->getSourceRange();
+     } else {
+       InitializedEntity Entity =
+         InitializedEntity::InitializeTemporary(Context.IntTy);        
+       Res = PerformCopyInitialization(Entity, BarrierLoc, IdExp);
+     }
   }
   return Owned(new (Context) UPCBarrierStmt(BarrierLoc, Res.take()));
 }

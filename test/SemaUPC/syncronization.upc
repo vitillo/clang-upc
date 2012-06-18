@@ -11,7 +11,10 @@ int main() {
   upc_notify (short)2;
   upc_wait (short)2;
   upc_barrier (short)2;
-  upc_notify (void*)0; // expected-warning{{incompatible pointer to integer conversion}}
-  upc_wait (void*)0; // expected-warning{{incompatible pointer to integer conversion}}
-  upc_barrier (void*)0; // expected-warning{{incompatible pointer to integer conversion}}
+  upc_notify 3.14; // expected-error{{argument of 'upc_notify' has non-integer type 'double'}}
+  upc_wait 3.14; // expected-error{{argument of 'upc_wait' has non-integer type 'double'}}
+  upc_barrier 3.14; // expected-error{{argument of 'upc_barrier' has non-integer type 'double'}}
+  upc_notify (void*)0; // expected-error{{argument of 'upc_notify' has non-integer type 'void *'}}
+  upc_wait (void*)0; // expected-error{{argument of 'upc_wait' has non-integer type 'void *'}}
+  upc_barrier (void*)0; // expected-error{{argument of 'upc_barrier' has non-integer type 'void *'}}
 }
