@@ -1750,6 +1750,7 @@ llvm::DIType CGDebugInfo::CreateTypeNode(QualType Ty, llvm::DIFile Unit) {
   case Type::FunctionNoProto:
     return CreateType(cast<FunctionType>(Ty), Unit);
   case Type::ConstantArray:
+  case Type::UPCThreadArray:
   case Type::VariableArray:
   case Type::IncompleteArray:
     return CreateType(cast<ArrayType>(Ty), Unit);
