@@ -1228,6 +1228,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return EmitComplexToScalarConversion(V, E->getType(), DestTy);
   }
 
+  case CK_UPCSharedToLocal:
+    return CGF.EmitUPCCastSharedToLocal(Visit(E), DestTy);
+
   }
 
   llvm_unreachable("unknown scalar cast");

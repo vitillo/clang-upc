@@ -32,7 +32,8 @@ CodeGenTypes::CodeGenTypes(CodeGenModule &CGM)
     TheModule(CGM.getModule()), TheTargetData(CGM.getTargetData()),
     TheABIInfo(CGM.getTargetCodeGenInfo().getABIInfo()),
     TheCXXABI(CGM.getCXXABI()),
-    CodeGenOpts(CGM.getCodeGenOpts()), CGM(CGM) {
+    CodeGenOpts(CGM.getCodeGenOpts()), CGM(CGM),
+    UPCPtsType(0) {
   SkippedLayout = false;
 }
 
@@ -385,19 +386,27 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   case Type::RValueReference: {
     const ReferenceType *RTy = cast<ReferenceType>(Ty);
     QualType ETy = RTy->getPointeeType();
-    llvm::Type *PointeeType = ConvertTypeForMem(ETy);
-    unsigned AS = Context.getTargetAddressSpace(ETy);
-    ResultType = llvm::PointerType::get(PointeeType, AS);
+    if (ETy.getQualifiers().hasShared()) {
+      ResultType = GetUPCPointerToSharedType();
+    } else {
+      llvm::Type *PointeeType = ConvertTypeForMem(ETy);
+      unsigned AS = Context.getTargetAddressSpace(ETy);
+      ResultType = llvm::PointerType::get(PointeeType, AS);
+    }
     break;
   }
   case Type::Pointer: {
     const PointerType *PTy = cast<PointerType>(Ty);
     QualType ETy = PTy->getPointeeType();
-    llvm::Type *PointeeType = ConvertTypeForMem(ETy);
-    if (PointeeType->isVoidTy())
-      PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
-    unsigned AS = Context.getTargetAddressSpace(ETy);
-    ResultType = llvm::PointerType::get(PointeeType, AS);
+    if (ETy.getQualifiers().hasShared()) {
+      ResultType = GetUPCPointerToSharedType();
+    } else {
+      llvm::Type *PointeeType = ConvertTypeForMem(ETy);
+      if (PointeeType->isVoidTy())
+        PointeeType = llvm::Type::getInt8Ty(getLLVMContext());
+      unsigned AS = Context.getTargetAddressSpace(ETy);
+      ResultType = llvm::PointerType::get(PointeeType, AS);
+    }
     break;
   }
 
@@ -565,6 +574,29 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
   
   TypeCache[Ty] = ResultType;
   return ResultType;
+}
+
+llvm::Type *CodeGenTypes::GetUPCPointerToSharedType() {
+  if (UPCPtsType)
+    return UPCPtsType;
+  
+  if (Context.getLangOpts().UPCPhaseBits +
+      Context.getLangOpts().UPCThreadBits +
+      Context.getLangOpts().UPCAddrBits == 64)
+    UPCPtsType = llvm::Type::getInt64Ty(getLLVMContext());
+  else if (true/*vaddr first*/)
+    UPCPtsType = llvm::StructType::get(
+      llvm::Type::getInt64Ty(getLLVMContext()),
+      llvm::Type::getInt32Ty(getLLVMContext()),
+      llvm::Type::getInt32Ty(getLLVMContext()),
+      NULL);
+  else
+    UPCPtsType = llvm::StructType::get(
+      llvm::Type::getInt32Ty(getLLVMContext()),
+      llvm::Type::getInt32Ty(getLLVMContext()),
+      llvm::Type::getInt64Ty(getLLVMContext()),
+      NULL);
+  return UPCPtsType;
 }
 
 /// ConvertRecordDeclType - Lay out a tagged decl type like struct or union.

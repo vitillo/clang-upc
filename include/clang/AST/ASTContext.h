@@ -662,6 +662,12 @@ public:
   /// equivalent to calling T.withConst().
   QualType getConstType(QualType T) const { return T.withConst(); }
 
+  QualType getSharedType(QualType T) const {
+    Qualifiers Quals;
+    Quals.addShared();
+    return getQualifiedType(T, Quals);
+  }
+
   /// adjustFunctionType - Change the ExtInfo on a function type.
   const FunctionType *adjustFunctionType(const FunctionType *Fn,
                                          FunctionType::ExtInfo EInfo);

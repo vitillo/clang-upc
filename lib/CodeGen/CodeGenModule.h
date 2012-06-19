@@ -130,6 +130,9 @@ namespace CodeGen {
       llvm::PointerType *Int8PtrPtrTy;
     };
 
+    /// shared void*
+    llvm::Type * GenericPtsTy;
+
     /// The width of a pointer into the generic address space.
     unsigned char PointerWidthInBits;
 

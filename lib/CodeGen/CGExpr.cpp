@@ -2349,6 +2349,11 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
                                            ConvertType(ToType));
     return MakeAddrLValue(V, E->getType());
   }
+  case CK_UPCSharedToLocal: {
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::Value *V = EmitUPCCastSharedToLocal(LV.getAddress(), E->getType());
+    return MakeAddrLValue(V, E->getType());
+  }
   }
   
   llvm_unreachable("Unhandled lvalue cast kind?");

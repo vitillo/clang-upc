@@ -1823,6 +1823,10 @@ public:
                                        bool isInc, bool isPre);
   ComplexPairTy EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
                                          bool isInc, bool isPre);
+
+  
+  llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy);
+
   //===--------------------------------------------------------------------===//
   //                            Declaration Emission
   //===--------------------------------------------------------------------===//
