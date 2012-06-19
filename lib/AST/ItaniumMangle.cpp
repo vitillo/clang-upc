@@ -2630,12 +2630,34 @@ recurse:
     case UETT_AlignOf:
       Out << 'a';
       break;
-    case UETT_VecStep:
+    case UETT_VecStep: {
       DiagnosticsEngine &Diags = Context.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
                                      "cannot yet mangle vec_step expression");
       Diags.Report(DiagID);
       return;
+    }
+    case UETT_UPC_LocalSizeOf: {
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "cannot yet mangle upc_localsizeof expression");
+      Diags.Report(DiagID);
+      return;
+    }
+    case UETT_UPC_BlockSizeOf: {
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "cannot yet mangle upc_blocksizeof expression");
+      Diags.Report(DiagID);
+      return;
+    }
+    case UETT_UPC_ElemSizeOf: {
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "cannot yet mangle upc_elemsizeof expression");
+      Diags.Report(DiagID);
+      return;
+    }
     }
     if (SAE->isArgumentType()) {
       Out << 't';
