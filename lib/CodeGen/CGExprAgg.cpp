@@ -276,6 +276,16 @@ void AggExprEmitter::EmitFinalDestCopy(const Expr *E, RValue Src, bool Ignore,
                                                       SizeVal);
     return;
   }
+
+  if (E->getType().getQualifiers().hasShared() || Dest.isShared()) {
+    QualType DestTy =
+      CGF.getContext().getQualifiedType(E->getType().getUnqualifiedType(),
+                                        Dest.getQualifiers());
+    CGF.EmitUPCAggregateCopy(Dest.getAddr(), Src.getAggregateAddr(),
+                             DestTy, E->getType());
+    return;
+  }
+
   // If the result of the assignment is used, copy the LHS there also.
   // FIXME: Pass VolatileDest as well.  I think we also need to merge volatile
   // from the source as well, as we can't eliminate it if either operand
@@ -595,7 +605,13 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
     break;
       
   case CK_LValueBitCast:
-    llvm_unreachable("should not be emitting lvalue bitcast as rvalue");
+    // This is only allowed for the implicit cast
+    // that applies the default reference type qualifier.
+    assert(CGF.getContext().getLangOpts().UPC &&
+           E->getType().getQualifiers().hasShared() &&
+           "should not be emitting lvalue bitcast as rvalue");
+    EmitAggLoadOfLValue(E);
+    break;
 
   case CK_Dependent:
   case CK_BitCast:

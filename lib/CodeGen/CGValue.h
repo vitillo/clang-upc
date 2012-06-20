@@ -211,6 +211,18 @@ public:
   bool isVolatile() const {
     return Quals.hasVolatile();
   }
+
+  bool isShared() const {
+    return Quals.hasShared();
+  }
+
+  bool isRelaxed() const {
+    return Quals.hasRelaxed();
+  }
+
+  bool isStrict() const {
+    return Quals.hasStrict();
+  }
   
   Expr *getBaseIvarExp() const { return BaseIvarExp; }
   void setBaseIvarExp(Expr *V) { BaseIvarExp = V; }
@@ -408,6 +420,10 @@ public:
 
   bool isVolatile() const {
     return Quals.hasVolatile();
+  }
+
+  bool isShared() const {
+    return Quals.hasShared();
   }
 
   Qualifiers::ObjCLifetime getObjCLifetime() const {

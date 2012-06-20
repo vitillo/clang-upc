@@ -3095,7 +3095,8 @@ public:
 } // end anonymous namespace
 
 static bool EvaluatePointer(const Expr* E, LValue& Result, EvalInfo &Info) {
-  assert(E->isRValue() && E->getType()->hasPointerRepresentation());
+  assert(E->isRValue() && (E->getType()->hasPointerRepresentation() ||
+                           E->getType()->hasPointerToSharedRepresentation()));
   return PointerExprEvaluator(Info, Result).Visit(E);
 }
 
@@ -6284,7 +6285,8 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
   } else if (E->getType()->isIntegralOrEnumerationType()) {
     if (!IntExprEvaluator(Info, Result).Visit(E))
       return false;
-  } else if (E->getType()->hasPointerRepresentation()) {
+  } else if (E->getType()->hasPointerRepresentation() ||
+             E->getType()->hasPointerToSharedRepresentation()) {
     LValue LV;
     if (!EvaluatePointer(E, LV, Info))
       return false;

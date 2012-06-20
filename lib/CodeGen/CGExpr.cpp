@@ -856,6 +856,10 @@ CodeGenFunction::tryEmitAsConstant(DeclRefExpr *refExpr) {
 }
 
 llvm::Value *CodeGenFunction::EmitLoadOfScalar(LValue lvalue) {
+  if (lvalue.isShared()) {
+    assert(lvalue.isStrict() || lvalue.isRelaxed());
+    return EmitUPCLoad(lvalue.getAddress(), lvalue.isStrict(), lvalue.getType());
+  }
   return EmitLoadOfScalar(lvalue.getAddress(), lvalue.isVolatile(),
                           lvalue.getAlignment().getQuantity(),
                           lvalue.getType(), lvalue.getTBAAInfo());
@@ -2334,12 +2338,16 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     return MakeAddrLValue(Derived, E->getType());
   }
   case CK_LValueBitCast: {
+    QualType Ty;
     // This must be a reinterpret_cast (or c-style equivalent).
-    const ExplicitCastExpr *CE = cast<ExplicitCastExpr>(E);
-    
+    if (const ExplicitCastExpr *CE = dyn_cast<ExplicitCastExpr>(E)) {
+      Ty = CE->getTypeAsWritten();
+    } else {
+      Ty = getContext().getPointerType(E->getType());
+    }
     LValue LV = EmitLValue(E->getSubExpr());
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(),
-                                           ConvertType(CE->getTypeAsWritten()));
+                                           ConvertType(Ty));
     return MakeAddrLValue(V, E->getType());
   }
   case CK_ObjCObjectLValueCast: {

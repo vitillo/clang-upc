@@ -2739,6 +2739,7 @@ Value *ScalarExprEmitter::VisitAtomicExpr(AtomicExpr *E) {
 //                         Entry Point into this File
 //===----------------------------------------------------------------------===//
 
+
 /// EmitScalarExpr - Emit the computation of the specified expression of scalar
 /// type, ignoring the result.
 Value *CodeGenFunction::EmitScalarExpr(const Expr *E, bool IgnoreResultAssign) {

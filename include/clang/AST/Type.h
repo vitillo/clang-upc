@@ -1666,6 +1666,11 @@ public:
   /// interface types, as well as nullptr_t.
   bool hasPointerRepresentation() const;
 
+  /// hasPointerToSharedRepresentation - Whether this type is represented
+  /// as a UPC pointer-to-shared; this includes pointer and references,
+  /// with a shared-qualified pointee type.
+  bool hasPointerToSharedRepresentation() const;
+
   /// hasObjCPointerRepresentation - Whether this type can represent
   /// an objective pointer type for the purpose of GC'ability
   bool hasObjCPointerRepresentation() const;
@@ -5080,7 +5085,19 @@ inline bool Type::canDecayToPointerType() const {
   return isFunctionType() || isArrayType();
 }
 
+inline bool Type::hasPointerToSharedRepresentation() const {
+  if (const PointerType * PT = getAs<PointerType>()) {
+    return PT->getPointeeType().getQualifiers().hasShared();
+  } else if (const ReferenceType * RT = getAs<ReferenceType>()) {
+    return RT->getPointeeType().getQualifiers().hasShared();
+  } else {
+    return false;
+  }
+}
+
 inline bool Type::hasPointerRepresentation() const {
+  if (hasPointerToSharedRepresentation())
+    return false;
   return (isPointerType() || isReferenceType() || isBlockPointerType() ||
           isObjCObjectPointerType() || isNullPtrType());
 }
