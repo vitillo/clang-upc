@@ -1034,7 +1034,16 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       
   case CK_LValueBitCast: 
   case CK_ObjCObjectLValueCast: {
-    Value *V = EmitLValue(E).getAddress();
+    LValue LV = EmitLValue(E);
+    if (LV.isBitField()) {
+      // This can only be the qualifier conversion
+      // used to add strict/relaxed
+      assert(DestTy->getCanonicalTypeUnqualified() ==
+             E->getType()->getCanonicalTypeUnqualified());
+      return EmitLoadOfLValue(LValue::MakeBitfield(
+          LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(), DestTy));
+    }
+    Value *V = LV.getAddress();
     V = Builder.CreateBitCast(V, 
                           ConvertType(CGF.getContext().getPointerType(DestTy)));
     return EmitLoadOfLValue(CGF.MakeNaturalAlignAddrLValue(V, DestTy));
