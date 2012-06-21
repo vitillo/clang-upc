@@ -979,6 +979,11 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, llvm::Value *Addr,
 
 void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
     bool isInit) {
+  if (lvalue.isShared()) {
+    assert(lvalue.isStrict() || lvalue.isRelaxed());
+    EmitUPCStore(value, lvalue.getAddress(), lvalue.isStrict(), lvalue.getType());
+    return;
+  }
   EmitStoreOfScalar(value, lvalue.getAddress(), lvalue.isVolatile(),
                     lvalue.getAlignment().getQuantity(), lvalue.getType(),
                     lvalue.getTBAAInfo(), isInit);

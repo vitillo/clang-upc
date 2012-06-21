@@ -120,6 +120,41 @@ llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr, bool isStrict, Qual
   }
 }
 
+void CodeGenFunction::EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict, QualType Ty) {
+
+  const ASTContext& Context = getContext();
+  QualType AddrTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
+  QualType ValTy = Ty->getCanonicalTypeUnqualified();
+  llvm::SmallString<16> Name("__put");
+  if (isStrict) Name += 's';
+
+  if (const char * ID = getUPCTypeID(*this, ValTy)) {
+    Name += ID;
+    Name += "2";
+
+    llvm::Type *ValLTy = ConvertTypeForMem(ValTy);
+
+    Value = EmitToMemory(Value, Ty);
+    if (Value->getType()->isPointerTy())
+      Value = Builder.CreatePtrToInt(Value, ValLTy);
+    else
+      Value = Builder.CreateBitCast(Value, ValLTy);
+
+    CallArgList Args;
+    Args.add(RValue::get(Addr), AddrTy);
+    Args.add(RValue::get(Value), ValTy);
+    QualType ArgTypes[] = { AddrTy, ValTy };
+    QualType FuncType = Context.getFunctionType(Context.VoidTy, ArgTypes, 2, FunctionProtoType::ExtProtoInfo());
+    const CGFunctionInfo &Info = getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
+    llvm::FunctionType * FTy = cast<llvm::FunctionType>(ConvertType(FuncType));
+    llvm::Value * Fn = CGM.CreateRuntimeFunction(FTy, Name);
+
+    EmitCall(Info, Fn, ReturnValueSlot(), Args);
+  } else {
+    // FIXME
+  }
+}
+
 void CodeGenFunction::EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
                                            QualType DestTy, QualType SrcTy) {
   const ASTContext& Context = getContext();

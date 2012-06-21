@@ -1827,6 +1827,7 @@ public:
   
   llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty);
+  void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict, QualType Ty);
   void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
                             QualType SrcTy, QualType DestTy);
 
