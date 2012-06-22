@@ -1498,6 +1498,11 @@ static llvm::Value *
 EmitBitCastOfLValueToProperType(CodeGenFunction &CGF,
                                 llvm::Value *V, llvm::Type *IRType,
                                 StringRef Name = StringRef()) {
+  if (!V->getType()->isPointerTy()) {
+    // We have a UPC pointer-to-shared.
+    // The LLVM type is fixed.
+    return V;
+  }
   unsigned AS = cast<llvm::PointerType>(V->getType())->getAddressSpace();
   return CGF.Builder.CreateBitCast(V, IRType->getPointerTo(AS), Name);
 }
@@ -2062,7 +2067,10 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   } else {
     // For structs, we GEP to the field that the record layout suggests.
     unsigned idx = CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field);
-    addr = Builder.CreateStructGEP(addr, idx, field->getName());
+    if (base.isShared())
+      addr = EmitUPCFieldOffset(addr, ConvertType(rec), idx);
+    else
+      addr = Builder.CreateStructGEP(addr, idx, field->getName());
 
     // If this is a reference field, load the reference right now.
     if (const ReferenceType *refType = type->getAs<ReferenceType>()) {

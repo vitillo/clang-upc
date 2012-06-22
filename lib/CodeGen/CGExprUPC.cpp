@@ -390,3 +390,16 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
 
   return EmitUPCPointer(Phase, Thread, Addr);
 }
+
+llvm::Value *CodeGenFunction::EmitUPCFieldOffset(llvm::Value *Addr,
+                                                 llvm::Type * StructTy,
+                                                 int Idx) {
+  const llvm::StructLayout * Layout =
+    CGM.getTargetData().getStructLayout(cast<llvm::StructType>(StructTy));
+  llvm::Value * Offset =
+    llvm::ConstantInt::get(SizeTy, Layout->getElementOffset(Idx));
+  return EmitUPCPointer(
+    llvm::ConstantInt::get(SizeTy, 0),
+    EmitUPCPointerGetThread(Addr),
+    Builder.CreateAdd(EmitUPCPointerGetAddr(Addr), Offset));
+}

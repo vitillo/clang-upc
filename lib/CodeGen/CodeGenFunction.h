@@ -1827,16 +1827,21 @@ public:
   
   llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty);
-  void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict, QualType Ty);
+  void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
+                    QualType Ty);
   void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
                             QualType SrcTy, QualType DestTy);
   llvm::Value *EmitUPCPointerGetPhase(llvm::Value *Pointer);
   llvm::Value *EmitUPCPointerGetThread(llvm::Value *Pointer);
   llvm::Value *EmitUPCPointerGetAddr(llvm::Value *Pointer);
-  llvm::Value *EmitUPCPointer(llvm::Value *Phase, llvm::Value *Thread, llvm::Value *Addr);
+  llvm::Value *EmitUPCPointer(llvm::Value *Phase, llvm::Value *Thread,
+                              llvm::Value *Addr);
   llvm::Value *EmitUPCThreads();
   llvm::Value *EmitUPCPointerArithmetic(llvm::Value *LHS, llvm::Value *RHS,
-                                        QualType PtrTy, const Expr *E, bool isSubtraction);
+                                        QualType PtrTy, const Expr *E,
+                                        bool isSubtraction);
+  llvm::Value *EmitUPCFieldOffset(llvm::Value *Addr, llvm::Type * StructTy,
+                                  int Idx);
 
   //===--------------------------------------------------------------------===//
   //                            Declaration Emission
