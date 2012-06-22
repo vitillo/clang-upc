@@ -2047,6 +2047,13 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
 }
 
 Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
+  if (isUPCPointerToSharedTy(op.LHS->getType())) {
+    if (isUPCPointerToSharedTy(op.RHS->getType()))
+      return CGF.EmitUPCPointerDiff(op.LHS, op.RHS, op.E);
+    else
+      return CGF.EmitUPCPointerArithmetic(op.LHS, op.RHS, op.Ty, op.E, /*subtraction*/ true);
+  }
+
   // The LHS is always a pointer if either side is.
   if (!op.LHS->getType()->isPointerTy()) {
     if (op.Ty->isSignedIntegerOrEnumerationType()) {

@@ -391,6 +391,52 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
   return EmitUPCPointer(Phase, Thread, Addr);
 }
 
+llvm::Value *CodeGenFunction::EmitUPCPointerDiff(
+    llvm::Value *Pointer1, llvm::Value *Pointer2, const Expr *E) {
+
+  const BinaryOperator *expr = cast<BinaryOperator>(E);
+  Expr *LHSOperand = expr->getLHS();
+  QualType PtrTy = LHSOperand->getType();
+
+  llvm::Value *Phase1 = EmitUPCPointerGetPhase(Pointer1);
+  llvm::Value *Thread1 = EmitUPCPointerGetThread(Pointer1);
+  llvm::Value *Addr1 = EmitUPCPointerGetAddr(Pointer1);
+
+  llvm::Value *Phase2 = EmitUPCPointerGetPhase(Pointer2);
+  llvm::Value *Thread2 = EmitUPCPointerGetThread(Pointer2);
+  llvm::Value *Addr2 = EmitUPCPointerGetAddr(Pointer2);
+
+  QualType PointeeTy = PtrTy->getAs<PointerType>()->getPointeeType();
+  QualType ElemTy = PointeeTy;
+  while (const ArrayType *AT = getContext().getAsArrayType(ElemTy))
+    ElemTy = AT->getElementType();
+  Qualifiers Quals = ElemTy.getQualifiers();
+
+  llvm::Constant *ElemSize = 
+    llvm::ConstantInt::get(SizeTy, getContext().getTypeSize(ElemTy));
+  llvm::Value *AddrByteDiff = Builder.CreateSub(Addr1, Addr2, "addr.diff");
+  llvm::Value *AddrDiff = Builder.CreateExactSDiv(AddrByteDiff, ElemSize);
+
+  llvm::Value *Result;
+
+  if (Quals.getLayoutQualifier() == 0) {
+    Result = AddrDiff;
+  } else {
+    llvm::Constant *B = llvm::ConstantInt::get(SizeTy, Quals.getLayoutQualifier());
+    llvm::Value *Threads = Builder.CreateZExt(EmitUPCThreads(), SizeTy);
+
+    llvm::Value *ThreadDiff = Builder.CreateMul(Builder.CreateSub(Thread1, Thread2, "thread.diff"), B);
+    llvm::Value *PhaseDiff = Builder.CreateSub(Phase1, Phase2, "phase.diff");
+    llvm::Value *BlockDiff =
+      Builder.CreateMul(Builder.CreateSub(AddrDiff, PhaseDiff), Threads, "block.diff");
+
+    Result = Builder.CreateAdd(BlockDiff, Builder.CreateMul(ThreadDiff, PhaseDiff), "ptr.diff");
+  }
+
+  // FIXME: Divide by the array dimension
+  return Result;
+}
+
 llvm::Value *CodeGenFunction::EmitUPCFieldOffset(llvm::Value *Addr,
                                                  llvm::Type * StructTy,
                                                  int Idx) {
