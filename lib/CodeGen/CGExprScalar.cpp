@@ -2294,6 +2294,9 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,unsigned UICmpOpc,
     } else if (LHSTy->hasSignedIntegerRepresentation()) {
       Result = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
                                   LHS, RHS, "cmp");
+    } else if (LHSTy->hasPointerToSharedRepresentation()) {
+      // UPC shared pointers
+      Result = CGF.EmitUPCPointerCompare(LHS, RHS, E);
     } else {
       // Unsigned integers and pointers.
       Result = Builder.CreateICmp((llvm::ICmpInst::Predicate)UICmpOpc,

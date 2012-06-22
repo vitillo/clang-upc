@@ -437,6 +437,78 @@ llvm::Value *CodeGenFunction::EmitUPCPointerDiff(
   return Result;
 }
 
+llvm::Value *CodeGenFunction::EmitUPCPointerCompare(
+    llvm::Value *Pointer1, llvm::Value *Pointer2, const BinaryOperator *E) {
+
+  QualType PtrTy = E->getLHS()->getType();
+
+  QualType PointeeTy = PtrTy->getAs<PointerType>()->getPointeeType();
+  QualType ElemTy = PointeeTy;
+  while (const ArrayType *AT = getContext().getAsArrayType(ElemTy))
+    ElemTy = AT->getElementType();
+  Qualifiers Quals = ElemTy.getQualifiers();
+
+  // Use the standard transformations so we only
+  // have to implement < and ==.
+  bool Flip = false;
+  switch (E->getOpcode()) {
+  case BO_EQ: break;
+  case BO_NE: Flip = true; break;
+  case BO_LT: break;
+  case BO_GT: std::swap(Pointer1, Pointer2); break;
+  case BO_LE: std::swap(Pointer1, Pointer2); Flip = true; break;
+  case BO_GE: Flip = true; break;
+  default: llvm_unreachable("expected a comparison operator");
+  }
+
+  llvm::Value *Phase1 = EmitUPCPointerGetPhase(Pointer1);
+  llvm::Value *Thread1 = EmitUPCPointerGetThread(Pointer1);
+  llvm::Value *Addr1 = EmitUPCPointerGetAddr(Pointer1);
+
+  llvm::Value *Phase2 = EmitUPCPointerGetPhase(Pointer2);
+  llvm::Value *Thread2 = EmitUPCPointerGetThread(Pointer2);
+  llvm::Value *Addr2 = EmitUPCPointerGetAddr(Pointer2);
+
+  llvm::Value *Result;
+  // Equality has to work correctly even if the pointers
+  // are not in the same array.
+  if (E->getOpcode() == BO_EQ || E->getOpcode() == BO_NE) {
+    Result = Builder.CreateAnd(Builder.CreateICmpEQ(Addr1, Addr2),
+                               Builder.CreateICmpEQ(Thread1, Thread2));
+  } else if (Quals.getLayoutQualifier() == 0) {
+    Result = Builder.CreateICmpULT(Addr1, Addr2);
+  } else {
+    llvm::IntegerType *BoolTy = llvm::Type::getInt1Ty(CGM.getLLVMContext());
+    llvm::Constant *LTResult = llvm::ConstantInt::get(BoolTy, 1);
+    llvm::Constant *GTResult = llvm::ConstantInt::get(BoolTy, 0);
+
+    llvm::Constant *ElemSize = 
+      llvm::ConstantInt::get(SizeTy, getContext().getTypeSize(ElemTy));
+    llvm::Value *AddrByteDiff = Builder.CreateSub(Addr1, Addr2, "addr.diff");
+    llvm::Value *PhaseDiff = Builder.CreateSub(Phase1, Phase2, "phase.diff");
+    llvm::Value *PhaseByteDiff = Builder.CreateMul(PhaseDiff, ElemSize);
+    llvm::Value *TestBlockLT = Builder.CreateICmpSLT(AddrByteDiff, PhaseByteDiff);
+    llvm::Value *TestBlockEQ = Builder.CreateICmpEQ(AddrByteDiff, PhaseByteDiff);
+    llvm::Value *TestThreadLT = Builder.CreateICmpULT(Thread1, Thread2);
+    llvm::Value *TestThreadEQ = Builder.CreateICmpEQ(Thread1, Thread2);
+    
+    // Compare the block first, then the thread, then the phase
+    Result = Builder.CreateSelect(TestBlockLT,
+      LTResult,
+      Builder.CreateSelect(TestBlockEQ,
+        Builder.CreateSelect(TestThreadLT,
+          LTResult,
+          Builder.CreateSelect(TestThreadEQ,
+            Builder.CreateICmpULT(Phase1, Phase2),
+            GTResult)),
+        GTResult));
+  }
+
+  if (Flip)
+    Result = Builder.CreateNot(Result);
+  return Result;
+}
+
 llvm::Value *CodeGenFunction::EmitUPCFieldOffset(llvm::Value *Addr,
                                                  llvm::Type * StructTy,
                                                  int Idx) {

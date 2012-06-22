@@ -1842,6 +1842,8 @@ public:
                                         bool isSubtraction);
   llvm::Value *EmitUPCPointerDiff(llvm::Value *LHS, llvm::Value *RHS,
                                   const Expr *E);
+  llvm::Value *EmitUPCPointerCompare(llvm::Value *LHS, llvm::Value *RHS,
+                                     const BinaryOperator *E);
   llvm::Value *EmitUPCFieldOffset(llvm::Value *Addr, llvm::Type * StructTy,
                                   int Idx);
 
