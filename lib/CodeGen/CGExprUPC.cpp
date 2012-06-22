@@ -198,4 +198,195 @@ void CodeGenFunction::EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
   llvm::FunctionType * FTy = cast<llvm::FunctionType>(ConvertType(FuncType));
   llvm::Value * Fn = CGM.CreateRuntimeFunction(FTy, Name);
   EmitCall(Info, Fn, ReturnValueSlot(), Args);
+
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointerGetPhase(llvm::Value *Pointer) {
+  const LangOptions& LangOpts = getContext().getLangOpts();
+  unsigned PhaseBits = LangOpts.UPCPhaseBits;
+  unsigned ThreadBits = LangOpts.UPCThreadBits;
+  unsigned AddrBits = LangOpts.UPCAddrBits;
+  if (PhaseBits + ThreadBits + AddrBits == 64) {
+    llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
+    if (/*addr first*/true) {
+      return Builder.CreateLShr(Val, ThreadBits + AddrBits);
+    } else {
+      return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, PhaseBits));
+    }
+  } else {
+    if (/*addr first*/true) {
+      return Builder.CreateZExt(Builder.CreateExtractValue(Pointer, 2), Int64Ty);
+    } else {
+      return Builder.CreateZExt(Builder.CreateExtractValue(Pointer, 0), Int64Ty);
+    }
+  }
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointerGetThread(llvm::Value *Pointer) {
+  const LangOptions& LangOpts = getContext().getLangOpts();
+  unsigned PhaseBits = LangOpts.UPCPhaseBits;
+  unsigned ThreadBits = LangOpts.UPCThreadBits;
+  unsigned AddrBits = LangOpts.UPCAddrBits;
+  if (PhaseBits + ThreadBits + AddrBits == 64) {
+    llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
+    if (/*addr first*/true) {
+      Val = Builder.CreateLShr(Val, AddrBits);
+    } else {
+      Val = Builder.CreateLShr(Val, PhaseBits);
+    }
+    return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, ThreadBits));
+  } else {
+    return Builder.CreateZExt(Builder.CreateExtractValue(Pointer, 1), Int64Ty);
+  }
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointerGetAddr(llvm::Value *Pointer) {
+  const LangOptions& LangOpts = getContext().getLangOpts();
+  unsigned PhaseBits = LangOpts.UPCPhaseBits;
+  unsigned ThreadBits = LangOpts.UPCThreadBits;
+  unsigned AddrBits = LangOpts.UPCAddrBits;
+  if (PhaseBits + ThreadBits + AddrBits == 64) {
+    llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
+    if (/*addr first*/true) {
+      return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, AddrBits));
+    } else {
+      return Builder.CreateLShr(Val, ThreadBits + PhaseBits);
+    }
+  } else {
+    if (/*addr first*/true) {
+      return Builder.CreateExtractValue(Pointer, 0);
+    } else {
+      return Builder.CreateExtractValue(Pointer, 2);
+    }
+  }
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointer(llvm::Value *Phase, llvm::Value *Thread, llvm::Value *Addr) {
+  const LangOptions& LangOpts = getContext().getLangOpts();
+  unsigned PhaseBits = LangOpts.UPCPhaseBits;
+  unsigned ThreadBits = LangOpts.UPCThreadBits;
+  unsigned AddrBits = LangOpts.UPCAddrBits;
+  llvm::Value *Result = llvm::UndefValue::get(GenericPtsTy);
+  if (PhaseBits + ThreadBits + AddrBits == 64) {
+    llvm::Value *Val;
+    if (/*addr first*/true) {
+      Val = Builder.CreateOr(Builder.CreateShl(Phase, ThreadBits + AddrBits),
+                             Builder.CreateOr(Builder.CreateShl(Thread, AddrBits),
+                                              Addr));
+    } else {
+      Val = Builder.CreateOr(Builder.CreateShl(Addr, ThreadBits + PhaseBits),
+                             Builder.CreateOr(Builder.CreateShl(Thread, AddrBits),
+                                              Phase));
+    }
+    Result = Builder.CreateInsertValue(Result, Val, 0);
+  } else {
+    Phase = Builder.CreateTrunc(Phase, Int32Ty);
+    Thread = Builder.CreateTrunc(Thread, Int32Ty);
+    if (/*addr first*/true) {
+      Result = Builder.CreateInsertValue(Result, Addr, 0);
+      Result = Builder.CreateInsertValue(Result, Thread, 1);
+      Result = Builder.CreateInsertValue(Result, Phase, 2);
+    } else {
+      Result = Builder.CreateInsertValue(Result, Phase, 0);
+      Result = Builder.CreateInsertValue(Result, Thread, 1);
+      Result = Builder.CreateInsertValue(Result, Addr, 2);
+    }
+  }
+  return Result;
+}
+
+llvm::Constant *CodeGenModule::getUPCThreads() {
+  if (!UPCThreads) {
+    if (getModule().getNamedGlobal("THREADS"))
+      UPCThreads = getModule().getOrInsertGlobal("THREADS", IntTy);
+    else
+      UPCThreads = new llvm::GlobalVariable(getModule(), IntTy, true,
+                                            llvm::GlobalValue::ExternalLinkage, 0,
+                                            "THREADS");
+  }
+  return UPCThreads;
+}
+
+llvm::Value *CodeGenFunction::EmitUPCThreads() {
+  return Builder.CreateLoad(CGM.getUPCThreads());
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
+    llvm::Value *Pointer, llvm::Value *Index, QualType PtrTy, const Expr *E, bool IsSubtraction) {
+
+  const BinaryOperator *expr = cast<BinaryOperator>(E);
+  Expr *pointerOperand = expr->getLHS();
+  Expr *indexOperand = expr->getRHS();
+
+  if (!IsSubtraction && !Index->getType()->isIntegerTy()) {
+    std::swap(Pointer, Index);
+    std::swap(pointerOperand, indexOperand);
+  }
+  llvm::Value *Phase = EmitUPCPointerGetPhase(Pointer);
+  llvm::Value *Thread = EmitUPCPointerGetThread(Pointer);
+  llvm::Value *Addr = EmitUPCPointerGetAddr(Pointer);
+
+  QualType PointeeTy = PtrTy->getAs<PointerType>()->getPointeeType();
+  QualType ElemTy = PointeeTy;
+  while (const ArrayType *AT = getContext().getAsArrayType(ElemTy))
+    ElemTy = AT->getElementType();
+  Qualifiers Quals = ElemTy.getQualifiers();
+
+  unsigned width = cast<llvm::IntegerType>(Index->getType())->getBitWidth();
+  if (width != PointerWidthInBits) {
+    // Zero-extend or sign-extend the pointer value according to
+    // whether the index is signed or not.
+    bool isSigned = indexOperand->getType()->isSignedIntegerOrEnumerationType();
+    Index = Builder.CreateIntCast(Index, PtrDiffTy, isSigned,
+                                      "idx.ext");
+  }
+
+  if (IsSubtraction)
+    Index = Builder.CreateNeg(Index);
+
+  if (Quals.getLayoutQualifier() == 0) {
+    // UPC 1.2 6.4.2p2
+    // If the shared array is declared with indefinite block size,
+    // the result of the pointer-to-shared arithmetic is identical
+    // to that described for normal C pointers in [IOS/IEC00 Sec 6.5.2]
+    // except that the thread of the new pointer shall be the
+    // same as that of the original pointer and the phase
+    // component is defined to always be zero.
+
+    Addr = Builder.CreateAdd(Addr, Index, "add.addr");
+  } else {
+    llvm::Value *OldPhase = Phase;
+    llvm::Constant *B = llvm::ConstantInt::get(SizeTy, Quals.getLayoutQualifier());
+    llvm::Value *Threads = Builder.CreateZExt(EmitUPCThreads(), SizeTy);
+    llvm::Value *GlobalBlockSize = Builder.CreateNUWMul(Threads, B);
+    // Combine the Phase and Thread into a single unit
+    llvm::Value *TmpPhaseThread =
+      Builder.CreateNUWAdd(Builder.CreateNUWMul(Thread, B),
+                           Phase);
+
+    TmpPhaseThread = Builder.CreateAdd(TmpPhaseThread, Index);
+
+    // Div is the number of (B * THREADS) blocks that we need to jump
+    // Rem is Thread * B + Phase
+    llvm::Value *Div = Builder.CreateSRem(TmpPhaseThread, GlobalBlockSize);
+    llvm::Value *Rem = Builder.CreateSDiv(TmpPhaseThread, GlobalBlockSize);
+    // Fix the result of the division/modulus
+    llvm::Value *Test = Builder.CreateICmpSLT(Rem, llvm::ConstantInt::get(SizeTy, 0));
+    Rem = Builder.CreateSelect(Test, Builder.CreateAdd(Rem, GlobalBlockSize), Rem);
+    llvm::Value *DecDiv = Builder.CreateSub(Div, llvm::ConstantInt::get(SizeTy, 1));
+    Div = Builder.CreateSelect(Test, DecDiv, Div);
+
+    // Split out the Phase and Thread components
+    Thread = Builder.CreateUDiv(Rem, B);
+    Phase = Builder.CreateURem(Rem, B);
+
+    // Compute the final Addr.
+    llvm::Value *AddrInc =
+      Builder.CreateMul(Builder.CreateAdd(Builder.CreateSub(Phase, OldPhase),
+                                          Builder.CreateMul(Div, B)),
+                        llvm::ConstantInt::get(SizeTy, getContext().getTypeSize(ElemTy)));
+    Addr = Builder.CreateAdd(Addr, AddrInc);
+  }
+
+  return EmitUPCPointer(Phase, Thread, Addr);
 }

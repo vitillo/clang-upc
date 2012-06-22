@@ -338,6 +338,13 @@ class CodeGenModule : public CodeGenTypeCache {
   bool shouldEmitFunction(const FunctionDecl *F);
   llvm::LLVMContext &VMContext;
 
+  /// @name Cache for UPC Globals
+  /// @{
+
+  llvm::Constant *UPCThreads;
+
+  /// @}
+
   /// @name Cache for Blocks Runtime Globals
   /// @{
 
@@ -696,6 +703,8 @@ public:
   /// specified type and name.
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
                                         StringRef Name);
+
+  llvm::Constant *getUPCThreads();
 
   ///@name Custom Blocks Runtime Interfaces
   ///@{

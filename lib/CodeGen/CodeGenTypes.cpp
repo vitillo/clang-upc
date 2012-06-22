@@ -583,7 +583,10 @@ llvm::Type *CodeGenTypes::GetUPCPointerToSharedType() {
   if (Context.getLangOpts().UPCPhaseBits +
       Context.getLangOpts().UPCThreadBits +
       Context.getLangOpts().UPCAddrBits == 64)
-    UPCPtsType = llvm::Type::getInt64Ty(getLLVMContext());
+    UPCPtsType = llvm::StructType::create(
+      "__upc_shared_pointer_type",
+      llvm::Type::getInt64Ty(getLLVMContext()),
+      NULL);
   else if (true/*vaddr first*/)
     UPCPtsType = llvm::StructType::create(
       "__upc_shared_pointer_type",

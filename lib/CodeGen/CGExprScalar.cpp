@@ -2013,10 +2013,21 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   return CGF.Builder.CreateInBoundsGEP(pointer, index, "add.ptr");
 }
 
+static bool isUPCPointerToSharedTy(llvm::Type * Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    return ST->hasName() && ST->getName() == "__upc_shared_pointer_type";
+  }
+  return false;
+}
+
 Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
   if (op.LHS->getType()->isPointerTy() ||
       op.RHS->getType()->isPointerTy())
     return emitPointerArithmetic(CGF, op, /*subtraction*/ false);
+
+  if (isUPCPointerToSharedTy(op.LHS->getType()) ||
+      isUPCPointerToSharedTy(op.RHS->getType()))
+    return CGF.EmitUPCPointerArithmetic(op.LHS, op.RHS, op.Ty, op.E, /*subtraction*/ false);
 
   if (op.Ty->isSignedIntegerOrEnumerationType()) {
     switch (CGF.getContext().getLangOpts().getSignedOverflowBehavior()) {
