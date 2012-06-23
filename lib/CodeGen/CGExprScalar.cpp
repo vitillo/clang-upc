@@ -1041,7 +1041,8 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       assert(DestTy->getCanonicalTypeUnqualified() ==
              E->getType()->getCanonicalTypeUnqualified());
       return EmitLoadOfLValue(LValue::MakeBitfield(
-          LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(), DestTy));
+        LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
+        DestTy, LV.getBitFieldBaseType()));
     }
     Value *V = LV.getAddress();
     V = Builder.CreateBitCast(V, 

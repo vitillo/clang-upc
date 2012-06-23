@@ -1827,8 +1827,12 @@ public:
   
   llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty);
+  llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, llvm::Type *LTy,
+                           uint64_t Size, uint64_t Align);
   void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
                     QualType Ty);
+  void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
+                    uint64_t Size, uint64_t Align);
   void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
                             QualType SrcTy, QualType DestTy);
   llvm::Value *EmitUPCPointerGetPhase(llvm::Value *Pointer);
@@ -1846,6 +1850,7 @@ public:
                                      const BinaryOperator *E);
   llvm::Value *EmitUPCFieldOffset(llvm::Value *Addr, llvm::Type * StructTy,
                                   int Idx);
+  llvm::Value *EmitUPCPointerAdd(llvm::Value *Addr, int Idx);
 
   //===--------------------------------------------------------------------===//
   //                            Declaration Emission

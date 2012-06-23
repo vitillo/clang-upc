@@ -1043,30 +1043,50 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV) {
 
     // Only offset by the field index if used, so that incoming values are not
     // required to be structures.
-    if (AI.FieldIndex)
-      Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    if (AI.FieldIndex) {
+      if (LV.isShared())
+        Ptr = EmitUPCFieldOffset(Ptr, LV.getBitFieldBaseType(), AI.FieldIndex);
+      else
+        Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    }
 
     // Offset by the byte offset, if used.
     if (!AI.FieldByteOffset.isZero()) {
-      Ptr = EmitCastToVoidPtr(Ptr);
-      Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
+      if (LV.isShared()) {
+        Ptr = EmitUPCPointerAdd(Ptr, AI.FieldByteOffset.getQuantity());
+      } else  {
+        Ptr = EmitCastToVoidPtr(Ptr);
+        Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
                                        "bf.field.offs");
+      }
     }
 
-    // Cast to the access type.
-    llvm::Type *PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), AI.AccessWidth,
-                       CGM.getContext().getTargetAddressSpace(LV.getType()));
-    Ptr = Builder.CreateBitCast(Ptr, PTy);
+    llvm::Value *Val;
+    if (LV.isShared()) {
+      llvm::Type *AccessTy = llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
+      uint64_t Size = CGM.getTargetData().getTypeSizeInBits(AccessTy);
+      uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessTy);
+      if (!AI.AccessAlignment.isZero())
+        Align = AI.AccessAlignment.getQuantity();
+      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Size, Align);
+    } else {
 
-    // Perform the load.
-    llvm::LoadInst *Load = Builder.CreateLoad(Ptr, LV.isVolatileQualified());
-    if (!AI.AccessAlignment.isZero())
-      Load->setAlignment(AI.AccessAlignment.getQuantity());
+      // Cast to the access type.
+      llvm::Type *PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), AI.AccessWidth,
+                               CGM.getContext().getTargetAddressSpace(LV.getType()));
+      Ptr = Builder.CreateBitCast(Ptr, PTy);
+      
+      // Perform the load.
+      llvm::LoadInst *Load = Builder.CreateLoad(Ptr, LV.isVolatileQualified());
+      if (!AI.AccessAlignment.isZero())
+        Load->setAlignment(AI.AccessAlignment.getQuantity());
+      
+      Val = Load;
+    }
 
     // Shift out unused low bits and mask out unused high bits.
-    llvm::Value *Val = Load;
     if (AI.FieldBitStart)
-      Val = Builder.CreateLShr(Load, AI.FieldBitStart);
+      Val = Builder.CreateLShr(Val, AI.FieldBitStart);
     Val = Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(AI.AccessWidth,
                                                             AI.TargetBitWidth),
                             "bf.clear");
@@ -1263,27 +1283,37 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
 
     // Get the field pointer.
     llvm::Value *Ptr = Dst.getBitFieldBaseAddr();
-    unsigned addressSpace =
-      cast<llvm::PointerType>(Ptr->getType())->getAddressSpace();
 
     // Only offset by the field index if used, so that incoming values are not
     // required to be structures.
-    if (AI.FieldIndex)
-      Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    if (AI.FieldIndex) {
+      if (Dst.isShared())
+        Ptr = EmitUPCFieldOffset(Ptr, Dst.getBitFieldBaseType(), AI.FieldIndex);
+      else
+        Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    }
 
     // Offset by the byte offset, if used.
     if (!AI.FieldByteOffset.isZero()) {
-      Ptr = EmitCastToVoidPtr(Ptr);
-      Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
+      if (Dst.isShared()) {
+        Ptr = EmitUPCPointerAdd(Ptr, AI.FieldByteOffset.getQuantity());
+      } else  {
+        Ptr = EmitCastToVoidPtr(Ptr);
+        Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
                                        "bf.field.offs");
+      }
     }
 
     // Cast to the access type.
     llvm::Type *AccessLTy =
       llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
 
-    llvm::Type *PTy = AccessLTy->getPointerTo(addressSpace);
-    Ptr = Builder.CreateBitCast(Ptr, PTy);
+    if (!Dst.isShared()) {
+      unsigned addressSpace =
+        cast<llvm::PointerType>(Ptr->getType())->getAddressSpace();
+      llvm::Type *PTy = AccessLTy->getPointerTo(addressSpace);
+      Ptr = Builder.CreateBitCast(Ptr, PTy);
+    }
 
     // Extract the piece of the bit-field value to write in this access, limited
     // to the values that are part of this access.
@@ -1305,9 +1335,19 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
 
     // If necessary, load and OR in bits that are outside of the bit-field.
     if (AI.TargetBitWidth != AI.AccessWidth) {
-      llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
-      if (!AI.AccessAlignment.isZero())
-        Load->setAlignment(AI.AccessAlignment.getQuantity());
+      llvm::Value *LoadVal;
+      if (Dst.isShared()) {
+        uint64_t Size = CGM.getTargetData().getTypeSizeInBits(AccessLTy);
+        uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+        if (!AI.AccessAlignment.isZero())
+          Align = AI.AccessAlignment.getQuantity();
+        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Size, Align);
+      } else {
+        llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
+        if (!AI.AccessAlignment.isZero())
+          Load->setAlignment(AI.AccessAlignment.getQuantity());
+        LoadVal = Load;
+      }
 
       // Compute the mask for zeroing the bits that are part of the bit-field.
       llvm::APInt InvMask =
@@ -1315,14 +1355,22 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
                                  AI.FieldBitStart + AI.TargetBitWidth);
 
       // Apply the mask and OR in to the value to write.
-      Val = Builder.CreateOr(Builder.CreateAnd(Load, InvMask), Val);
+      Val = Builder.CreateOr(Builder.CreateAnd(LoadVal, InvMask), Val);
     }
 
     // Write the value.
-    llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
-                                                 Dst.isVolatileQualified());
-    if (!AI.AccessAlignment.isZero())
-      Store->setAlignment(AI.AccessAlignment.getQuantity());
+    if (Dst.isShared()) {
+      uint64_t Size = CGM.getTargetData().getTypeSizeInBits(AccessLTy);
+      uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+      if (!AI.AccessAlignment.isZero())
+        Align = AI.AccessAlignment.getQuantity();
+      EmitUPCStore(Val, Ptr, Dst.isStrict(), Size, Align);
+    } else {
+      llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
+                                                   Dst.isVolatileQualified());
+      if (!AI.AccessAlignment.isZero())
+        Store->setAlignment(AI.AccessAlignment.getQuantity());
+    }
   }
 }
 
@@ -2017,7 +2065,8 @@ LValue CodeGenFunction::EmitLValueForBitfield(llvm::Value *BaseValue,
     CGM.getTypes().getCGRecordLayout(Field->getParent());
   const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
   return LValue::MakeBitfield(BaseValue, Info,
-                          Field->getType().withCVRQualifiers(CVRQualifiers));
+                              Field->getType().withCVRQualifiers(CVRQualifiers),
+                              ConvertType(Field->getParent()));
 }
 
 /// EmitLValueForAnonRecordField - Given that the field is a member of
@@ -2359,6 +2408,13 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
       Ty = getContext().getPointerType(E->getType());
     }
     LValue LV = EmitLValue(E->getSubExpr());
+    if (LV.isBitField()) {
+      // This can only be the qualifier conversion
+      // used to add strict/relaxed
+      return LValue::MakeBitfield(
+        LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
+        E->getType(), LV.getBitFieldBaseType());
+    }
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(),
                                            ConvertType(Ty));
     return MakeAddrLValue(V, E->getType());

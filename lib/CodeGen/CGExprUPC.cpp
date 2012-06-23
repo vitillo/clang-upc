@@ -41,20 +41,23 @@ llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value, QualT
   return Value;
 }
 
-static const char * getUPCTypeID(CodeGenFunction& CGF, QualType &Ty) {
+static const char * getUPCTypeID(CodeGenFunction& CGF,
+                                 QualType *AccessTy,
+                                 llvm::Type *Ty,
+                                 uint64_t Size,
+                                 uint64_t Align) {
   ASTContext &Context = CGF.getContext();
   const llvm::TargetData &Target = CGF.CGM.getTargetData();
   unsigned UnitWidth = Context.getCharWidth();
-  llvm::Type * LTy = CGF.ConvertType(Ty);
 
-  uint64_t Size = Target.getTypeSizeInBits(LTy);
-  uint64_t Align = Target.getABITypeAlignment(LTy);
-
-  if(Ty == Context.FloatTy) {
+  if(Ty->isFloatTy()) {
+    *AccessTy = Context.FloatTy;
     return "sf";
-  } else if(Ty == Context.DoubleTy) {
+  } else if(Ty->isDoubleTy()) {
+    *AccessTy = Context.DoubleTy;
     return "df";
-  } else if(Ty == Context.LongDoubleTy) {
+  } else if(Ty->isX86_FP80Ty() || Ty->isFP128Ty() || Ty->isPPC_FP128Ty()) {
+    *AccessTy = Context.LongDoubleTy;
     return "tf";
   }
 
@@ -62,15 +65,15 @@ static const char * getUPCTypeID(CodeGenFunction& CGF, QualType &Ty) {
       Size / UnitWidth <= 16 &&
       Align % Target.getABIIntegerTypeAlignment(Size) == 0) {
     if (Size == Context.getTypeSize(Context.UnsignedCharTy)) {
-      Ty = Context.UnsignedCharTy;
+      *AccessTy = Context.UnsignedCharTy;
     } else if (Size == Context.getTypeSize(Context.UnsignedShortTy)) {
-      Ty = Context.UnsignedShortTy;
+      *AccessTy = Context.UnsignedShortTy;
     } else if (Size == Context.getTypeSize(Context.UnsignedIntTy)) {
-      Ty = Context.UnsignedIntTy;
+      *AccessTy = Context.UnsignedIntTy;
     } else if (Size == Context.getTypeSize(Context.UnsignedLongTy)) {
-      Ty = Context.UnsignedLongTy;
+      *AccessTy = Context.UnsignedLongTy;
     } else if (Size == Context.getTypeSize(Context.UnsignedLongLongTy)) {
-      Ty = Context.UnsignedLongLongTy;
+      *AccessTy = Context.UnsignedLongLongTy;
     } else {
       return 0;
     }
@@ -89,14 +92,24 @@ static const char * getUPCTypeID(CodeGenFunction& CGF, QualType &Ty) {
 
 llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty) {
   llvm::Type *DestLTy = ConvertTypeForMem(Ty);
+  const llvm::TargetData &Target = CGM.getTargetData();
+  uint64_t Size = Target.getTypeSizeInBits(DestLTy);
+  uint64_t Align = Target.getABITypeAlignment(DestLTy);
+  return EmitFromMemory(EmitUPCLoad(Addr, isStrict, DestLTy, Size, Align), Ty);
+}
 
+llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
+                                          bool isStrict,
+                                          llvm::Type *LTy,
+                                          uint64_t Size,
+                                          uint64_t Align) {
   const ASTContext& Context = getContext();
   QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
-  QualType ResultTy = Ty->getCanonicalTypeUnqualified();
+  QualType ResultTy;
   llvm::SmallString<16> Name("__get");
   if (isStrict) Name += 's';
 
-  if (const char * ID = getUPCTypeID(*this, ResultTy)) {
+  if (const char * ID = getUPCTypeID(*this, &ResultTy, LTy, Size, Align)) {
     Name += ID;
     Name += "2";
 
@@ -110,31 +123,45 @@ llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr, bool isStrict, Qual
 
     RValue Result = EmitCall(Info, Fn, ReturnValueSlot(), Args);
     llvm::Value *Value = Result.getScalarVal();
-    if (DestLTy->isPointerTy())
-      Value = Builder.CreateIntToPtr(Value, DestLTy);
+    if (LTy->isPointerTy())
+      Value = Builder.CreateIntToPtr(Value, LTy);
     else
-      Value = Builder.CreateBitCast(Value, DestLTy);
-    return EmitFromMemory(Value, Ty);
+      Value = Builder.CreateBitCast(Value, LTy);
+    return Value;
   } else {
     // FIXME
   }
 }
 
-void CodeGenFunction::EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict, QualType Ty) {
+void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
+                                   llvm::Value *Addr,
+                                   bool isStrict,
+                                   QualType Ty) {
+  llvm::Type *DestLTy = ConvertTypeForMem(Ty);
+  const llvm::TargetData &Target = CGM.getTargetData();
+  uint64_t Size = Target.getTypeSizeInBits(DestLTy);
+  uint64_t Align = Target.getABITypeAlignment(DestLTy);
+  return EmitUPCStore(EmitToMemory(Value, Ty), Addr, isStrict, Size, Align);
+}
+
+void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
+                                   llvm::Value *Addr,
+                                   bool isStrict,
+                                   uint64_t Size,
+                                   uint64_t Align) {
 
   const ASTContext& Context = getContext();
   QualType AddrTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
-  QualType ValTy = Ty->getCanonicalTypeUnqualified();
+  QualType ValTy;
   llvm::SmallString<16> Name("__put");
   if (isStrict) Name += 's';
 
-  if (const char * ID = getUPCTypeID(*this, ValTy)) {
+  if (const char * ID = getUPCTypeID(*this, &ValTy, Value->getType(), Size, Align)) {
     Name += ID;
     Name += "2";
 
     llvm::Type *ValLTy = ConvertTypeForMem(ValTy);
 
-    Value = EmitToMemory(Value, Ty);
     if (Value->getType()->isPointerTy())
       Value = Builder.CreatePtrToInt(Value, ValLTy);
     else
@@ -516,6 +543,16 @@ llvm::Value *CodeGenFunction::EmitUPCFieldOffset(llvm::Value *Addr,
     CGM.getTargetData().getStructLayout(cast<llvm::StructType>(StructTy));
   llvm::Value * Offset =
     llvm::ConstantInt::get(SizeTy, Layout->getElementOffset(Idx));
+  return EmitUPCPointer(
+    llvm::ConstantInt::get(SizeTy, 0),
+    EmitUPCPointerGetThread(Addr),
+    Builder.CreateAdd(EmitUPCPointerGetAddr(Addr), Offset));
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointerAdd(llvm::Value *Addr,
+                                                int Idx) {
+  llvm::Value * Offset =
+    llvm::ConstantInt::get(SizeTy, Idx);
   return EmitUPCPointer(
     llvm::ConstantInt::get(SizeTy, 0),
     EmitUPCPointerGetThread(Addr),

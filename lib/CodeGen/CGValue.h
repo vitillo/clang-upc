@@ -148,6 +148,8 @@ class LValue {
 
   Expr *BaseIvarExp;
 
+  llvm::Type *BitFieldBaseType;
+
   /// TBAAInfo - TBAA information to attach to dereferences of this LValue.
   llvm::MDNode *TBAAInfo;
 
@@ -166,6 +168,7 @@ private:
     this->ThreadLocalRef = false;
     this->BaseIvarExp = 0;
     this->TBAAInfo = TBAAInfo;
+    this->BitFieldBaseType = 0;
   }
 
 public:
@@ -265,6 +268,10 @@ public:
     assert(isBitField());
     return *BitFieldInfo;
   }
+  llvm::Type *getBitFieldBaseType() const {
+    assert(isBitField());
+    return BitFieldBaseType;
+  }
 
   static LValue MakeAddr(llvm::Value *address, QualType type,
                          CharUnits alignment, ASTContext &Context,
@@ -307,12 +314,14 @@ public:
   /// access.
   static LValue MakeBitfield(llvm::Value *BaseValue,
                              const CGBitFieldInfo &Info,
-                             QualType type) {
+                             QualType type,
+                             llvm::Type *BaseType = 0) {
     LValue R;
     R.LVType = BitField;
     R.V = BaseValue;
     R.BitFieldInfo = &Info;
     R.Initialize(type, type.getQualifiers());
+    R.BitFieldBaseType = BaseType;
     return R;
   }
 
