@@ -1845,6 +1845,9 @@ public:
   llvm::Value *EmitUPCThreads();
   llvm::Value *EmitUPCMyThread();
   llvm::Value *EmitUPCPointerArithmetic(llvm::Value *LHS, llvm::Value *RHS,
+                                        QualType PtrTy, QualType IndexTy,
+                                        bool isSubtraction);
+  llvm::Value *EmitUPCPointerArithmetic(llvm::Value *LHS, llvm::Value *RHS,
                                         QualType PtrTy, const Expr *E,
                                         bool isSubtraction);
   llvm::Value *EmitUPCPointerDiff(llvm::Value *LHS, llvm::Value *RHS,

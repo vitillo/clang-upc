@@ -366,9 +366,10 @@ llvm::Value *CodeGenFunction::EmitUPCMyThread() {
   return Builder.CreateLoad(CGM.getUPCMyThread());
 }
 
+
 llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
     llvm::Value *Pointer, llvm::Value *Index, QualType PtrTy, const Expr *E, bool IsSubtraction) {
-
+  
   const BinaryOperator *expr = cast<BinaryOperator>(E);
   Expr *pointerOperand = expr->getLHS();
   Expr *indexOperand = expr->getRHS();
@@ -377,6 +378,12 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
     std::swap(Pointer, Index);
     std::swap(pointerOperand, indexOperand);
   }
+  return EmitUPCPointerArithmetic(Pointer, Index, PtrTy, indexOperand->getType(), IsSubtraction);
+}
+
+llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
+    llvm::Value *Pointer, llvm::Value *Index, QualType PtrTy, QualType IndexTy, bool IsSubtraction) {
+
   llvm::Value *Phase = EmitUPCPointerGetPhase(Pointer);
   llvm::Value *Thread = EmitUPCPointerGetThread(Pointer);
   llvm::Value *Addr = EmitUPCPointerGetAddr(Pointer);
@@ -391,7 +398,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
   if (width != PointerWidthInBits) {
     // Zero-extend or sign-extend the pointer value according to
     // whether the index is signed or not.
-    bool isSigned = indexOperand->getType()->isSignedIntegerOrEnumerationType();
+    bool isSigned = IndexTy->isSignedIntegerOrEnumerationType();
     Index = Builder.CreateIntCast(Index, PtrDiffTy, isSigned,
                                       "idx.ext");
   }
