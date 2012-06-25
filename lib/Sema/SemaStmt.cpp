@@ -2198,6 +2198,8 @@ Sema::ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp) {
         Diag(ReturnLoc, diag::warn_upc_exits_upc_forall) << "return";
         break;
       }
+      S = S->getParent();
+      if (S) S = S->getBreakParent();
     }
   }
   

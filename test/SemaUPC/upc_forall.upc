@@ -32,7 +32,9 @@ void f(int val) {
             break; // expected-warning{{exiting upc_forall with 'break' has undefined behavior}}
             goto label1;
             goto label2; // expected-warning{{exiting upc_forall with 'goto' has undefined behavior}}
-            return; // expected-warning{{exiting upc_forall with 'return' has undefined behavior}}
+            do {
+              return; // expected-warning{{exiting upc_forall with 'return' has undefined behavior}}
+            } while(0);
         }
     }
     label2:;
