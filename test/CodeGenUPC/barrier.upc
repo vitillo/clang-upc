@@ -38,3 +38,10 @@ void testbarrier_noarg() {
 }
 // CHECK: testbarrier_noarg
 // CHECK: call void @__upc_barrier(i32 -2147483648)
+
+void testfence() {
+  upc_fence;
+}
+// CHECK: testfence
+// CHECK: %call = call i32 @__getssi2(i64 %0)
+// CHECK: call void @__putssi2(i64 %1, i32 %call)
