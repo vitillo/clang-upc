@@ -854,3 +854,7 @@ def fupc_pts_EQ : Joined<"-fupc-pts=">,
 def fupc_packed_bits_EQ : Joined<"-fupc-packed-bits=">,
   HelpText<"Allows the user to specify the number of bits allocated "
            "for each field of the shared pointer">;
+
+def fupc_pts_vaddr_order_EQ : Joined<"-fupc-pts-vaddr-order=">,
+  HelpText<"Controls the order of the members in the "
+           "pointer-to-shared representation">;

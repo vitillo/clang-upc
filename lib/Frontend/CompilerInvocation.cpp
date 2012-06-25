@@ -1184,6 +1184,16 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
+  StringRef VaddrOrder = Args.getLastArgValue(OPT_fupc_pts_vaddr_order_EQ, "first");
+  if (VaddrOrder == "first")
+    Opts.UPCPtsVaddrFirst = 1;
+  else if (VaddrOrder == "last")
+    Opts.UPCPtsVaddrFirst = 0;
+  else
+    Diags.Report(diag::err_drv_invalid_value)
+      << Args.getLastArg(OPT_fupc_pts_vaddr_order_EQ)->getAsString(Args)
+      << VaddrOrder;
+
   return Success;
 }
 
