@@ -1843,6 +1843,7 @@ public:
   llvm::Value *EmitUPCPointer(llvm::Value *Phase, llvm::Value *Thread,
                               llvm::Value *Addr);
   llvm::Value *EmitUPCThreads();
+  llvm::Value *EmitUPCMyThread();
   llvm::Value *EmitUPCPointerArithmetic(llvm::Value *LHS, llvm::Value *RHS,
                                         QualType PtrTy, const Expr *E,
                                         bool isSubtraction);

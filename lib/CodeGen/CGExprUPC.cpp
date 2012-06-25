@@ -346,8 +346,24 @@ llvm::Constant *CodeGenModule::getUPCThreads() {
   return UPCThreads;
 }
 
+llvm::Constant *CodeGenModule::getUPCMyThread() {
+  if (!UPCMyThread) {
+    if (getModule().getNamedGlobal("MYTHREAD"))
+      UPCMyThread = getModule().getOrInsertGlobal("MYTHREAD", IntTy);
+    else
+      UPCMyThread = new llvm::GlobalVariable(getModule(), IntTy, true,
+                                             llvm::GlobalValue::ExternalLinkage, 0,
+                                             "MYTHREAD");
+  }
+  return UPCMyThread;
+}
+
 llvm::Value *CodeGenFunction::EmitUPCThreads() {
   return Builder.CreateLoad(CGM.getUPCThreads());
+}
+
+llvm::Value *CodeGenFunction::EmitUPCMyThread() {
+  return Builder.CreateLoad(CGM.getUPCMyThread());
 }
 
 llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(

@@ -342,6 +342,7 @@ class CodeGenModule : public CodeGenTypeCache {
   /// @{
 
   llvm::Constant *UPCThreads;
+  llvm::Constant *UPCMyThread;
 
   /// @}
 
@@ -705,6 +706,7 @@ public:
                                         StringRef Name);
 
   llvm::Constant *getUPCThreads();
+  llvm::Constant *getUPCMyThread();
 
   ///@name Custom Blocks Runtime Interfaces
   ///@{
