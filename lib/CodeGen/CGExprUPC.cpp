@@ -359,7 +359,11 @@ llvm::Constant *CodeGenModule::getUPCMyThread() {
 }
 
 llvm::Value *CodeGenFunction::EmitUPCThreads() {
-  return Builder.CreateLoad(CGM.getUPCThreads());
+  if (uint32_t Threads = getContext().getLangOpts().UPCThreads) {
+    return llvm::ConstantInt::get(IntTy, Threads);
+  } else {
+    return Builder.CreateLoad(CGM.getUPCThreads());
+  }
 }
 
 llvm::Value *CodeGenFunction::EmitUPCMyThread() {
