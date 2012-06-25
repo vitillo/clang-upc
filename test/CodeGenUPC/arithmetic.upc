@@ -3,12 +3,12 @@
 shared int * testadd(shared int * ptr, int x) { return ptr + x; }
 // CHECK: testadd
 // CHECK: %2 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %3 = lshr i64 %2, 44
+// CHECK-NEXT: %3 = and i64 %2, 1048575
 // CHECK-NEXT: %4 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %5 = lshr i64 %4, 34
+// CHECK-NEXT: %5 = lshr i64 %4, 20
 // CHECK-NEXT: %6 = and i64 %5, 1023
 // CHECK-NEXT: %7 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %8 = and i64 %7, 17179869183
+// CHECK-NEXT: %8 = lshr i64 %7, 30
 // CHECK-NEXT: %idx.ext = sext i32 %1 to i64
 // CHECK-NEXT: %9 = load i32* @THREADS
 // CHECK-NEXT: %10 = zext i32 %9 to i64
@@ -30,9 +30,9 @@ shared int * testadd(shared int * ptr, int x) { return ptr + x; }
 // CHECK-NEXT: %26 = add i64 %25, %24
 // CHECK-NEXT: %27 = mul i64 %26, 32
 // CHECK-NEXT: %28 = add i64 %8, %27
-// CHECK-NEXT: %29 = shl i64 %22, 34
-// CHECK-NEXT: %30 = or i64 %29, %28
-// CHECK-NEXT: %31 = shl i64 %23, 44
+// CHECK-NEXT: %29 = shl i64 %22, 20
+// CHECK-NEXT: %30 = or i64 %29, %23
+// CHECK-NEXT: %31 = shl i64 %28, 30
 // CHECK-NEXT: %32 = or i64 %31, %30
 // CHECK-NEXT: %33 = insertvalue %__upc_shared_pointer_type undef, i64 %32, 0
 
@@ -41,12 +41,12 @@ shared int * testsub(shared int * ptr, int x) { return ptr - x; }
 // CHECK: %0 = load %__upc_shared_pointer_type* %ptr.addr, align 8
 // CHECK-NEXT: %1 = load i32* %x.addr, align 4
 // CHECK-NEXT: %2 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %3 = lshr i64 %2, 44
+// CHECK-NEXT: %3 = and i64 %2, 1048575
 // CHECK-NEXT: %4 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %5 = lshr i64 %4, 34
+// CHECK-NEXT: %5 = lshr i64 %4, 20
 // CHECK-NEXT: %6 = and i64 %5, 1023
 // CHECK-NEXT: %7 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %8 = and i64 %7, 17179869183
+// CHECK-NEXT: %8 = lshr i64 %7, 30
 // CHECK-NEXT: %idx.ext = sext i32 %1 to i64
 // CHECK-NEXT: %9 = sub i64 0, %idx.ext
 // CHECK-NEXT: %10 = load i32* @THREADS
@@ -69,9 +69,9 @@ shared int * testsub(shared int * ptr, int x) { return ptr - x; }
 // CHECK-NEXT: %27 = add i64 %26, %25
 // CHECK-NEXT: %28 = mul i64 %27, 32
 // CHECK-NEXT: %29 = add i64 %8, %28
-// CHECK-NEXT: %30 = shl i64 %23, 34
-// CHECK-NEXT: %31 = or i64 %30, %29
-// CHECK-NEXT: %32 = shl i64 %24, 44
+// CHECK-NEXT: %30 = shl i64 %23, 20
+// CHECK-NEXT: %31 = or i64 %30, %24
+// CHECK-NEXT: %32 = shl i64 %29, 30
 // CHECK-NEXT: %33 = or i64 %32, %31
 // CHECK-NEXT: %34 = insertvalue %__upc_shared_pointer_type undef, i64 %33, 0
 
@@ -80,19 +80,19 @@ long long testsub2(shared int * ptr1, shared int * ptr2) { return ptr1 - ptr2; }
 // CHECK: %0 = load %__upc_shared_pointer_type* %ptr1.addr, align 8
 // CHECK-NEXT: %1 = load %__upc_shared_pointer_type* %ptr2.addr, align 8
 // CHECK-NEXT: %2 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %3 = lshr i64 %2, 44
+// CHECK-NEXT: %3 = and i64 %2, 1048575
 // CHECK-NEXT: %4 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %5 = lshr i64 %4, 34
+// CHECK-NEXT: %5 = lshr i64 %4, 20
 // CHECK-NEXT: %6 = and i64 %5, 1023
 // CHECK-NEXT: %7 = extractvalue %__upc_shared_pointer_type %0, 0
-// CHECK-NEXT: %8 = and i64 %7, 17179869183
+// CHECK-NEXT: %8 = lshr i64 %7, 30
 // CHECK-NEXT: %9 = extractvalue %__upc_shared_pointer_type %1, 0
-// CHECK-NEXT: %10 = lshr i64 %9, 44
+// CHECK-NEXT: %10 = and i64 %9, 1048575
 // CHECK-NEXT: %11 = extractvalue %__upc_shared_pointer_type %1, 0
-// CHECK-NEXT: %12 = lshr i64 %11, 34
+// CHECK-NEXT: %12 = lshr i64 %11, 20
 // CHECK-NEXT: %13 = and i64 %12, 1023
 // CHECK-NEXT: %14 = extractvalue %__upc_shared_pointer_type %1, 0
-// CHECK-NEXT: %15 = and i64 %14, 17179869183
+// CHECK-NEXT: %15 = lshr i64 %14, 30
 // CHECK-NEXT: %addr.diff = sub i64 %8, %15
 // CHECK-NEXT: %16 = sdiv exact i64 %addr.diff, 32
 // CHECK-NEXT: %17 = load i32* @THREADS

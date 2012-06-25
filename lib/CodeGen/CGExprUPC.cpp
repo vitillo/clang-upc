@@ -248,9 +248,9 @@ llvm::Value *CodeGenFunction::EmitUPCPointerGetPhase(llvm::Value *Pointer) {
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
     if (/*addr first*/true) {
-      return Builder.CreateLShr(Val, ThreadBits + AddrBits);
-    } else {
       return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, PhaseBits));
+    } else {
+      return Builder.CreateLShr(Val, ThreadBits + AddrBits);
     }
   } else {
     if (/*addr first*/true) {
@@ -269,9 +269,9 @@ llvm::Value *CodeGenFunction::EmitUPCPointerGetThread(llvm::Value *Pointer) {
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
     if (/*addr first*/true) {
-      Val = Builder.CreateLShr(Val, AddrBits);
-    } else {
       Val = Builder.CreateLShr(Val, PhaseBits);
+    } else {
+      Val = Builder.CreateLShr(Val, AddrBits);
     }
     return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, ThreadBits));
   } else {
@@ -287,9 +287,9 @@ llvm::Value *CodeGenFunction::EmitUPCPointerGetAddr(llvm::Value *Pointer) {
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
     if (/*addr first*/true) {
-      return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, AddrBits));
-    } else {
       return Builder.CreateLShr(Val, ThreadBits + PhaseBits);
+    } else {
+      return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, AddrBits));
     }
   } else {
     if (/*addr first*/true) {
@@ -309,13 +309,13 @@ llvm::Value *CodeGenFunction::EmitUPCPointer(llvm::Value *Phase, llvm::Value *Th
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val;
     if (/*addr first*/true) {
+      Val = Builder.CreateOr(Builder.CreateShl(Addr, ThreadBits + PhaseBits),
+                             Builder.CreateOr(Builder.CreateShl(Thread, PhaseBits),
+                                              Phase));
+    } else {
       Val = Builder.CreateOr(Builder.CreateShl(Phase, ThreadBits + AddrBits),
                              Builder.CreateOr(Builder.CreateShl(Thread, AddrBits),
                                               Addr));
-    } else {
-      Val = Builder.CreateOr(Builder.CreateShl(Addr, ThreadBits + PhaseBits),
-                             Builder.CreateOr(Builder.CreateShl(Thread, AddrBits),
-                                              Phase));
     }
     Result = Builder.CreateInsertValue(Result, Val, 0);
   } else {
