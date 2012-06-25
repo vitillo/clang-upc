@@ -1853,6 +1853,11 @@ public:
   llvm::Value *EmitUPCFieldOffset(llvm::Value *Addr, llvm::Type * StructTy,
                                   int Idx);
   llvm::Value *EmitUPCPointerAdd(llvm::Value *Addr, int Idx);
+  void EmitUPCNotifyStmt(const UPCNotifyStmt &S);
+  void EmitUPCWaitStmt(const UPCWaitStmt &S);
+  void EmitUPCBarrierStmt(const UPCBarrierStmt &S);
+  void EmitUPCFenceStmt(const UPCFenceStmt &S);
+  void EmitUPCForAllStmt(const UPCForAllStmt &S);
 
   //===--------------------------------------------------------------------===//
   //                            Declaration Emission

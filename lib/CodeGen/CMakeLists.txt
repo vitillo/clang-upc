@@ -40,6 +40,7 @@ add_clang_library(clangCodeGen
   CGRecordLayoutBuilder.cpp
   CGRTTI.cpp
   CGStmt.cpp
+  CGStmtUPC.cpp
   CGVTables.cpp
   CGVTT.cpp
   CodeGenAction.cpp
