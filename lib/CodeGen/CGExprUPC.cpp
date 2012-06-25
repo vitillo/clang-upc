@@ -434,8 +434,8 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
 
     // Div is the number of (B * THREADS) blocks that we need to jump
     // Rem is Thread * B + Phase
-    llvm::Value *Div = Builder.CreateSRem(TmpPhaseThread, GlobalBlockSize);
-    llvm::Value *Rem = Builder.CreateSDiv(TmpPhaseThread, GlobalBlockSize);
+    llvm::Value *Div = Builder.CreateSDiv(TmpPhaseThread, GlobalBlockSize);
+    llvm::Value *Rem = Builder.CreateSRem(TmpPhaseThread, GlobalBlockSize);
     // Fix the result of the division/modulus
     llvm::Value *Test = Builder.CreateICmpSLT(Rem, llvm::ConstantInt::get(SizeTy, 0));
     Rem = Builder.CreateSelect(Test, Builder.CreateAdd(Rem, GlobalBlockSize), Rem);
