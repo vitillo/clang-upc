@@ -37,7 +37,7 @@ namespace sema {
 class CompoundScopeInfo {
 public:
   explicit CompoundScopeInfo(bool CurrentIsStrict)
-    : HasEmptyLoopBodies(false), UPCIsStrict(CurrentIsStrict), PragmaUPCAllowed(true) { }
+    : HasEmptyLoopBodies(false), UPCIsStrict(CurrentIsStrict) { }
 
   /// \brief Whether this compound stamement contains `for' or `while' loops
   /// with empty bodies.
@@ -45,8 +45,6 @@ public:
   /// \brief Whether the default access to shared variables is strict
   /// or relaxed.
   bool UPCIsStrict;
-  /// \brief Whether #pragma upc is allowed
-  bool PragmaUPCAllowed;
 
   void setHasEmptyLoopBodies() {
     HasEmptyLoopBodies = true;
