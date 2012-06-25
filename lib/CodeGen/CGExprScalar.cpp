@@ -1241,6 +1241,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   case CK_UPCSharedToLocal:
     return CGF.EmitUPCCastSharedToLocal(Visit(E), DestTy);
 
+  case CK_UPCBitCastZeroPhase:
+    return CGF.EmitUPCBitCastZeroPhase(Visit(E), DestTy);
+
   }
 
   llvm_unreachable("unknown scalar cast");

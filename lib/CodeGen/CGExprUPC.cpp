@@ -41,6 +41,12 @@ llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value, QualT
   return Value;
 }
 
+llvm::Value *CodeGenFunction::EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy) {
+  return EmitUPCPointer(llvm::ConstantInt::get(SizeTy, 0),
+                        EmitUPCPointerGetThread(Value),
+                        EmitUPCPointerGetAddr(Value));
+}
+
 static const char * getUPCTypeID(CodeGenFunction& CGF,
                                  QualType *AccessTy,
                                  llvm::Type *Ty,

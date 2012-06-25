@@ -744,6 +744,8 @@ public:
     case CK_FloatingToIntegral:
     case CK_FloatingToBoolean:
     case CK_FloatingCast:
+    case CK_UPCSharedToLocal:
+    case CK_UPCBitCastZeroPhase:
       return 0;
     }
     llvm_unreachable("Invalid CastKind");

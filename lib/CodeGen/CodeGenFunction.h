@@ -1826,6 +1826,7 @@ public:
 
   
   llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy);
+  llvm::Value *EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, llvm::Type *LTy,
                            uint64_t Size, uint64_t Align);
