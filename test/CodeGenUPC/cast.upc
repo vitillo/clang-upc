@@ -14,3 +14,6 @@ shared [2] int * testzerophase(shared [3] int * ptr) {
 // CHECK-NEXT: %8 = or i64 0, %7
 // CHECK-NEXT: %9 = insertvalue %__upc_shared_pointer_type undef, i64 %8, 0
 
+shared int *testnull(void) { return 0; }
+// CHECK: testnull
+// CHECK: store %__upc_shared_pointer_type zeroinitializer, %__upc_shared_pointer_type* %retval

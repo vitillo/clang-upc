@@ -1115,6 +1115,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     if (MustVisitNullValue(E))
       (void) Visit(E);
 
+    if (DestTy->hasPointerToSharedRepresentation()) {
+      return CGF.EmitUPCNullPointer(DestTy);
+    }
     return llvm::ConstantPointerNull::get(
                                cast<llvm::PointerType>(ConvertType(DestTy)));
 
