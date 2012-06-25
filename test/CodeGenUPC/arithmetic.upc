@@ -16,8 +16,8 @@ shared int * testadd(shared int * ptr, int x) { return ptr + x; }
 // CHECK-NEXT: %12 = mul nuw i64 %6, 1
 // CHECK-NEXT: %13 = add nuw i64 %12, %3
 // CHECK-NEXT: %14 = add i64 %13, %idx.ext
-// CHECK-NEXT: %15 = srem i64 %14, %11
-// CHECK-NEXT: %16 = sdiv i64 %14, %11
+// CHECK-NEXT: %15 = sdiv i64 %14, %11
+// CHECK-NEXT: %16 = srem i64 %14, %11
 // CHECK-NEXT: %17 = icmp slt i64 %16, 0
 // CHECK-NEXT: %18 = add i64 %16, %11
 // CHECK-NEXT: %19 = select i1 %17, i64 %18, i64 %16
@@ -55,8 +55,8 @@ shared int * testsub(shared int * ptr, int x) { return ptr - x; }
 // CHECK-NEXT: %13 = mul nuw i64 %6, 1
 // CHECK-NEXT: %14 = add nuw i64 %13, %3
 // CHECK-NEXT: %15 = add i64 %14, %9
-// CHECK-NEXT: %16 = srem i64 %15, %12
-// CHECK-NEXT: %17 = sdiv i64 %15, %12
+// CHECK-NEXT: %16 = sdiv i64 %15, %12
+// CHECK-NEXT: %17 = srem i64 %15, %12
 // CHECK-NEXT: %18 = icmp slt i64 %17, 0
 // CHECK-NEXT: %19 = add i64 %17, %12
 // CHECK-NEXT: %20 = select i1 %18, i64 %19, i64 %17
@@ -123,8 +123,8 @@ shared int *testsubscript(shared int * ptr, int idx) { return &ptr[idx]; }
 // CHECK-NEXT: %12 = mul nuw i64 %6, 1
 // CHECK-NEXT: %13 = add nuw i64 %12, %3
 // CHECK-NEXT: %14 = add i64 %13, %idxprom
-// CHECK-NEXT: %15 = srem i64 %14, %11
-// CHECK-NEXT: %16 = sdiv i64 %14, %11
+// CHECK-NEXT: %15 = sdiv i64 %14, %11
+// CHECK-NEXT: %16 = srem i64 %14, %11
 // CHECK-NEXT: %17 = icmp slt i64 %16, 0
 // CHECK-NEXT: %18 = add i64 %16, %11
 // CHECK-NEXT: %19 = select i1 %17, i64 %18, i64 %16
