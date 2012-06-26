@@ -982,7 +982,8 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
     bool isInit) {
   if (lvalue.isShared()) {
     assert(lvalue.isStrict() || lvalue.isRelaxed());
-    EmitUPCStore(value, lvalue.getAddress(), lvalue.isStrict(), lvalue.getType());
+    EmitUPCStore(value, lvalue.getAddress(), lvalue.isStrict(),
+                 lvalue.getType(), lvalue.getLoc());
     return;
   }
   EmitStoreOfScalar(value, lvalue.getAddress(), lvalue.isVolatile(),
@@ -1365,7 +1366,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
       uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessLTy);
       if (!AI.AccessAlignment.isZero())
         Align = AI.AccessAlignment.getQuantity();
-      EmitUPCStore(Val, Ptr, Dst.isStrict(), Size, Align);
+      EmitUPCStore(Val, Ptr, Dst.isStrict(), Size, Align, Dst.getLoc());
     } else {
       llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
                                                    Dst.isVolatileQualified());

@@ -50,7 +50,7 @@ static llvm::Value *EmitUPCFenceVar(CodeGenFunction &CGF) {
 void CodeGenFunction::EmitUPCFenceStmt(const UPCFenceStmt &S) {
   llvm::Value *FencePtr = EmitUPCFenceVar(*this);
   llvm::Value *Val = EmitUPCLoad(FencePtr, /*strict*/true, getContext().IntTy, S.getFenceLoc());
-  EmitUPCStore(Val, FencePtr, /*strict*/true, getContext().IntTy);
+  EmitUPCStore(Val, FencePtr, /*strict*/true, getContext().IntTy, S.getFenceLoc());
 }
 
 llvm::Constant *getUPCForAllDepth(CodeGenModule& CGM) {

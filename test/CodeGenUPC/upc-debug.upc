@@ -11,3 +11,7 @@ int * test_getaddr(shared int * ptr) { return (int*)ptr; }
 int test_getsi(shared int *ptr) { return *ptr; }
 // CHECK: test_getsi
 // CHECK: %call = call i32 @__getgsi3(i64 %1, i8* [[__FILE__]], i32 11)
+
+void test_putsi(shared int *ptr, int val) { *ptr = val; }
+// CHECK: test_putsi
+// CHECK: call void @__putgsi4(i64 %2, i32 %0, i8* [[__FILE__]], i32 15)
