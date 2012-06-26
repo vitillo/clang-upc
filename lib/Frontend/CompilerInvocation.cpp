@@ -1505,6 +1505,7 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       .Case("objective-c++-header", IK_ObjCXX)
       .Case("upc", IK_UPC)
       .Case("upc-cpp-output", IK_PreprocessedUPC)
+      .Case("upc-header", IK_UPC)
       .Case("ast", IK_AST)
       .Case("ir", IK_LLVM_IR)
       .Default(IK_None);

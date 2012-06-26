@@ -818,6 +818,7 @@ void ASTWriter::WriteBlockInfoBlock() {
   RECORD(HEADER_SEARCH_TABLE);
   RECORD(ORIGINAL_PCH_DIR);
   RECORD(FP_PRAGMA_OPTIONS);
+  RECORD(UPC_PRAGMA_OPTIONS);
   RECORD(OPENCL_EXTENSIONS);
   RECORD(DELEGATING_CTORS);
   RECORD(FILE_SOURCE_LOCATION_OFFSETS);
@@ -2927,6 +2928,12 @@ void ASTWriter::WriteFPPragmaOptions(const FPOptions &Opts) {
   Stream.EmitRecord(FP_PRAGMA_OPTIONS, Record);
 }
 
+void ASTWriter::WritePragmaUPC(bool IsStrict) {
+  RecordData Record;
+  Record.push_back(IsStrict ? 1 : 0);
+  Stream.EmitRecord(UPC_PRAGMA_OPTIONS, Record);
+}
+
 /// \brief Write an OPENCL_EXTENSIONS block for the given OpenCLOptions.
 void ASTWriter::WriteOpenCLExtensions(Sema &SemaRef) {
   if (!SemaRef.Context.getLangOpts().OpenCL)
@@ -3479,6 +3486,7 @@ void ASTWriter::WriteASTCore(Sema &SemaRef, MemorizeStatCalls *StatCalls,
   WriteReferencedSelectorsPool(SemaRef);
   WriteIdentifierTable(PP, SemaRef.IdResolver, WritingModule != 0);
   WriteFPPragmaOptions(SemaRef.getFPOptions());
+  WritePragmaUPC(SemaRef.UPCIsStrict);
   WriteOpenCLExtensions(SemaRef);
 
   WriteTypeDeclOffsets();

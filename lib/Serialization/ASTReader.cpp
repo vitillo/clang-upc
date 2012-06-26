@@ -2373,6 +2373,10 @@ ASTReader::ReadASTBlock(ModuleFile &F) {
       FPPragmaOptions.swap(Record);
       break;
 
+    case UPC_PRAGMA_OPTIONS:
+      UPCPragmaOptions.swap(Record);
+      break;
+
     case OPENCL_EXTENSIONS:
       // Later tables overwrite earlier ones.
       OpenCLExtensions.swap(Record);
@@ -5236,6 +5240,11 @@ void ASTReader::InitializeSema(Sema &S) {
   if (!FPPragmaOptions.empty()) {
     assert(FPPragmaOptions.size() == 1 && "Wrong number of FP_PRAGMA_OPTIONS");
     SemaObj->FPFeatures.fp_contract = FPPragmaOptions[0];
+  }
+
+  if (!UPCPragmaOptions.empty()) {
+    assert(UPCPragmaOptions.size() == 1 && "Wrong number of UPC_PRAGMA_OPTIONS");
+    SemaObj->UPCIsStrict = UPCPragmaOptions[0] != 0;
   }
 
   if (!OpenCLExtensions.empty()) {

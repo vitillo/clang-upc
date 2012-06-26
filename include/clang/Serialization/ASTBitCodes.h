@@ -469,7 +469,10 @@ namespace clang {
       ///
       /// This array can only be interpreted properly using the Objective-C
       /// categories map.
-      OBJC_CATEGORIES
+      OBJC_CATEGORIES,
+
+      /// \brief Record code for tracking #pragma upc
+      UPC_PRAGMA_OPTIONS
     };
 
     /// \brief Record types used within a source manager block.
