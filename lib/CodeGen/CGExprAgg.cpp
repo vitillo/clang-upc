@@ -282,7 +282,7 @@ void AggExprEmitter::EmitFinalDestCopy(const Expr *E, RValue Src, bool Ignore,
       CGF.getContext().getQualifiedType(E->getType().getUnqualifiedType(),
                                         Dest.getQualifiers());
     CGF.EmitUPCAggregateCopy(Dest.getAddr(), Src.getAggregateAddr(),
-                             DestTy, E->getType());
+                             DestTy, E->getType(), E->getExprLoc());
     return;
   }
 

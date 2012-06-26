@@ -15,3 +15,17 @@ int test_getsi(shared int *ptr) { return *ptr; }
 void test_putsi(shared int *ptr, int val) { *ptr = val; }
 // CHECK: test_putsi
 // CHECK: call void @__putgsi4(i64 %2, i32 %0, i8* [[__FILE__]], i32 15)
+
+struct S { char array[10]; };
+
+void test_agg_get(struct S *dst, shared struct S *src) { *dst = *src; }
+// CHECK: test_agg_get
+// CHECK: call void @__getgblk5(i8* %2, i64 %3, i64 10, i8* [[__FILE__]], i32 21)
+
+void test_agg_put(shared struct S *dst, struct S *src) { *dst = *src; }
+// CHECK: test_agg_put
+// CHECK: call void @__putgblk5(i64 %2, i8* %3, i64 10, i8* [[__FILE__]], i32 25)
+
+void test_agg_copy(shared struct S *dst, shared struct S *src) { *dst = *src; }
+// CHECK: test_agg_copy
+// CHECK: call void @__copygblk5(i64 %2, i64 %3, i64 10, i8* [[__FILE__]], i32 29)

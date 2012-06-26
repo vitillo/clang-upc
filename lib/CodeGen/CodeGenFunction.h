@@ -1845,7 +1845,8 @@ public:
   void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
                     uint64_t Size, uint64_t Align, SourceLocation Loc);
   void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
-                            QualType SrcTy, QualType DestTy);
+                            QualType SrcTy, QualType DestTy,
+                            SourceLocation Loc);
   llvm::Value *EmitUPCPointerGetPhase(llvm::Value *Pointer);
   llvm::Value *EmitUPCPointerGetThread(llvm::Value *Pointer);
   llvm::Value *EmitUPCPointerGetAddr(llvm::Value *Pointer);

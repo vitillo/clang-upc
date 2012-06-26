@@ -254,7 +254,8 @@ void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
 }
 
 void CodeGenFunction::EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
-                                           QualType DestTy, QualType SrcTy) {
+                                           QualType DestTy, QualType SrcTy,
+                                           SourceLocation Loc) {
   const ASTContext& Context = getContext();
   QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
   QualType SizeType = Context.getSizeType();
@@ -285,18 +286,19 @@ void CodeGenFunction::EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
   Name += OpName;
   if (DestTy.getQualifiers().hasStrict() || SrcTy.getQualifiers().hasStrict())
     Name += 's';
-  Name += "blk3";
+  if (CGM.getCodeGenOpts().UPCDebug) Name += "g";
+  Name += "blk";
   CallArgList Args;
   Args.add(RValue::get(Dest), DestArgTy);
   Args.add(RValue::get(Src), SrcArgTy);
   Args.add(RValue::get(Len), SizeType);
-  QualType ArgTypes[] = { DestArgTy, SrcArgTy, SizeType };
-  QualType FuncType = Context.getFunctionType(Context.VoidTy, ArgTypes, 3, FunctionProtoType::ExtProtoInfo());
-  const CGFunctionInfo &Info = getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
-  llvm::FunctionType * FTy = cast<llvm::FunctionType>(ConvertType(FuncType));
-  llvm::Value * Fn = CGM.CreateRuntimeFunction(FTy, Name);
-  EmitCall(Info, Fn, ReturnValueSlot(), Args);
-
+  if (CGM.getCodeGenOpts().UPCDebug) {
+    getFileAndLine(*this, Loc, &Args);
+    Name += '5';
+  } else {
+    Name += '3';
+  }
+  EmitUPCCall(*this, Name, Context.VoidTy, Args);
 }
 
 llvm::Value *CodeGenFunction::EmitUPCPointerGetPhase(llvm::Value *Pointer) {
