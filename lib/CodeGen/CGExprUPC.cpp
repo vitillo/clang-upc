@@ -28,6 +28,16 @@ static void getFileAndLine(CodeGenFunction &CGF, SourceLocation Loc,
   Out->push_back(llvm::ConstantInt::get(CGF.IntTy, PLoc.isValid()? PLoc.getLine() : 0));
 }
 
+static void getFileAndLine(CodeGenFunction &CGF, SourceLocation Loc,
+                           CallArgList *Out)
+{
+  ASTContext &Ctx = CGF.CGM.getContext();
+  llvm::SmallVector<llvm::Value *, 2> Tmp;
+  getFileAndLine(CGF, Loc, &Tmp);
+  Out->add(RValue::get(Tmp[0]), Ctx.getPointerType(Ctx.getConstType(Ctx.CharTy)));
+  Out->add(RValue::get(Tmp[1]), Ctx.IntTy);
+}
+
 llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value,
                                                        QualType DestTy,
                                                        SourceLocation Loc) {
@@ -118,38 +128,66 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
   return 0;
 }
 
-llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty) {
+RValue EmitUPCCall(CodeGenFunction &CGF,
+                   llvm::StringRef Name,
+                   QualType ResultTy,
+                   const CallArgList& Args) {
+  ASTContext &Context = CGF.CGM.getContext();
+  llvm::SmallVector<QualType, 5> ArgTypes;
+
+  for (CallArgList::const_iterator iter = Args.begin(),
+         end = Args.end(); iter != end; ++iter) {
+    ArgTypes.push_back(iter->Ty);
+  }
+
+  QualType FuncType =
+    Context.getFunctionType(ResultTy,
+                            ArgTypes.data(), ArgTypes.size(),
+                            FunctionProtoType::ExtProtoInfo());
+    const CGFunctionInfo &Info =
+      CGF.getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
+    llvm::FunctionType * FTy =
+      cast<llvm::FunctionType>(CGF.ConvertType(FuncType));
+    llvm::Value * Fn = CGF.CGM.CreateRuntimeFunction(FTy, Name);
+
+    return CGF.EmitCall(Info, Fn, ReturnValueSlot(), Args);
+}
+
+llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
+                                          bool isStrict, QualType Ty,
+                                          SourceLocation Loc) {
   llvm::Type *DestLTy = ConvertTypeForMem(Ty);
   const llvm::TargetData &Target = CGM.getTargetData();
   uint64_t Size = Target.getTypeSizeInBits(DestLTy);
   uint64_t Align = Target.getABITypeAlignment(DestLTy);
-  return EmitFromMemory(EmitUPCLoad(Addr, isStrict, DestLTy, Size, Align), Ty);
+  return EmitFromMemory(EmitUPCLoad(Addr, isStrict, DestLTy, Size, Align, Loc), Ty);
 }
 
 llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
                                           bool isStrict,
                                           llvm::Type *LTy,
                                           uint64_t Size,
-                                          uint64_t Align) {
+                                          uint64_t Align,
+                                          SourceLocation Loc) {
   const ASTContext& Context = getContext();
   QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
   QualType ResultTy;
   llvm::SmallString<16> Name("__get");
   if (isStrict) Name += 's';
+  if (CGM.getCodeGenOpts().UPCDebug) Name += "g";
 
   if (const char * ID = getUPCTypeID(*this, &ResultTy, LTy, Size, Align)) {
     Name += ID;
-    Name += "2";
 
     CallArgList Args;
     Args.add(RValue::get(Addr), ArgTy);
-    QualType ArgTypes[] = { ArgTy };
-    QualType FuncType = Context.getFunctionType(ResultTy, ArgTypes, 1, FunctionProtoType::ExtProtoInfo());
-    const CGFunctionInfo &Info = getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
-    llvm::FunctionType * FTy = cast<llvm::FunctionType>(ConvertType(FuncType));
-    llvm::Value * Fn = CGM.CreateRuntimeFunction(FTy, Name);
-
-    RValue Result = EmitCall(Info, Fn, ReturnValueSlot(), Args);
+    if (CGM.getCodeGenOpts().UPCDebug) {
+      getFileAndLine(*this, Loc, &Args);
+      Name += '3';
+    } else {
+      Name += '2';
+    }
+    RValue Result = EmitUPCCall(*this, Name, ResultTy, Args);
     llvm::Value *Value = Result.getScalarVal();
     if (LTy->isPointerTy())
       Value = Builder.CreateIntToPtr(Value, LTy);

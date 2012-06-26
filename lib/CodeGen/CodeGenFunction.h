@@ -1556,16 +1556,23 @@ public:
   //===--------------------------------------------------------------------===//
 
   LValue MakeAddrLValue(llvm::Value *V, QualType T,
-                        CharUnits Alignment = CharUnits()) {
+                        CharUnits Alignment = CharUnits(),
+                        SourceLocation Loc = SourceLocation()) {
     return LValue::MakeAddr(V, T, Alignment, getContext(),
-                            CGM.getTBAAInfo(T));
+                            CGM.getTBAAInfo(T), Loc);
   }
-  LValue MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T) {
+  LValue MakeAddrLValue(llvm::Value *V, QualType T,
+                        SourceLocation Loc) {
+    return LValue::MakeAddr(V, T, CharUnits(), getContext(),
+                            CGM.getTBAAInfo(T), Loc);
+  }
+  LValue MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T,
+                                    SourceLocation Loc = SourceLocation()) {
     CharUnits Alignment;
     if (!T->isIncompleteType())
       Alignment = getContext().getTypeAlignInChars(T);
     return LValue::MakeAddr(V, T, Alignment, getContext(),
-                            CGM.getTBAAInfo(T));
+                            CGM.getTBAAInfo(T), Loc);
   }
 
   /// CreateTempAlloca - This creates a alloca and inserts it into the entry
@@ -1829,9 +1836,10 @@ public:
                                         SourceLocation Loc);
   llvm::Value *EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy);
   llvm::Value *EmitUPCNullPointer(QualType DestTy);
-  llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty);
+  llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty,
+                           SourceLocation Loc);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, llvm::Type *LTy,
-                           uint64_t Size, uint64_t Align);
+                           uint64_t Size, uint64_t Align, SourceLocation Loc);
   void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
                     QualType Ty);
   void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,

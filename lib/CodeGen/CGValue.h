@@ -153,8 +153,11 @@ class LValue {
   /// TBAAInfo - TBAA information to attach to dereferences of this LValue.
   llvm::MDNode *TBAAInfo;
 
+  SourceLocation Loc;
+
 private:
   void Initialize(QualType Type, Qualifiers Quals,
+                  SourceLocation Loc = SourceLocation(),
                   CharUnits Alignment = CharUnits(),
                   llvm::MDNode *TBAAInfo = 0) {
     this->Type = Type;
@@ -169,6 +172,7 @@ private:
     this->BaseIvarExp = 0;
     this->TBAAInfo = TBAAInfo;
     this->BitFieldBaseType = 0;
+    this->Loc = Loc;
   }
 
 public:
@@ -241,6 +245,8 @@ public:
   CharUnits getAlignment() const { return CharUnits::fromQuantity(Alignment); }
   void setAlignment(CharUnits A) { Alignment = A.getQuantity(); }
 
+  SourceLocation getLoc() const { return Loc; }
+
   // simple lvalue
   llvm::Value *getAddress() const { assert(isSimple()); return V; }
   void setAddress(llvm::Value *address) {
@@ -275,34 +281,37 @@ public:
 
   static LValue MakeAddr(llvm::Value *address, QualType type,
                          CharUnits alignment, ASTContext &Context,
-                         llvm::MDNode *TBAAInfo = 0) {
+                         llvm::MDNode *TBAAInfo = 0,
+                         SourceLocation Loc = SourceLocation()) {
     Qualifiers qs = type.getQualifiers();
     qs.setObjCGCAttr(Context.getObjCGCAttrKind(type));
 
     LValue R;
     R.LVType = Simple;
     R.V = address;
-    R.Initialize(type, qs, alignment, TBAAInfo);
+    R.Initialize(type, qs, Loc, alignment, TBAAInfo);
     return R;
   }
 
   static LValue MakeVectorElt(llvm::Value *Vec, llvm::Value *Idx,
-                              QualType type, CharUnits Alignment) {
+                              QualType type, CharUnits Alignment,
+                              SourceLocation Loc = SourceLocation()) {
     LValue R;
     R.LVType = VectorElt;
     R.V = Vec;
     R.VectorIdx = Idx;
-    R.Initialize(type, type.getQualifiers(), Alignment);
+    R.Initialize(type, type.getQualifiers(), Loc, Alignment);
     return R;
   }
 
   static LValue MakeExtVectorElt(llvm::Value *Vec, llvm::Constant *Elts,
-                                 QualType type, CharUnits Alignment) {
+                                 QualType type, CharUnits Alignment,
+                                 SourceLocation Loc = SourceLocation()) {
     LValue R;
     R.LVType = ExtVectorElt;
     R.V = Vec;
     R.VectorElts = Elts;
-    R.Initialize(type, type.getQualifiers(), Alignment);
+    R.Initialize(type, type.getQualifiers(), Loc, Alignment);
     return R;
   }
 
@@ -315,12 +324,13 @@ public:
   static LValue MakeBitfield(llvm::Value *BaseValue,
                              const CGBitFieldInfo &Info,
                              QualType type,
-                             llvm::Type *BaseType = 0) {
+                             llvm::Type *BaseType = 0,
+                             SourceLocation Loc = SourceLocation()) {
     LValue R;
     R.LVType = BitField;
     R.V = BaseValue;
     R.BitFieldInfo = &Info;
-    R.Initialize(type, type.getQualifiers());
+    R.Initialize(type, type.getQualifiers(), Loc);
     R.BitFieldBaseType = BaseType;
     return R;
   }

@@ -1042,12 +1042,12 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
              E->getType()->getCanonicalTypeUnqualified());
       return EmitLoadOfLValue(LValue::MakeBitfield(
         LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
-        DestTy, LV.getBitFieldBaseType()));
+        DestTy, LV.getBitFieldBaseType(), CE->getExprLoc()));
     }
     Value *V = LV.getAddress();
     V = Builder.CreateBitCast(V, 
                           ConvertType(CGF.getContext().getPointerType(DestTy)));
-    return EmitLoadOfLValue(CGF.MakeNaturalAlignAddrLValue(V, DestTy));
+    return EmitLoadOfLValue(CGF.MakeNaturalAlignAddrLValue(V, DestTy, CE->getExprLoc()));
   }
 
   case CK_CPointerToObjCPointerCast:

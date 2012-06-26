@@ -858,7 +858,8 @@ CodeGenFunction::tryEmitAsConstant(DeclRefExpr *refExpr) {
 llvm::Value *CodeGenFunction::EmitLoadOfScalar(LValue lvalue) {
   if (lvalue.isShared()) {
     assert(lvalue.isStrict() || lvalue.isRelaxed());
-    return EmitUPCLoad(lvalue.getAddress(), lvalue.isStrict(), lvalue.getType());
+    return EmitUPCLoad(lvalue.getAddress(), lvalue.isStrict(),
+                       lvalue.getType(), lvalue.getLoc());
   }
   return EmitLoadOfScalar(lvalue.getAddress(), lvalue.isVolatile(),
                           lvalue.getAlignment().getQuantity(),
@@ -1068,7 +1069,7 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV) {
       uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessTy);
       if (!AI.AccessAlignment.isZero())
         Align = AI.AccessAlignment.getQuantity();
-      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Size, Align);
+      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Size, Align, LV.getLoc());
     } else {
 
       // Cast to the access type.
@@ -1341,7 +1342,7 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
         uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessLTy);
         if (!AI.AccessAlignment.isZero())
           Align = AI.AccessAlignment.getQuantity();
-        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Size, Align);
+        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Size, Align, Dst.getLoc());
       } else {
         llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
         if (!AI.AccessAlignment.isZero())
@@ -1686,7 +1687,8 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
     QualType T = E->getSubExpr()->getType()->getPointeeType();
     assert(!T.isNull() && "CodeGenFunction::EmitUnaryOpLValue: Illegal type");
 
-    LValue LV = MakeNaturalAlignAddrLValue(EmitScalarExpr(E->getSubExpr()), T);
+    LValue LV = MakeNaturalAlignAddrLValue(EmitScalarExpr(E->getSubExpr()), T,
+                                           E->getExprLoc());
     LV.getQuals().setAddressSpace(ExprTy.getAddressSpace());
 
     // We should not generate __weak write barrier on indirect reference
@@ -2416,11 +2418,11 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
       // used to add strict/relaxed
       return LValue::MakeBitfield(
         LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
-        E->getType(), LV.getBitFieldBaseType());
+        E->getType(), LV.getBitFieldBaseType(), LV.getLoc());
     }
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(),
                                            ConvertType(Ty));
-    return MakeAddrLValue(V, E->getType());
+    return MakeAddrLValue(V, E->getType(), LV.getLoc());
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());
