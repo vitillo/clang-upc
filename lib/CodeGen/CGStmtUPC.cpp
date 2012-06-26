@@ -14,30 +14,51 @@
 #include "CodeGenModule.h"
 #include "CodeGenFunction.h"
 #include "clang/AST/Stmt.h"
+#include "clang/Basic/SourceManager.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Constants.h"
+#include "llvm/ADT/SmallVector.h"
 using namespace clang;
 using namespace CodeGen;
 
+static void getFileAndLine(CodeGenFunction &CGF, SourceLocation Loc,
+                           llvm::SmallVectorImpl<llvm::Value*> *Out) {
+  PresumedLoc PLoc = CGF.CGM.getContext().getSourceManager().getPresumedLoc(Loc);
+  llvm::Constant *File =
+    CGF.CGM.GetAddrOfConstantCString(PLoc.isValid()? PLoc.getFilename() : "(unknown)");
+  Out->push_back(CGF.Builder.CreateConstInBoundsGEP2_32(File, 0, 0));
+  Out->push_back(llvm::ConstantInt::get(CGF.IntTy, PLoc.isValid()? PLoc.getLine() : 0));
+}
+
+static void EmitUPCBarrier(CodeGenFunction& CGF, StringRef Name,
+                           const Expr *E, SourceLocation Loc) {
+  llvm::SmallVector<llvm::Value*, 3> Args;
+  llvm::SmallVector<llvm::Type*, 3> ArgTypes;
+  llvm::Value *Id = E ? CGF.EmitScalarExpr(E) :
+    llvm::ConstantInt::get(CGF.IntTy, 0x80000000);
+  llvm::SmallString<16> N(Name);
+  Args.push_back(Id);
+  ArgTypes.push_back(CGF.IntTy);
+  if (CGF.CGM.getCodeGenOpts().UPCDebug) {
+    getFileAndLine(CGF, Loc, &Args);
+    ArgTypes.push_back(CGF.Int8PtrTy);
+    ArgTypes.push_back(CGF.IntTy);
+    N += 'g';
+  }
+  llvm::FunctionType *FTy = llvm::FunctionType::get(CGF.VoidTy, ArgTypes, false);
+  CGF.EmitCallOrInvoke(CGF.CGM.CreateRuntimeFunction(FTy, N), Args);
+}
+
 void CodeGenFunction::EmitUPCNotifyStmt(const UPCNotifyStmt &S) {
-  const Expr *E = S.getIdValue();
-  llvm::Value *Id = E ? EmitScalarExpr(E) : llvm::ConstantInt::get(IntTy, 0x80000000);
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, IntTy, false);
-  EmitCallOrInvoke(CGM.CreateRuntimeFunction(FTy, "__upc_notify"), Id);
+  EmitUPCBarrier(*this, "__upc_notify", S.getIdValue(), S.getNotifyLoc());
 }
 
 void CodeGenFunction::EmitUPCWaitStmt(const UPCWaitStmt &S) {
-  const Expr *E = S.getIdValue();
-  llvm::Value *Id = E ? EmitScalarExpr(E) : llvm::ConstantInt::get(IntTy, 0x80000000);
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, IntTy, false);
-  EmitCallOrInvoke(CGM.CreateRuntimeFunction(FTy, "__upc_wait"), Id);
+  EmitUPCBarrier(*this, "__upc_wait", S.getIdValue(), S.getWaitLoc());
 }
 
 void CodeGenFunction::EmitUPCBarrierStmt(const UPCBarrierStmt &S) {
-  const Expr *E = S.getIdValue();
-  llvm::Value *Id = E ? EmitScalarExpr(E) : llvm::ConstantInt::get(IntTy, 0x80000000);
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, IntTy, false);
-  EmitCallOrInvoke(CGM.CreateRuntimeFunction(FTy, "__upc_barrier"), Id);
+  EmitUPCBarrier(*this, "__upc_barrier", S.getIdValue(), S.getBarrierLoc());
 }
 
 static llvm::Value *EmitUPCFenceVar(CodeGenFunction &CGF) {

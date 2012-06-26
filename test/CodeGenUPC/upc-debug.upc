@@ -29,3 +29,15 @@ void test_agg_put(shared struct S *dst, struct S *src) { *dst = *src; }
 void test_agg_copy(shared struct S *dst, shared struct S *src) { *dst = *src; }
 // CHECK: test_agg_copy
 // CHECK: call void @__copygblk5(i64 %2, i64 %3, i64 10, i8* [[__FILE__]], i32 29)
+
+void test_notify() { upc_notify; }
+// CHECK: test_notify
+// CHECK: call void @__upc_notifyg(i32 -2147483648, i8* [[__FILE__]], i32 33)
+
+void test_wait() { upc_wait; }
+// CHECK: test_wait
+// CHECK: call void @__upc_waitg(i32 -2147483648, i8* [[__FILE__]], i32 37)
+
+void test_barrier() { upc_barrier; }
+// CHECK: test_barrier
+// CHECK: call void @__upc_barrierg(i32 -2147483648, i8* [[__FILE__]], i32 41)
