@@ -2532,6 +2532,10 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_vaddr_order_EQ);
 
+  if (Args.hasFlag(options::OPT_fupc_debug,
+                   options::OPT_fno_upc_debug, false))
+    CmdArgs.push_back("-fupc-debug");
+
   // -fcaret-diagnostics is default.
   if (!Args.hasFlag(options::OPT_fcaret_diagnostics,
                     options::OPT_fno_caret_diagnostics, true))

@@ -2431,7 +2431,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
   }
   case CK_UPCSharedToLocal: {
     LValue LV = EmitLValue(E->getSubExpr());
-    llvm::Value *V = EmitUPCCastSharedToLocal(LV.getAddress(), E->getType());
+    llvm::Value *V = EmitUPCCastSharedToLocal(LV.getAddress(), E->getType(), E->getExprLoc());
     return MakeAddrLValue(V, E->getType());
   }
   case CK_UPCBitCastZeroPhase: {

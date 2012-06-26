@@ -1242,7 +1242,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
   }
 
   case CK_UPCSharedToLocal:
-    return CGF.EmitUPCCastSharedToLocal(Visit(E), DestTy);
+    return CGF.EmitUPCCastSharedToLocal(Visit(E), DestTy, E->getExprLoc());
 
   case CK_UPCBitCastZeroPhase:
     return CGF.EmitUPCBitCastZeroPhase(Visit(E), DestTy);

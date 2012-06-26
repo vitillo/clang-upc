@@ -12,30 +12,46 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenFunction.h"
+#include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/SourceManager.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/ADT/SmallVector.h"
 using namespace clang;
 using namespace CodeGen;
 
-static llvm::Constant *getUPCGetAddrFn(CodeGenFunction &CGF) {
-  // void *__getaddr(shared void * ptr);
-  
-  llvm::Type *Int8PtrTy = CGF.Int8PtrTy;
-  llvm::Type *GenericPtsTy = CGF.GenericPtsTy;
-
-  llvm::Type *Args[] = { GenericPtsTy };
-  
-  llvm::FunctionType *FTy =
-    llvm::FunctionType::get(Int8PtrTy, Args, false);
-  
-  return CGF.CGM.CreateRuntimeFunction(FTy, "__getaddr");
+static void getFileAndLine(CodeGenFunction &CGF, SourceLocation Loc,
+                           llvm::SmallVectorImpl<llvm::Value*> *Out) {
+  PresumedLoc PLoc = CGF.CGM.getContext().getSourceManager().getPresumedLoc(Loc);
+  llvm::Constant *File =
+    CGF.CGM.GetAddrOfConstantCString(PLoc.isValid()? PLoc.getFilename() : "(unknown)");
+  Out->push_back(CGF.Builder.CreateConstInBoundsGEP2_32(File, 0, 0));
+  Out->push_back(llvm::ConstantInt::get(CGF.IntTy, PLoc.isValid()? PLoc.getLine() : 0));
 }
 
-llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy) {
-  llvm::Type *SrcLTy = GenericPtsTy;
+llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value,
+                                                       QualType DestTy,
+                                                       SourceLocation Loc) {
   llvm::Type *DestLTy = ConvertType(DestTy);
 
-  Value = Builder.CreateBitCast(Value, SrcLTy);
-  Value = Builder.CreateCall(getUPCGetAddrFn(*this), Value);
+  llvm::SmallVector<llvm::Value*, 3> Args;
+  llvm::SmallVector<llvm::Type*, 3> ArgTypes;
+
+  Args.push_back(Value);
+  ArgTypes.push_back(GenericPtsTy);
+
+  const char *FnName = "__getaddr";
+
+  if (CGM.getCodeGenOpts().UPCDebug) {
+    ArgTypes.push_back(Int8PtrTy);
+    ArgTypes.push_back(IntTy);
+    getFileAndLine(*this, Loc, &Args);
+    FnName = "__getaddrg";
+  }
+
+  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidPtrTy, ArgTypes, false);
+  llvm::Constant *Fn = CGM.CreateRuntimeFunction(FTy, FnName);
+
+  Value = Builder.CreateCall(Fn, Args);
   Value = Builder.CreateBitCast(Value, DestLTy);
 
   return Value;

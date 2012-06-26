@@ -1194,6 +1194,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
       << Args.getLastArg(OPT_fupc_pts_vaddr_order_EQ)->getAsString(Args)
       << VaddrOrder;
 
+  if (Args.hasArg(OPT_fupc_debug))
+    Opts.UPCDebug = 1;
+
   return Success;
 }
 

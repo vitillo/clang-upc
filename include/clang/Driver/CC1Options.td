@@ -858,3 +858,6 @@ def fupc_packed_bits_EQ : Joined<"-fupc-packed-bits=">,
 def fupc_pts_vaddr_order_EQ : Joined<"-fupc-pts-vaddr-order=">,
   HelpText<"Controls the order of the members in the "
            "pointer-to-shared representation">;
+
+def fupc_debug : Flag<"-fupc-debug">,
+  HelpText<"Enables debug calls to the UPC runtime">;
