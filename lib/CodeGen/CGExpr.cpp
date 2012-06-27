@@ -2424,7 +2424,7 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     }
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(),
                                            ConvertType(Ty));
-    return MakeAddrLValue(V, E->getType(), LV.getLoc());
+    return MakeAddrLValue(V, E->getType(), LV.getAlignment(), LV.getLoc());
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());

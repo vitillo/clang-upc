@@ -1,6 +1,9 @@
 // RUN: %clang_cc1 %s -emit-llvm -triple x86_64-pc-linux -o - | FileCheck %s
 
 typedef struct S_ { char data[20]; } S;
+#pragma pack(push, 1)
+typedef struct Unaligned_ { char ch; int i; } Unaligned;
+#pragma pack(pop)
 
 #pragma upc relaxed
 
@@ -76,6 +79,10 @@ void testS(shared S * ptr, S * in) { *ptr = *in; }
 // CHECK: testS
 // CHECK: call void @__putblk3(i64 %{{[0-9]+}}, i8* %{{[0-9]+}}, i64 20)
 
+void testUnaligned(shared Unaligned * ptr, int val) { ptr->i = val; }
+// CHECK: testUnaligned
+// CHECK: call void @__putblk3(i64 %{{[0-9]+}}, i8* %{{[0-9]+}}, i64 4)
+
 #pragma upc strict
 
 void testcs(shared char * ptr, char val) { *ptr = val; }
@@ -149,3 +156,7 @@ void testps(int * shared * ptr, int * val) { *ptr = val; }
 void testSs(shared S * ptr, S * in) { *ptr = *in; }
 // CHECK: testSs
 // CHECK: call void @__putsblk3(i64 %{{[0-9]+}}, i8* %{{[0-9]+}}, i64 20)
+
+void testUnaligneds(shared Unaligned * ptr, int val) { ptr->i = val; }
+// CHECK: testUnaligneds
+// CHECK: call void @__putsblk3(i64 %{{[0-9]+}}, i8* %{{[0-9]+}}, i64 4)

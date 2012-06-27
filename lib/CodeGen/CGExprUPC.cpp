@@ -268,7 +268,25 @@ void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
 
     EmitUPCCall(*this, Name, Context.VoidTy, Args);
   } else {
-    // FIXME
+    Name += "blk";
+
+    llvm::AllocaInst *Mem = CreateTempAlloca(Value->getType());
+    Mem->setAlignment(Target.getABITypeAlignment(Value->getType()));
+    Builder.CreateStore(Value, Mem);
+    llvm::Value *Tmp = Builder.CreateBitCast(Mem, VoidPtrTy);
+    llvm::Value *SizeArg = llvm::ConstantInt::get(SizeTy, Size/Context.getCharWidth());
+    
+    CallArgList Args;
+    Args.add(RValue::get(Addr), AddrTy);
+    Args.add(RValue::get(Tmp), Context.VoidPtrTy);
+    Args.add(RValue::get(SizeArg), Context.getSizeType());
+    if (CGM.getCodeGenOpts().UPCDebug) {
+      getFileAndLine(*this, Loc, &Args);
+      Name += '5';
+    } else {
+      Name += '3';
+    }
+    EmitUPCCall(*this, Name, getContext().VoidTy, Args);
   }
 }
 
