@@ -2208,8 +2208,7 @@ public:
                            llvm::Value* Base, const ObjCIvarDecl *Ivar,
                            unsigned CVRQualifiers);
 
-  LValue EmitLValueForBitfield(llvm::Value* Base, const FieldDecl* Field,
-                                unsigned CVRQualifiers);
+  LValue EmitLValueForBitfield(LValue Base, const FieldDecl* Field);
 
   LValue EmitCXXConstructLValue(const CXXConstructExpr *E);
   LValue EmitCXXBindTemporaryLValue(const CXXBindTemporaryExpr *E);

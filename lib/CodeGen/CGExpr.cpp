@@ -2045,7 +2045,8 @@ LValue CodeGenFunction::EmitMemberExpr(const MemberExpr *E) {
   LValue BaseLV;
   if (E->isArrow())
     BaseLV = MakeNaturalAlignAddrLValue(EmitScalarExpr(BaseExpr),
-                                        BaseExpr->getType()->getPointeeType());
+                                        BaseExpr->getType()->getPointeeType(),
+                                        E->getExprLoc());
   else
     BaseLV = EmitLValue(BaseExpr);
 
@@ -2065,15 +2066,15 @@ LValue CodeGenFunction::EmitMemberExpr(const MemberExpr *E) {
   llvm_unreachable("Unhandled member declaration!");
 }
 
-LValue CodeGenFunction::EmitLValueForBitfield(llvm::Value *BaseValue,
-                                              const FieldDecl *Field,
-                                              unsigned CVRQualifiers) {
+LValue CodeGenFunction::EmitLValueForBitfield(LValue Base,
+                                              const FieldDecl *Field) {
   const CGRecordLayout &RL =
     CGM.getTypes().getCGRecordLayout(Field->getParent());
   const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
-  return LValue::MakeBitfield(BaseValue, Info,
-                              Field->getType().withCVRQualifiers(CVRQualifiers),
-                              ConvertType(Field->getParent()));
+  return LValue::MakeBitfield(Base.getAddress(), Info,
+                              Field->getType().withCVRQualifiers(Base.getVRQualifiers()),
+                              ConvertType(Field->getParent()),
+                              Base.getLoc());
 }
 
 /// EmitLValueForAnonRecordField - Given that the field is a member of
@@ -2101,8 +2102,7 @@ LValue CodeGenFunction::EmitLValueForAnonRecordField(llvm::Value *BaseValue,
 LValue CodeGenFunction::EmitLValueForField(LValue base,
                                            const FieldDecl *field) {
   if (field->isBitField())
-    return EmitLValueForBitfield(base.getAddress(), field,
-                                 base.getVRQualifiers());
+    return EmitLValueForBitfield(base, field);
 
   const RecordDecl *rec = field->getParent();
   QualType type = field->getType();

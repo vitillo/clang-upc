@@ -41,3 +41,18 @@ void test_wait() { upc_wait; }
 void test_barrier() { upc_barrier; }
 // CHECK: test_barrier
 // CHECK: call void @__upc_barrierg(i32 -2147483648, i8* [[__FILE__]], i32 41)
+
+typedef struct BitField_ {
+  unsigned i1 : 10;
+  unsigned i2 : 12;
+  unsigned i3 : 10 ;
+} BitField;
+
+unsigned test_bitfield_load(shared BitField * ptr) { return ptr->i2; }
+// CHECK: test_bitfield_load
+// CHECK: %call = call i32 @__getgsi3(i64 %1, i8* [[__FILE__]], i32 51)
+
+void test_bitfield_store(shared BitField * ptr, unsigned val) { ptr->i2 = val; }
+// CHECK: test_bitfield_store
+// CHECK: %call = call i32 @__getgsi3(i64 %4, i8* [[__FILE__]], i32 55)
+// CHECK: call void @__putgsi4(i64 %7, i32 %6, i8* [[__FILE__]], i32 55)
