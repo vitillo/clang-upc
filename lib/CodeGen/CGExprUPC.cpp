@@ -85,23 +85,19 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
                                  uint64_t Size,
                                  uint64_t Align) {
   ASTContext &Context = CGF.getContext();
-  const llvm::TargetData &Target = CGF.CGM.getTargetData();
   unsigned UnitWidth = Context.getCharWidth();
+  const char *Result;
 
   if(Ty->isFloatTy()) {
     *AccessTy = Context.FloatTy;
-    return "sf";
+    Result = "sf";
   } else if(Ty->isDoubleTy()) {
     *AccessTy = Context.DoubleTy;
-    return "df";
+    Result = "df";
   } else if(Ty->isX86_FP80Ty() || Ty->isFP128Ty() || Ty->isPPC_FP128Ty()) {
     *AccessTy = Context.LongDoubleTy;
-    return "tf";
-  }
-
-  if (Size % UnitWidth == 0 &&
-      Size / UnitWidth <= 16 &&
-      Align % Target.getABIIntegerTypeAlignment(Size) == 0) {
+    Result = "tf";
+  } else if (Size % UnitWidth == 0 && Size / UnitWidth <= 16) {
     if (Size == Context.getTypeSize(Context.UnsignedCharTy)) {
       *AccessTy = Context.UnsignedCharTy;
     } else if (Size == Context.getTypeSize(Context.UnsignedShortTy)) {
@@ -118,16 +114,21 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
       return 0;
     }
     switch (Size / UnitWidth) {
-    case 1: return "qi";
-    case 2: return "hi";
-    case 4: return "si";
-    case 8: return "di";
-    case 16: return "ti";
+    case 1: Result = "qi"; break;
+    case 2: Result = "hi"; break;
+    case 4: Result = "si"; break;
+    case 8: Result = "di"; break;
+    case 16: Result = "ti"; break;
     default: return 0;
     }
+  } else {
+    return 0;
   }
 
-  return 0;
+  if (Align % Context.getTypeAlign(*AccessTy) == 0)
+    return Result;
+  else
+    return 0;
 }
 
 RValue EmitUPCCall(CodeGenFunction &CGF,
@@ -157,28 +158,27 @@ RValue EmitUPCCall(CodeGenFunction &CGF,
 
 llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
                                           bool isStrict, QualType Ty,
+                                          CharUnits Align,
                                           SourceLocation Loc) {
   llvm::Type *DestLTy = ConvertTypeForMem(Ty);
-  const llvm::TargetData &Target = CGM.getTargetData();
-  uint64_t Size = Target.getTypeSizeInBits(DestLTy);
-  uint64_t Align = Target.getABITypeAlignment(DestLTy);
-  return EmitFromMemory(EmitUPCLoad(Addr, isStrict, DestLTy, Size, Align, Loc), Ty);
+  return EmitFromMemory(EmitUPCLoad(Addr, isStrict, DestLTy, Align, Loc), Ty);
 }
 
 llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
                                           bool isStrict,
                                           llvm::Type *LTy,
-                                          uint64_t Size,
-                                          uint64_t Align,
+                                          CharUnits Align,
                                           SourceLocation Loc) {
   const ASTContext& Context = getContext();
+  const llvm::TargetData &Target = CGM.getTargetData();
+  uint64_t Size = Target.getTypeSizeInBits(LTy);
   QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
   QualType ResultTy;
   llvm::SmallString<16> Name("__get");
   if (isStrict) Name += 's';
   if (CGM.getCodeGenOpts().UPCDebug) Name += "g";
 
-  if (const char * ID = getUPCTypeID(*this, &ResultTy, LTy, Size, Align)) {
+  if (const char * ID = getUPCTypeID(*this, &ResultTy, LTy, Size, Context.toBits(Align))) {
     Name += ID;
 
     CallArgList Args;
@@ -197,7 +197,26 @@ llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
       Value = Builder.CreateBitCast(Value, LTy);
     return Value;
   } else {
-    // FIXME
+    Name += "blk";
+
+    llvm::AllocaInst *Mem = CreateTempAlloca(LTy);
+    Mem->setAlignment(Target.getABITypeAlignment(LTy));
+    llvm::Value *Tmp = Builder.CreateBitCast(Mem, VoidPtrTy);
+    llvm::Value *SizeArg = llvm::ConstantInt::get(SizeTy, Size/Context.getCharWidth());
+    
+    CallArgList Args;
+    Args.add(RValue::get(Tmp), Context.VoidPtrTy);
+    Args.add(RValue::get(Addr), ArgTy);
+    Args.add(RValue::get(SizeArg), Context.getSizeType());
+    if (CGM.getCodeGenOpts().UPCDebug) {
+      getFileAndLine(*this, Loc, &Args);
+      Name += '5';
+    } else {
+      Name += '3';
+    }
+    EmitUPCCall(*this, Name, getContext().VoidTy, Args);
+
+    return Builder.CreateLoad(Mem);
   }
 }
 
@@ -205,30 +224,28 @@ void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
                                    llvm::Value *Addr,
                                    bool isStrict,
                                    QualType Ty,
+                                   CharUnits Align,
                                    SourceLocation Loc) {
-  llvm::Type *DestLTy = ConvertTypeForMem(Ty);
-  const llvm::TargetData &Target = CGM.getTargetData();
-  uint64_t Size = Target.getTypeSizeInBits(DestLTy);
-  uint64_t Align = Target.getABITypeAlignment(DestLTy);
   return EmitUPCStore(EmitToMemory(Value, Ty), Addr,
-                      isStrict, Size, Align, Loc);
+                      isStrict, Align, Loc);
 }
 
 void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
                                    llvm::Value *Addr,
                                    bool isStrict,
-                                   uint64_t Size,
-                                   uint64_t Align,
+                                   CharUnits Align,
                                    SourceLocation Loc) {
 
   const ASTContext& Context = getContext();
+  const llvm::TargetData &Target = CGM.getTargetData();
+  uint64_t Size = Target.getTypeSizeInBits(Value->getType());
   QualType AddrTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
   QualType ValTy;
   llvm::SmallString<16> Name("__put");
   if (isStrict) Name += 's';
   if (CGM.getCodeGenOpts().UPCDebug) Name += "g";
 
-  if (const char * ID = getUPCTypeID(*this, &ValTy, Value->getType(), Size, Align)) {
+  if (const char * ID = getUPCTypeID(*this, &ValTy, Value->getType(), Size, Context.toBits(Align))) {
     Name += ID;
 
     llvm::Type *ValLTy = ConvertTypeForMem(ValTy);

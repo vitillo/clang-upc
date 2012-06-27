@@ -1,5 +1,10 @@
 // RUN: %clang_cc1 %s -emit-llvm -triple x86_64-pc-linux -o - | FileCheck %s
 
+typedef struct S_ { char data[20]; } S;
+#pragma pack(push, 1)
+typedef struct Unaligned_ { char ch; int i; } Unaligned;
+#pragma pack(pop)
+
 #pragma upc relaxed
 
 char testc(shared char * ptr) { return *ptr; }
@@ -70,10 +75,13 @@ int * testp(int * shared * ptr) { return *ptr; }
 // CHECK: testp
 // CHECK: %call = call i64 @__getdi2(i64 %{{[0-9]+}})
 
-typedef struct S_ { char data[20]; } S;
 void testS(S * out, shared S * ptr) { *out = *ptr; }
 // CHECK: testS
 // CHECK: call void @__getblk3(i8* %2, i64 %{{[0-9]+}}, i64 20)
+
+int testUnaligned(shared Unaligned * ptr) { return ptr->i; }
+// CHECK: testUnaligned
+// CHECK: call void @__getblk3(i8* %{{[0-9]+}}, i64 %{{[0-9]+}}, i64 4)
 
 #pragma upc strict
 
@@ -148,3 +156,7 @@ int * testps(int * shared * ptr) { return *ptr; }
 void testSs(S * out, shared S * ptr) { *out = *ptr; }
 // CHECK: testSs
 // CHECK: call void @__getsblk3(i8* %2, i64 %{{[0-9]+}}, i64 20)
+
+int testUnaligneds(shared Unaligned * ptr) { return ptr->i; }
+// CHECK: testUnaligneds
+// CHECK: call void @__getsblk3(i8* %{{[0-9]+}}, i64 %{{[0-9]+}}, i64 4)

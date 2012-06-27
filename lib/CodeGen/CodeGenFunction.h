@@ -1837,13 +1837,13 @@ public:
   llvm::Value *EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy);
   llvm::Value *EmitUPCNullPointer(QualType DestTy);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty,
-                           SourceLocation Loc);
+                           CharUnits Align, SourceLocation Loc);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, llvm::Type *LTy,
-                           uint64_t Size, uint64_t Align, SourceLocation Loc);
+                           CharUnits Align, SourceLocation Loc);
   void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
-                    QualType Ty, SourceLocation Loc);
+                    QualType Ty, CharUnits Align, SourceLocation Loc);
   void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
-                    uint64_t Size, uint64_t Align, SourceLocation Loc);
+                    CharUnits Align, SourceLocation Loc);
   void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
                             QualType SrcTy, QualType DestTy,
                             SourceLocation Loc);

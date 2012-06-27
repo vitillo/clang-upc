@@ -1047,7 +1047,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     Value *V = LV.getAddress();
     V = Builder.CreateBitCast(V, 
                           ConvertType(CGF.getContext().getPointerType(DestTy)));
-    return EmitLoadOfLValue(CGF.MakeNaturalAlignAddrLValue(V, DestTy, CE->getExprLoc()));
+    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy, LV.getAlignment(), CE->getExprLoc()));
   }
 
   case CK_CPointerToObjCPointerCast:

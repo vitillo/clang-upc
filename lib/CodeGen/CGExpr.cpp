@@ -859,7 +859,8 @@ llvm::Value *CodeGenFunction::EmitLoadOfScalar(LValue lvalue) {
   if (lvalue.isShared()) {
     assert(lvalue.isStrict() || lvalue.isRelaxed());
     return EmitUPCLoad(lvalue.getAddress(), lvalue.isStrict(),
-                       lvalue.getType(), lvalue.getLoc());
+                       lvalue.getType(), lvalue.getAlignment(),
+                       lvalue.getLoc());
   }
   return EmitLoadOfScalar(lvalue.getAddress(), lvalue.isVolatile(),
                           lvalue.getAlignment().getQuantity(),
@@ -983,7 +984,7 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
   if (lvalue.isShared()) {
     assert(lvalue.isStrict() || lvalue.isRelaxed());
     EmitUPCStore(value, lvalue.getAddress(), lvalue.isStrict(),
-                 lvalue.getType(), lvalue.getLoc());
+                 lvalue.getType(), lvalue.getAlignment(), lvalue.getLoc());
     return;
   }
   EmitStoreOfScalar(value, lvalue.getAddress(), lvalue.isVolatile(),
@@ -1066,11 +1067,11 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV) {
     llvm::Value *Val;
     if (LV.isShared()) {
       llvm::Type *AccessTy = llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
-      uint64_t Size = CGM.getTargetData().getTypeSizeInBits(AccessTy);
-      uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessTy);
+      uint64_t BitAlign = CGM.getTargetData().getABITypeAlignment(AccessTy);
+      CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
       if (!AI.AccessAlignment.isZero())
-        Align = AI.AccessAlignment.getQuantity();
-      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Size, Align, LV.getLoc());
+        Align = AI.AccessAlignment;
+      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Align, LV.getLoc());
     } else {
 
       // Cast to the access type.
@@ -1339,11 +1340,11 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     if (AI.TargetBitWidth != AI.AccessWidth) {
       llvm::Value *LoadVal;
       if (Dst.isShared()) {
-        uint64_t Size = CGM.getTargetData().getTypeSizeInBits(AccessLTy);
-        uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+        uint64_t BitAlign = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+        CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
         if (!AI.AccessAlignment.isZero())
-          Align = AI.AccessAlignment.getQuantity();
-        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Size, Align, Dst.getLoc());
+          Align = AI.AccessAlignment;
+        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Align, Dst.getLoc());
       } else {
         llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
         if (!AI.AccessAlignment.isZero())
@@ -1362,11 +1363,11 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
 
     // Write the value.
     if (Dst.isShared()) {
-      uint64_t Size = CGM.getTargetData().getTypeSizeInBits(AccessLTy);
-      uint64_t Align = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+      uint64_t BitAlign = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+      CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
       if (!AI.AccessAlignment.isZero())
-        Align = AI.AccessAlignment.getQuantity();
-      EmitUPCStore(Val, Ptr, Dst.isStrict(), Size, Align, Dst.getLoc());
+        Align = AI.AccessAlignment;
+      EmitUPCStore(Val, Ptr, Dst.isStrict(), Align, Dst.getLoc());
     } else {
       llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
                                                    Dst.isVolatileQualified());
