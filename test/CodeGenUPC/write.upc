@@ -40,11 +40,11 @@ void testul(shared unsigned long * ptr, unsigned long val) { *ptr = val; }
 // CHECK: testul
 // CHECK call void @__putdi2(i64 %1, i64 zeroext %{{[0-9]+}})
 
-void testll(shared long long * ptr, long val) { *ptr = val; }
+void testll(shared long long * ptr, long long val) { *ptr = val; }
 // CHECK: testll
 // CHECK call void @__putdi2(i64 %1, i64 %{{[0-9]+}})
 
-void testull(shared unsigned long long * ptr, unsigned long val) { *ptr = val; }
+void testull(shared unsigned long long * ptr, unsigned long long val) { *ptr = val; }
 // CHECK: testull
 // CHECK call void @__putdi2(i64 %1, i64 zeroext %{{[0-9]+}})
 
@@ -55,6 +55,18 @@ void test128(shared __int128_t * ptr, __int128_t val) { *ptr = val; }
 void testu128(shared __uint128_t * ptr, __uint128_t val) { *ptr = val; }
 // CHECK: testu128
 // CHECK call void @__putti2(i64 %1, { i64, i64 } %{{[0-9]+}})
+
+void testf(shared float * ptr, float val) { *ptr = val; }
+// CHECK: testf
+// CHECK call void @__putsf2(i64 %1, float %{{[0-9]+}})
+
+void testd(shared double * ptr, double val) { *ptr = val; }
+// CHECK: testd
+// CHECK call void @__putdf2(i64 %1, double %{{[0-9]+}})
+
+void testld(shared long double * ptr, long double val) { *ptr = val; }
+// CHECK: testld
+// CHECK call void @__puttf2(i64 %1, double %{{[0-9]+}})
 
 void testp(int * shared * ptr, int * val) { *ptr = val; }
 // CHECK: testp
@@ -102,11 +114,11 @@ void testuls(shared unsigned long * ptr, unsigned long val) { *ptr = val; }
 // CHECK: testuls
 // CHECK call void @__putsdi2(i64 %1, i64 zeroext %{{[0-9]+}})
 
-void testlls(shared long long * ptr, long val) { *ptr = val; }
+void testlls(shared long long * ptr, long long val) { *ptr = val; }
 // CHECK: testlls
 // CHECK call void @__putsdi2(i64 %1, i64 %{{[0-9]+}})
 
-void testulls(shared unsigned long long * ptr, unsigned long val) { *ptr = val; }
+void testulls(shared unsigned long long * ptr, unsigned long long val) { *ptr = val; }
 // CHECK: testulls
 // CHECK call void @__putsdi2(i64 %1, i64 zeroext %{{[0-9]+}})
 
@@ -117,6 +129,18 @@ void test128s(shared __int128_t * ptr, __int128_t val) { *ptr = val; }
 void testu128s(shared __uint128_t * ptr, __uint128_t val) { *ptr = val; }
 // CHECK: testu128s
 // CHECK call void @__putsti2(i64 %1, { i64, i64 } %{{[0-9]+}})
+
+void testfs(shared float * ptr, float val) { *ptr = val; }
+// CHECK: testfs
+// CHECK call void @__putssf2(i64 %1, float %{{[0-9]+}})
+
+void testds(shared double * ptr, double val) { *ptr = val; }
+// CHECK: testds
+// CHECK call void @__putsdf2(i64 %1, double %{{[0-9]+}})
+
+void testlds(shared long double * ptr, long double val) { *ptr = val; }
+// CHECK: testlds
+// CHECK call void @__putstf2(i64 %1, double %{{[0-9]+}})
 
 void testps(int * shared * ptr, int * val) { *ptr = val; }
 // CHECK: testps
