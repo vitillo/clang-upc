@@ -46,6 +46,14 @@ unsigned long long testull(shared unsigned long long * ptr) { return *ptr; }
 // CHECK: testull
 // CHECK: %call = call i64 @__getdi2(i64 %{{[0-9]+}})
 
+__int128_t test128(shared __int128_t * ptr) { return *ptr; }
+// CHECK: test128
+// CHECK: %call = call { i64, i64 } @__getti2(i64 %1)
+
+__uint128_t testu128(shared __uint128_t * ptr) { return *ptr; }
+// CHECK: testu128
+// CHECK: %call = call { i64, i64 } @__getti2(i64 %1)
+
 float testf(shared float * ptr) { return *ptr; }
 // CHECK: testf
 // CHECK: %call = call float @__getsf2(i64 %{{[0-9]+}})
@@ -112,6 +120,14 @@ long long testlls(shared long long * ptr) { return *ptr; }
 unsigned long long testulls(shared unsigned long long * ptr) { return *ptr; }
 // CHECK: testulls
 // CHECK: %call = call i64 @__getsdi2(i64 %{{[0-9]+}})
+
+__int128_t test128s(shared __int128_t * ptr) { return *ptr; }
+// CHECK: test128s
+// CHECK: %call = call { i64, i64 } @__getsti2(i64 %1)
+
+__uint128_t testu128s(shared __uint128_t * ptr) { return *ptr; }
+// CHECK: testu128s
+// CHECK: %call = call { i64, i64 } @__getsti2(i64 %1)
 
 float testfs(shared float * ptr) { return *ptr; }
 // CHECK: testfs

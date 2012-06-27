@@ -112,6 +112,8 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
       *AccessTy = Context.UnsignedLongTy;
     } else if (Size == Context.getTypeSize(Context.UnsignedLongLongTy)) {
       *AccessTy = Context.UnsignedLongLongTy;
+    } else if (Size == Context.getTypeSize(Context.UnsignedInt128Ty)) {
+      *AccessTy = Context.UnsignedInt128Ty;
     } else {
       return 0;
     }
