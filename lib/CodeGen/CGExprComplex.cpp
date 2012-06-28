@@ -828,6 +828,11 @@ void CodeGenFunction::EmitStoreOfComplex(ComplexPairTy V, LValue LV) {
   ComplexExprEmitter(*this).EmitStoreThroughLValue(V, LV);
 }
 
+/// EmitLoadOfComplex - Load a complex number from a LValue
+ComplexPairTy CodeGenFunction::EmitLoadOfComplex(LValue LV) {
+  return ComplexExprEmitter(*this).EmitLoadOfLValue(LV);
+}
+
 /// StoreComplexToAddr - Store a complex number into the specified address.
 void CodeGenFunction::StoreComplexToAddr(ComplexPairTy V,
                                          llvm::Value *DestAddr,

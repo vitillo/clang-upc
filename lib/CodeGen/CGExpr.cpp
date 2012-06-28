@@ -544,8 +544,7 @@ void CodeGenFunction::EmitCheck(llvm::Value *Address, unsigned Size) {
 CodeGenFunction::ComplexPairTy CodeGenFunction::
 EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
                          bool isInc, bool isPre) {
-  ComplexPairTy InVal = LoadComplexFromAddr(LV.getAddress(),
-                                            LV.isVolatileQualified());
+  ComplexPairTy InVal = EmitLoadOfComplex(LV);
   
   llvm::Value *NextVal;
   if (isa<llvm::IntegerType>(InVal.first->getType())) {
@@ -568,7 +567,7 @@ EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
   ComplexPairTy IncVal(NextVal, InVal.second);
   
   // Store the updated result through the lvalue.
-  StoreComplexToAddr(IncVal, LV.getAddress(), LV.isVolatileQualified());
+  EmitStoreOfComplex(IncVal, LV);
   
   // If this is a postinc, return the value read from memory, otherwise use the
   // updated value.
