@@ -529,7 +529,7 @@ private:
   static const uint64_t LifetimeShift = 5;
   static const uint64_t LQMask = 0x1800;
   static const uint64_t LQShift = 11;
-  static const uint64_t AddressSpaceMask = ~(CVRMask|GCAttrMask|LifetimeMask);
+  static const uint64_t AddressSpaceMask = ~(((uint64_t)1 << 40) - 1);
   static const uint64_t AddressSpaceShift = 40;
 };
 
