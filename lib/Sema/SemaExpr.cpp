@@ -8504,6 +8504,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
                                                 Opc == UO_PostInc,
                                                 Opc == UO_PreInc ||
                                                 Opc == UO_PreDec);
+    if (getLangOpts().UPC)
+      CheckUPCReferenceType(*this, Input);
     break;
   case UO_AddrOf:
     resultType = CheckAddressOfOperand(*this, Input, OpLoc);
