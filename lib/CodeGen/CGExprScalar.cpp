@@ -1333,8 +1333,13 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   } else if (const PointerType *ptr = type->getAs<PointerType>()) {
     QualType type = ptr->getPointeeType();
 
-    // VLA types don't have constant size.
-    if (const VariableArrayType *vla
+    if (type.getQualifiers().hasShared()) {
+      llvm::Value *amt = llvm::ConstantInt::get(CGF.PtrDiffTy, amount);
+      value = CGF.EmitUPCPointerArithmetic(value, amt, E->getSubExpr()->getType(),
+                                           CGF.getContext().getPointerDiffType(),
+                                           false);
+      // VLA types don't have constant size.
+    } else if (const VariableArrayType *vla
           = CGF.getContext().getAsVariableArrayType(type)) {
       llvm::Value *numElts = CGF.getVLASize(vla).first;
       if (!isInc) numElts = Builder.CreateNSWNeg(numElts, "vla.negsize");
