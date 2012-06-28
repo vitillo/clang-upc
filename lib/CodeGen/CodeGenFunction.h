@@ -1835,6 +1835,7 @@ public:
   llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy,
                                         SourceLocation Loc);
   llvm::Value *EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy);
+  llvm::Value *EmitUPCPointerToBoolConversion(llvm::Value *Pointer);
   llvm::Value *EmitUPCNullPointer(QualType DestTy);
   llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty,
                            CharUnits Align, SourceLocation Loc);

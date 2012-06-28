@@ -73,6 +73,15 @@ llvm::Value *CodeGenFunction::EmitUPCBitCastZeroPhase(llvm::Value *Value, QualTy
                         EmitUPCPointerGetAddr(Value));
 }
 
+llvm::Value *CodeGenFunction::EmitUPCPointerToBoolConversion(llvm::Value *Pointer) {
+  llvm::Value *Phase = EmitUPCPointerGetPhase(Pointer);
+  llvm::Value *Thread = EmitUPCPointerGetThread(Pointer);
+  llvm::Value *Addr = EmitUPCPointerGetAddr(Pointer);
+  return Builder.CreateOr(Builder.CreateOr(Builder.CreateIsNotNull(Phase),
+                                           Builder.CreateIsNotNull(Thread)),
+                          Builder.CreateIsNotNull(Addr));
+}
+
 llvm::Value *CodeGenFunction::EmitUPCNullPointer(QualType DestTy) {
   return EmitUPCPointer(llvm::ConstantInt::get(SizeTy, 0),
                         llvm::ConstantInt::get(SizeTy, 0),
