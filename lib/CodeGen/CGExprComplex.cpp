@@ -65,6 +65,14 @@ public:
 
   ComplexPairTy EmitLoadOfLValue(LValue LV) {
     assert(LV.isSimple() && "complex l-value must be simple");
+    if (LV.isShared()) {
+      llvm::Type *CTy = CGF.ConvertTypeForMem(LV.getType());
+      llvm::Value *Value = CGF.EmitUPCLoad(LV.getAddress(), LV.isStrict(),
+                                      CTy, LV.getAlignment(), LV.getLoc());
+      llvm::Value *Real = Builder.CreateExtractValue(Value, 0);
+      llvm::Value *Imag = Builder.CreateExtractValue(Value, 1);
+      return ComplexPairTy(Real, Imag);
+    }
     return EmitLoadOfComplex(LV.getAddress(), LV.isVolatileQualified());
   }
 
@@ -381,11 +389,13 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastExpr::CastKind CK, Expr *Op,
     return Visit(Op);
 
   case CK_LValueBitCast: {
-    llvm::Value *V = CGF.EmitLValue(Op).getAddress();
-    V = Builder.CreateBitCast(V, 
-                    CGF.ConvertType(CGF.getContext().getPointerType(DestTy)));
+    LValue LV = CGF.EmitLValue(Op);
+    llvm::Value *V = LV.getAddress();
+    QualType PtrTy = CGF.getContext().getPointerType(DestTy);
+    V = Builder.CreateBitCast(V, CGF.ConvertType(PtrTy));
     // FIXME: Are the qualifiers correct here?
-    return EmitLoadOfComplex(V, DestTy.isVolatileQualified());
+    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy, LV.getAlignment(),
+                                               LV.getLoc()));
   }
 
   case CK_BitCast:
@@ -649,7 +659,7 @@ EmitCompoundAssign(const CompoundAssignOperator *E,
   if (!LV.isVolatileQualified())
     return Val;
 
-  return EmitLoadOfComplex(LV.getAddress(), LV.isVolatileQualified());
+  return EmitLoadOfLValue(LV);
 }
 
 LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
@@ -684,7 +694,7 @@ ComplexPairTy ComplexExprEmitter::VisitBinAssign(const BinaryOperator *E) {
   if (!LV.isVolatileQualified())
     return Val;
 
-  return EmitLoadOfComplex(LV.getAddress(), LV.isVolatileQualified());
+  return EmitLoadOfLValue(LV);
 }
 
 ComplexPairTy ComplexExprEmitter::VisitBinComma(const BinaryOperator *E) {

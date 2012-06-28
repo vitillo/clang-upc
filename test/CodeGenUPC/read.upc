@@ -83,6 +83,10 @@ int testUnaligned(shared Unaligned * ptr) { return ptr->i; }
 // CHECK: testUnaligned
 // CHECK: call void @__getblk3(i8* %{{[0-9]+}}, i64 %{{[0-9]+}}, i64 4)
 
+_Complex double testComplex(shared _Complex double * ptr) { return *ptr; }
+// CHECK: testComplex
+// CHECK: call void @__getblk3(i8* %1, i64 %2, i64 16)
+
 #pragma upc strict
 
 char testcs(shared char * ptr) { return *ptr; }
@@ -160,3 +164,7 @@ void testSs(S * out, shared S * ptr) { *out = *ptr; }
 int testUnaligneds(shared Unaligned * ptr) { return ptr->i; }
 // CHECK: testUnaligneds
 // CHECK: call void @__getsblk3(i8* %{{[0-9]+}}, i64 %{{[0-9]+}}, i64 4)
+
+_Complex double testComplexs(shared _Complex double * ptr) { return *ptr; }
+// CHECK: testComplexs
+// CHECK: call void @__getsblk3(i8* %1, i64 %2, i64 16)
