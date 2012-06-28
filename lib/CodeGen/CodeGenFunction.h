@@ -1847,6 +1847,10 @@ public:
   void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
                             QualType SrcTy, QualType DestTy,
                             SourceLocation Loc);
+  llvm::Value *EmitUPCAtomicCmpXchg(llvm::Value *Addr,
+                                    llvm::PHINode *AtomicPhi,
+                                    llvm::Value *Value,
+                                    SourceLocation Loc);
   llvm::Value *EmitUPCPointerGetPhase(llvm::Value *Pointer);
   llvm::Value *EmitUPCPointerGetThread(llvm::Value *Pointer);
   llvm::Value *EmitUPCPointerGetAddr(llvm::Value *Pointer);

@@ -338,6 +338,14 @@ void CodeGenFunction::EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
   EmitUPCCall(*this, Name, Context.VoidTy, Args);
 }
 
+llvm::Value *CodeGenFunction::EmitUPCAtomicCmpXchg(llvm::Value *Addr,
+                                                   llvm::PHINode *AtomicPhi,
+                                                   llvm::Value *Value,
+                                                   SourceLocation Loc) {
+  CGM.Error(Loc, "cannot compile this atomic expression yet");
+  return Value;
+}
+
 llvm::Value *CodeGenFunction::EmitUPCPointerGetPhase(llvm::Value *Pointer) {
   const LangOptions& LangOpts = getContext().getLangOpts();
   unsigned PhaseBits = LangOpts.UPCPhaseBits;
