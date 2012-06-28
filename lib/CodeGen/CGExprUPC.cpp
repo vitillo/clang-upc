@@ -552,11 +552,12 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
     Thread = Builder.CreateUDiv(Rem, B);
     Phase = Builder.CreateURem(Rem, B);
 
+    uint64_t ElemSize = getContext().getTypeSizeInChars(ElemTy).getQuantity();
     // Compute the final Addr.
     llvm::Value *AddrInc =
       Builder.CreateMul(Builder.CreateAdd(Builder.CreateSub(Phase, OldPhase),
                                           Builder.CreateMul(Div, B)),
-                        llvm::ConstantInt::get(SizeTy, getContext().getTypeSize(ElemTy)));
+                        llvm::ConstantInt::get(SizeTy, ElemSize));
     Addr = Builder.CreateAdd(Addr, AddrInc);
   }
 
@@ -585,7 +586,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointerDiff(
   Qualifiers Quals = ElemTy.getQualifiers();
 
   llvm::Constant *ElemSize = 
-    llvm::ConstantInt::get(SizeTy, getContext().getTypeSize(ElemTy));
+    llvm::ConstantInt::get(SizeTy, getContext().getTypeSizeInChars(ElemTy).getQuantity());
   llvm::Value *AddrByteDiff = Builder.CreateSub(Addr1, Addr2, "addr.diff");
   llvm::Value *AddrDiff = Builder.CreateExactSDiv(AddrByteDiff, ElemSize);
 

@@ -28,7 +28,7 @@ shared int * testadd(shared int * ptr, int x) { return ptr + x; }
 // CHECK-NEXT: %24 = mul i64 %21, 1
 // CHECK-NEXT: %25 = sub i64 %23, %3
 // CHECK-NEXT: %26 = add i64 %25, %24
-// CHECK-NEXT: %27 = mul i64 %26, 32
+// CHECK-NEXT: %27 = mul i64 %26, 4
 // CHECK-NEXT: %28 = add i64 %8, %27
 // CHECK-NEXT: %29 = shl i64 %22, 20
 // CHECK-NEXT: %30 = or i64 %29, %23
@@ -67,7 +67,7 @@ shared int * testsub(shared int * ptr, int x) { return ptr - x; }
 // CHECK-NEXT: %25 = mul i64 %22, 1
 // CHECK-NEXT: %26 = sub i64 %24, %3
 // CHECK-NEXT: %27 = add i64 %26, %25
-// CHECK-NEXT: %28 = mul i64 %27, 32
+// CHECK-NEXT: %28 = mul i64 %27, 4
 // CHECK-NEXT: %29 = add i64 %8, %28
 // CHECK-NEXT: %30 = shl i64 %23, 20
 // CHECK-NEXT: %31 = or i64 %30, %24
@@ -94,7 +94,7 @@ long long testsub2(shared int * ptr1, shared int * ptr2) { return ptr1 - ptr2; }
 // CHECK-NEXT: %14 = extractvalue %__upc_shared_pointer_type %1, 0
 // CHECK-NEXT: %15 = lshr i64 %14, 30
 // CHECK-NEXT: %addr.diff = sub i64 %8, %15
-// CHECK-NEXT: %16 = sdiv exact i64 %addr.diff, 32
+// CHECK-NEXT: %16 = sdiv exact i64 %addr.diff, 4
 // CHECK-NEXT: %17 = load i32* @THREADS
 // CHECK-NEXT: %18 = zext i32 %17 to i64
 // CHECK-NEXT: %thread.diff = sub i64 %6, %13
@@ -135,7 +135,7 @@ shared int *testsubscript(shared int * ptr, int idx) { return &ptr[idx]; }
 // CHECK-NEXT: %24 = mul i64 %21, 1
 // CHECK-NEXT: %25 = sub i64 %23, %3
 // CHECK-NEXT: %26 = add i64 %25, %24
-// CHECK-NEXT: %27 = mul i64 %26, 32
+// CHECK-NEXT: %27 = mul i64 %26, 4
 // CHECK-NEXT: %28 = add i64 %8, %27
 // CHECK-NEXT: %29 = shl i64 %22, 20
 // CHECK-NEXT: %30 = or i64 %29, %23
@@ -171,7 +171,7 @@ void testincrement(shared int * * ptr) { ++*ptr; }
 // CHECK-NEXT: %24 = mul i64 %21, 1
 // CHECK-NEXT: %25 = sub i64 %23, %3
 // CHECK-NEXT: %26 = add i64 %25, %24
-// CHECK-NEXT: %27 = mul i64 %26, 32
+// CHECK-NEXT: %27 = mul i64 %26, 4
 // CHECK-NEXT: %28 = add i64 %8, %27
 // CHECK-NEXT: %29 = shl i64 %22, 20
 // CHECK-NEXT: %30 = or i64 %29, %23
