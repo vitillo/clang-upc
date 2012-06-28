@@ -84,6 +84,15 @@ public:
   /// a complex number into it.
   void EmitStoreThroughLValue(ComplexPairTy Val, LValue LV) {
     assert(LV.isSimple() && "complex l-value must be simple");
+    if (LV.isShared()) {
+      llvm::Type *CTy = CGF.ConvertTypeForMem(LV.getType());
+      llvm::Value *Value = llvm::UndefValue::get(CTy);
+      Value = Builder.CreateInsertValue(Value, Val.first, 0);
+      Value = Builder.CreateInsertValue(Value, Val.second, 1);
+      CGF.EmitUPCStore(Value, LV.getAddress(), LV.isStrict(),
+                       LV.getAlignment(), LV.getLoc());
+      return;
+    }
     return EmitStoreOfComplex(Val, LV.getAddress(), LV.isVolatileQualified());
   }
 
@@ -812,6 +821,11 @@ void CodeGenFunction::EmitComplexExprIntoAddr(const Expr *E,
   ComplexExprEmitter Emitter(*this);
   ComplexPairTy Val = Emitter.Visit(const_cast<Expr*>(E));
   Emitter.EmitStoreOfComplex(Val, DestAddr, DestIsVolatile);
+}
+
+/// EmitStoreOfComplex - Store a complex number into a LValue
+void CodeGenFunction::EmitStoreOfComplex(ComplexPairTy V, LValue LV) {
+  ComplexExprEmitter(*this).EmitStoreThroughLValue(V, LV);
 }
 
 /// StoreComplexToAddr - Store a complex number into the specified address.

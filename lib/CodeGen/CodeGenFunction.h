@@ -2439,6 +2439,7 @@ public:
                           bool DestIsVolatile);
   /// LoadComplexFromAddr - Load a complex number from the specified address.
   ComplexPairTy LoadComplexFromAddr(llvm::Value *SrcAddr, bool SrcIsVolatile);
+  void EmitStoreOfComplex(ComplexPairTy V, LValue LV);
 
   /// CreateStaticVarDecl - Create a zero-initialized LLVM global for
   /// a static local variable.
