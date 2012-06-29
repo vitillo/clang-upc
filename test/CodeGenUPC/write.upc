@@ -87,6 +87,14 @@ void testComplex(shared _Complex double * ptr, _Complex double val) { *ptr = val
 // CHECK: testComplex
 // CHECK: call void @__putblk3(i64 %6, i8* %5, i64 16)
 
+void testReal(shared _Complex double * ptr, double val) { __real__ *ptr = val; }
+// CHECK: testReal
+// CHECK: call void @__putdf2(i64 %{{[0-9]+}}, double %{{[0-9]+}})
+
+void testImag(shared _Complex double * ptr, double val) { __imag__ *ptr = val; }
+// CHECK: testImag
+// CHECK: call void @__putdf2(i64 %{{[0-9]+}}, double %{{[0-9]+}})
+
 #pragma upc strict
 
 void testcs(shared char * ptr, char val) { *ptr = val; }
@@ -168,3 +176,11 @@ void testUnaligneds(shared Unaligned * ptr, int val) { ptr->i = val; }
 void testComplexs(shared _Complex double * ptr, _Complex double val) { *ptr = val; }
 // CHECK: testComplexs
 // CHECK: call void @__putsblk3(i64 %6, i8* %5, i64 16)
+
+void testReals(shared _Complex double * ptr, double val) { __real__ *ptr = val; }
+// CHECK: testReals
+// CHECK: call void @__putsdf2(i64 %{{[0-9]+}}, double %{{[0-9]+}})
+
+void testImags(shared _Complex double * ptr, double val) { __imag__ *ptr = val; }
+// CHECK: testImags
+// CHECK: call void @__putsdf2(i64 %{{[0-9]+}}, double %{{[0-9]+}})

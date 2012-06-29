@@ -3099,8 +3099,13 @@ static QualType CheckRealImagOperand(Sema &S, ExprResult &V, SourceLocation Loc,
   }
 
   // These operators return the element type of a complex type.
-  if (const ComplexType *CT = V.get()->getType()->getAs<ComplexType>())
-    return CT->getElementType();
+  if (const ComplexType *CT = V.get()->getType()->getAs<ComplexType>()) {
+    Qualifiers Quals = V.get()->getType().getQualifiers();
+    if (Quals.hasShared()) {
+      Quals.setLayoutQualifier(0);
+    }
+    return S.getASTContext().getQualifiedType(CT->getElementType(), Quals);
+  }
 
   // Otherwise they pass through real integer and floating point types here.
   if (V.get()->getType()->isArithmeticType())

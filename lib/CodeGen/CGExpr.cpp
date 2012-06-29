@@ -1708,6 +1708,21 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
     assert(LV.isSimple() && "real/imag on non-ordinary l-value");
     llvm::Value *Addr = LV.getAddress();
 
+    if (LV.isShared()) {
+      if (!ExprTy->isAnyComplexType()) {
+        assert(ExprTy->isArithmeticType());
+        return LV;
+      }
+
+      unsigned Idx = E->getOpcode() == UO_Imag;
+      CharUnits Align = LV.getAlignment();
+      if (Idx) {
+        Align = std::min(Align, getContext().getTypeSizeInChars(E->getType()));
+      }
+      return MakeAddrLValue(EmitUPCFieldOffset(Addr, ConvertType(LV.getType()), Idx),
+                            E->getType(), Align, E->getExprLoc());
+    }
+
     // __real is valid on scalars.  This is a faster way of testing that.
     // __imag can only produce an rvalue on scalars.
     if (E->getOpcode() == UO_Real &&

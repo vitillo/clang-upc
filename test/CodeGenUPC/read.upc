@@ -87,6 +87,14 @@ _Complex double testComplex(shared _Complex double * ptr) { return *ptr; }
 // CHECK: testComplex
 // CHECK: call void @__getblk3(i8* %1, i64 %2, i64 16)
 
+double testReal(shared _Complex double * ptr) { return __real__ *ptr; }
+// CHECK: testReal
+// CHECK: %call = call double @__getdf2(i64 %{{[0-9]+}})
+
+double testImag(shared _Complex double * ptr) { return __imag__ *ptr; }
+// CHECK: testImag
+// CHECK: %call = call double @__getdf2(i64 %{{[0-9]+}})
+
 #pragma upc strict
 
 char testcs(shared char * ptr) { return *ptr; }
@@ -168,3 +176,11 @@ int testUnaligneds(shared Unaligned * ptr) { return ptr->i; }
 _Complex double testComplexs(shared _Complex double * ptr) { return *ptr; }
 // CHECK: testComplexs
 // CHECK: call void @__getsblk3(i8* %1, i64 %2, i64 16)
+
+double testReals(shared _Complex double * ptr) { return __real__ *ptr; }
+// CHECK: testReals
+// CHECK: %call = call double @__getsdf2(i64 %{{[0-9]+}})
+
+double testImags(shared _Complex double * ptr) { return __imag__ *ptr; }
+// CHECK: testImags
+// CHECK: %call = call double @__getsdf2(i64 %{{[0-9]+}})
