@@ -1741,8 +1741,14 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   if (atomicPHI) {
     llvm::BasicBlock *opBB = Builder.GetInsertBlock();
     llvm::BasicBlock *contBB = CGF.createBasicBlock("atomic_cont", CGF.CurFn);
-    llvm::Value *old = Builder.CreateAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
+    llvm::Value *old;
+    if (LHSLV.isShared()) {
+      old = CGF.EmitUPCAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
+                                     Result, E->getExprLoc());
+    } else {
+      old = Builder.CreateAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
         Result, llvm::SequentiallyConsistent);
+    }
     atomicPHI->addIncoming(old, opBB);
     llvm::Value *success = Builder.CreateICmpEQ(old, atomicPHI);
     Builder.CreateCondBr(success, contBB, opBB);
