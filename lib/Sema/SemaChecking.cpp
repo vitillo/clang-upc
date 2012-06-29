@@ -606,7 +606,7 @@ ExprResult Sema::SemaAtomicOpsOverloaded(ExprResult TheCallResult,
   Expr *Ptr = TheCall->getArg(0);
   Ptr = DefaultFunctionArrayLvalueConversion(Ptr).get();
   const PointerType *pointerType = Ptr->getType()->getAs<PointerType>();
-  if (!pointerType) {
+  if (!pointerType || pointerType->getPointeeType().getQualifiers().hasShared()) {
     Diag(DRE->getLocStart(), diag::err_atomic_builtin_must_be_pointer)
       << Ptr->getType() << Ptr->getSourceRange();
     return ExprError();
