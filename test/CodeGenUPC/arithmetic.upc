@@ -215,3 +215,86 @@ void testplusassign(shared int * * ptr, int val) { *ptr += val; }
 // CHECK-NEXT: %32 = shl i64 %29, 30
 // CHECK-NEXT: %33 = or i64 %32, %31
 // CHECK-NEXT: %34 = insertvalue %__upc_shared_pointer_type undef, i64 %33, 0
+
+typedef int array_type[10][THREADS][7];
+
+shared array_type * testarrayplus(shared array_type * ptr, int x) { return ptr + x; }
+// CHECK: testarrayplus
+// CHECK: %0 = load %__upc_shared_pointer_type* %ptr.addr, align 8
+// CHECK-NEXT: %1 = load i32* %x.addr, align 4
+// CHECK-NEXT: %2 = extractvalue %__upc_shared_pointer_type %0, 0
+// CHECK-NEXT: %3 = and i64 %2, 1048575
+// CHECK-NEXT: %4 = extractvalue %__upc_shared_pointer_type %0, 0
+// CHECK-NEXT: %5 = lshr i64 %4, 20
+// CHECK-NEXT: %6 = and i64 %5, 1023
+// CHECK-NEXT: %7 = extractvalue %__upc_shared_pointer_type %0, 0
+// CHECK-NEXT: %8 = lshr i64 %7, 30
+// CHECK-NEXT: %idx.ext = sext i32 %1 to i64
+// CHECK-NEXT: %9 = load i32* @THREADS
+// CHECK-NEXT: %10 = zext i32 %9 to i64
+// CHECK-NEXT: %11 = mul nuw i64 1, %10
+// CHECK-NEXT: %mul.dim = mul nuw i64 10, %11
+// CHECK-NEXT: %mul.dim2 = mul nuw i64 %mul.dim, 7
+// CHECK-NEXT: %idx.dim = mul nsw i64 %idx.ext, %mul.dim2
+// CHECK-NEXT: %12 = load i32* @THREADS
+// CHECK-NEXT: %13 = zext i32 %12 to i64
+// CHECK-NEXT: %14 = mul nuw i64 %13, 1
+// CHECK-NEXT: %15 = mul nuw i64 %6, 1
+// CHECK-NEXT: %16 = add nuw i64 %15, %3
+// CHECK-NEXT: %17 = add i64 %16, %idx.dim
+// CHECK-NEXT: %18 = sdiv i64 %17, %14
+// CHECK-NEXT: %19 = srem i64 %17, %14
+// CHECK-NEXT: %20 = icmp slt i64 %19, 0
+// CHECK-NEXT: %21 = add i64 %19, %14
+// CHECK-NEXT: %22 = select i1 %20, i64 %21, i64 %19
+// CHECK-NEXT: %23 = sub i64 %18, 1
+// CHECK-NEXT: %24 = select i1 %20, i64 %23, i64 %18
+// CHECK-NEXT: %25 = udiv i64 %22, 1
+// CHECK-NEXT: %26 = urem i64 %22, 1
+// CHECK-NEXT: %27 = mul i64 %24, 1
+// CHECK-NEXT: %28 = sub i64 %26, %3
+// CHECK-NEXT: %29 = add i64 %28, %27
+// CHECK-NEXT: %30 = mul i64 %29, 4
+// CHECK-NEXT: %31 = add i64 %8, %30
+// CHECK-NEXT: %32 = shl i64 %25, 20
+// CHECK-NEXT: %33 = or i64 %32, %26
+// CHECK-NEXT: %34 = shl i64 %31, 30
+// CHECK-NEXT: %35 = or i64 %34, %33
+// CHECK-NEXT: %36 = insertvalue %__upc_shared_pointer_type undef, i64 %35, 0
+
+int testarrayminus2(shared array_type * ptr1, shared array_type * ptr2) { return ptr1 - ptr2; }
+// CHECK: testarrayminus2
+// CHECK: %0 = load %__upc_shared_pointer_type* %ptr1.addr, align 8
+// CHECK-NEXT: %1 = load %__upc_shared_pointer_type* %ptr2.addr, align 8
+// CHECK-NEXT: %2 = extractvalue %__upc_shared_pointer_type %0, 0
+// CHECK-NEXT: %3 = and i64 %2, 1048575
+// CHECK-NEXT: %4 = extractvalue %__upc_shared_pointer_type %0, 0
+// CHECK-NEXT: %5 = lshr i64 %4, 20
+// CHECK-NEXT: %6 = and i64 %5, 1023
+// CHECK-NEXT: %7 = extractvalue %__upc_shared_pointer_type %0, 0
+// CHECK-NEXT: %8 = lshr i64 %7, 30
+// CHECK-NEXT: %9 = extractvalue %__upc_shared_pointer_type %1, 0
+// CHECK-NEXT: %10 = and i64 %9, 1048575
+// CHECK-NEXT: %11 = extractvalue %__upc_shared_pointer_type %1, 0
+// CHECK-NEXT: %12 = lshr i64 %11, 20
+// CHECK-NEXT: %13 = and i64 %12, 1023
+// CHECK-NEXT: %14 = extractvalue %__upc_shared_pointer_type %1, 0
+// CHECK-NEXT: %15 = lshr i64 %14, 30
+// CHECK-NEXT: %16 = load i32* @THREADS
+// CHECK-NEXT: %17 = zext i32 %16 to i64
+// CHECK-NEXT: %18 = mul nuw i64 1, %17
+// CHECK-NEXT: %mul.dim = mul nuw i64 10, %18
+// CHECK-NEXT: %mul.dim4 = mul nuw i64 %mul.dim, 7
+// CHECK-NEXT: %addr.diff = sub i64 %8, %15
+// CHECK-NEXT: %19 = sdiv exact i64 %addr.diff, 4
+// CHECK-NEXT: %20 = load i32* @THREADS
+// CHECK-NEXT: %21 = zext i32 %20 to i64
+// CHECK-NEXT: %thread.diff = sub i64 %6, %13
+// CHECK-NEXT: %22 = mul i64 %thread.diff, 1
+// CHECK-NEXT: %phase.diff = sub i64 %3, %10
+// CHECK-NEXT: %23 = sub i64 %19, %phase.diff
+// CHECK-NEXT: %block.diff = mul i64 %23, %21
+// CHECK-NEXT: %24 = mul i64 %22, %phase.diff
+// CHECK-NEXT: %ptr.diff = add i64 %block.diff, %24
+// CHECK-NEXT: %diff.dim = sdiv exact i64 %ptr.diff, %mul.dim4
+// CHECK-NEXT: %conv = trunc i64 %diff.dim to i32

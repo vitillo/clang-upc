@@ -500,6 +500,34 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
   return EmitUPCPointerArithmetic(Pointer, Index, PtrTy, indexOperand->getType(), IsSubtraction);
 }
 
+static std::pair<QualType, llvm::Value *> unwrapArray(CodeGenFunction& CGF, QualType Ty) {
+  llvm::Value *Dim = 0;
+  
+  while (const ArrayType *AT = CGF.getContext().getAsArrayType(Ty)) {
+    Ty = AT->getElementType();
+    llvm::Value *ArrayDim;
+    if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(AT)) {
+      ArrayDim = llvm::ConstantInt::get(CGF.PtrDiffTy, CAT->getSize());
+    } else if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(AT)) {
+      ArrayDim = llvm::ConstantInt::get(CGF.PtrDiffTy, TAT->getSize());
+      if (TAT->getThread())
+        ArrayDim =
+          CGF.Builder.CreateNUWMul(ArrayDim,
+                                   CGF.Builder.CreateZExt(CGF.EmitUPCThreads(),
+                                                          CGF.PtrDiffTy));
+    } else {
+      llvm_unreachable("illegal array type for pointer-to-shared arithmetic");
+    }
+    
+    if (Dim)
+      Dim = CGF.Builder.CreateNUWMul(Dim, ArrayDim, "mul.dim");
+    else
+      Dim = ArrayDim;
+  }
+
+  return std::make_pair(Ty, Dim);
+}
+
 llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
     llvm::Value *Pointer, llvm::Value *Index, QualType PtrTy, QualType IndexTy, bool IsSubtraction) {
 
@@ -507,20 +535,24 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
   llvm::Value *Thread = EmitUPCPointerGetThread(Pointer);
   llvm::Value *Addr = EmitUPCPointerGetAddr(Pointer);
 
-  QualType PointeeTy = PtrTy->getAs<PointerType>()->getPointeeType();
-  QualType ElemTy = PointeeTy;
-  while (const ArrayType *AT = getContext().getAsArrayType(ElemTy))
-    ElemTy = AT->getElementType();
-  Qualifiers Quals = ElemTy.getQualifiers();
+  bool isSigned = IndexTy->isSignedIntegerOrEnumerationType();
 
   unsigned width = cast<llvm::IntegerType>(Index->getType())->getBitWidth();
   if (width != PointerWidthInBits) {
     // Zero-extend or sign-extend the pointer value according to
     // whether the index is signed or not.
-    bool isSigned = IndexTy->isSignedIntegerOrEnumerationType();
     Index = Builder.CreateIntCast(Index, PtrDiffTy, isSigned,
                                       "idx.ext");
   }
+
+  QualType PointeeTy = PtrTy->getAs<PointerType>()->getPointeeType();
+  QualType ElemTy;
+  llvm::Value *Dim;
+  llvm::tie(ElemTy, Dim) = unwrapArray(*this, PointeeTy);
+  if (Dim) {
+    Index = Builder.CreateMul(Index, Dim, "idx.dim", !isSigned, isSigned);
+  }
+  Qualifiers Quals = ElemTy.getQualifiers();
 
   if (IsSubtraction)
     Index = Builder.CreateNeg(Index);
@@ -589,9 +621,9 @@ llvm::Value *CodeGenFunction::EmitUPCPointerDiff(
   llvm::Value *Addr2 = EmitUPCPointerGetAddr(Pointer2);
 
   QualType PointeeTy = PtrTy->getAs<PointerType>()->getPointeeType();
-  QualType ElemTy = PointeeTy;
-  while (const ArrayType *AT = getContext().getAsArrayType(ElemTy))
-    ElemTy = AT->getElementType();
+  QualType ElemTy;
+  llvm::Value *Dim;
+  llvm::tie(ElemTy, Dim) = unwrapArray(*this, PointeeTy);
   Qualifiers Quals = ElemTy.getQualifiers();
 
   llvm::Constant *ElemSize = 
@@ -613,6 +645,10 @@ llvm::Value *CodeGenFunction::EmitUPCPointerDiff(
       Builder.CreateMul(Builder.CreateSub(AddrDiff, PhaseDiff), Threads, "block.diff");
 
     Result = Builder.CreateAdd(BlockDiff, Builder.CreateMul(ThreadDiff, PhaseDiff), "ptr.diff");
+  }
+
+  if (Dim) {
+    Result = Builder.CreateExactSDiv(Result, Dim, "diff.dim");
   }
 
   // FIXME: Divide by the array dimension
