@@ -1574,7 +1574,20 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     V = LI;
     LV = CGF.MakeNaturalAlignAddrLValue(V, T);
   } else {
-    LV = CGF.MakeAddrLValue(V, E->getType(), Alignment);
+    if(T.getQualifiers().hasShared()) {
+      llvm::Value *SectionStart = V; // FIXME: get upc_shared section start
+      llvm::Value *StartInt = CGF.Builder.CreatePtrToInt(SectionStart, CGF.PtrDiffTy, "sect.cast");
+      llvm::Value *VInt = CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "addr.cast");
+      llvm::Value *Ofs = CGF.Builder.CreateSub(VInt, StartInt, "ofs.sub");
+      
+      llvm::Value *UPCPtr = CGF.EmitUPCPointer(llvm::ConstantInt::get(CGF.SizeTy, 0),
+                                               llvm::ConstantInt::get(CGF.SizeTy, 0),
+                                               Ofs);
+      LV = LValue::MakeAddr(UPCPtr, T, Alignment, CGF.getContext());
+    }
+    else {
+      LV = CGF.MakeAddrLValue(V, E->getType(), Alignment);
+    }
   }
   setObjCGCLValueClass(CGF.getContext(), E, LV);
   return LV;

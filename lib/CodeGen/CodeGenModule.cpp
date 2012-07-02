@@ -1489,49 +1489,55 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   bool NeedsGlobalCtor = false;
   bool NeedsGlobalDtor = RD && !RD->hasTrivialDestructor();
 
-  const VarDecl *InitDecl;
-  const Expr *InitExpr = D->getAnyInitializer(InitDecl);
 
-  if (!InitExpr) {
-    // This is a tentative definition; tentative definitions are
-    // implicitly initialized with { 0 }.
-    //
-    // Note that tentative definitions are only emitted at the end of
-    // a translation unit, so they should never have incomplete
-    // type. In addition, EmitTentativeDefinition makes sure that we
-    // never attempt to emit a tentative definition if a real one
-    // exists. A use may still exists, however, so we still may need
-    // to do a RAUW.
-    assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
-    Init = EmitNullConstant(D->getType());
-  } else {
-    // If this is a std::initializer_list, emit the special initializer.
-    Init = MaybeEmitGlobalStdInitializerListInitializer(D, InitExpr);
-    // An empty init list will perform zero-initialization, which happens
-    // to be exactly what we want.
-    // FIXME: It does so in a global constructor, which is *not* what we
-    // want.
-
-    if (!Init)
-      Init = EmitConstantInit(*InitDecl);
-    if (!Init) {
-      QualType T = InitExpr->getType();
-      if (D->getType()->isReferenceType())
-        T = D->getType();
-
-      if (getLangOpts().CPlusPlus) {
-        Init = EmitNullConstant(T);
-        NeedsGlobalCtor = true;
-      } else {
-        ErrorUnsupported(D, "static initializer");
-        Init = llvm::UndefValue::get(getTypes().ConvertType(T));
-      }
+  if(ASTTy->isArrayType() && ASTTy.getQualifiers().hasShared())
+    Init = MaybeEmitUPCSharedArrayInits(D);
+  
+  if(!Init) {
+    const VarDecl *InitDecl;
+    const Expr *InitExpr = D->getAnyInitializer(InitDecl);
+  
+    if (!InitExpr) {
+      // This is a tentative definition; tentative definitions are
+      // implicitly initialized with { 0 }.
+      //
+      // Note that tentative definitions are only emitted at the end of
+      // a translation unit, so they should never have incomplete
+      // type. In addition, EmitTentativeDefinition makes sure that we
+      // never attempt to emit a tentative definition if a real one
+      // exists. A use may still exists, however, so we still may need
+      // to do a RAUW.
+      assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
+      Init = EmitNullConstant(D->getType());
     } else {
-      // We don't need an initializer, so remove the entry for the delayed
-      // initializer position (just in case this entry was delayed) if we
-      // also don't need to register a destructor.
-      if (getLangOpts().CPlusPlus && !NeedsGlobalDtor)
-        DelayedCXXInitPosition.erase(D);
+      // If this is a std::initializer_list, emit the special initializer.
+      Init = MaybeEmitGlobalStdInitializerListInitializer(D, InitExpr);
+      // An empty init list will perform zero-initialization, which happens
+      // to be exactly what we want.
+      // FIXME: It does so in a global constructor, which is *not* what we
+      // want.
+
+      if (!Init)
+        Init = EmitConstantInit(*InitDecl);
+      if (!Init) {
+        QualType T = InitExpr->getType();
+        if (D->getType()->isReferenceType())
+          T = D->getType();
+
+        if (getLangOpts().CPlusPlus) {
+          Init = EmitNullConstant(T);
+          NeedsGlobalCtor = true;
+        } else {
+          ErrorUnsupported(D, "static initializer");
+          Init = llvm::UndefValue::get(getTypes().ConvertType(T));
+        }
+      } else {
+        // We don't need an initializer, so remove the entry for the delayed
+        // initializer position (just in case this entry was delayed) if we
+        // also don't need to register a destructor.
+        if (getLangOpts().CPlusPlus && !NeedsGlobalDtor)
+          DelayedCXXInitPosition.erase(D);
+      }
     }
   }
 
@@ -1598,6 +1604,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     GV->setConstant(false);
 
   SetCommonAttributes(D, GV);
+  if(ASTTy.getQualifiers().hasShared())
+    GV->setSection("upc_shared");
 
   // Emit the initializer function if necessary.
   if (NeedsGlobalCtor || NeedsGlobalDtor)
