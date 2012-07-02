@@ -1863,6 +1863,10 @@ static const Expr *isSimpleArrayDecayOperand(const Expr *E) {
   const Expr *SubExpr = CE->getSubExpr();
   if (SubExpr->getType()->isVariableArrayType())
     return 0;
+
+  // If this is a UPC shared array, bail out.
+  if (SubExpr->getType().getQualifiers().hasShared())
+    return 0;
   
   return SubExpr;
 }

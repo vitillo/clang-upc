@@ -1099,7 +1099,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 
     // Note that VLA pointers are always decayed, so we don't need to do
     // anything here.
-    if (!E->getType()->isVariableArrayType()) {
+    if (!E->getType()->isVariableArrayType() && !E->getType().getQualifiers().hasShared()) {
       assert(isa<llvm::PointerType>(V->getType()) && "Expected pointer");
       assert(isa<llvm::ArrayType>(cast<llvm::PointerType>(V->getType())
                                  ->getElementType()) &&
