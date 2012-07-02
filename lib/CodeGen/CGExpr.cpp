@@ -1575,7 +1575,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     LV = CGF.MakeNaturalAlignAddrLValue(V, T);
   } else {
     if(T.getQualifiers().hasShared()) {
-      llvm::Value *SectionStart = V; // FIXME: get upc_shared section start
+      llvm::Value *SectionStart = V; // does not find: CGF.CGM.getModule().getNamedValue("__upc_shared_start");
       llvm::Value *StartInt = CGF.Builder.CreatePtrToInt(SectionStart, CGF.PtrDiffTy, "sect.cast");
       llvm::Value *VInt = CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "addr.cast");
       llvm::Value *Ofs = CGF.Builder.CreateSub(VInt, StartInt, "ofs.sub");
