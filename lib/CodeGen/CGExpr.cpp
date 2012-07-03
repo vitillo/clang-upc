@@ -1915,15 +1915,16 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E) {
   // size is a VLA or Objective-C interface.
   llvm::Value *Address = 0;
   CharUnits ArrayAlignment;
-  if (const VariableArrayType *vla =
-        getContext().getAsVariableArrayType(E->getType())) {
+  if ((E->getType()->isVariableArrayType() ||
+       E->getType()->isUPCThreadArrayType()) &&
+      !E->getType().getQualifiers().hasShared()) {
     // The base must be a pointer, which is not an aggregate.  Emit
     // it.  It needs to be emitted first in case it's what captures
     // the VLA bounds.
     Address = EmitScalarExpr(E->getBase());
 
     // The element count here is the total number of non-VLA elements.
-    llvm::Value *numElements = getVLASize(vla).first;
+    llvm::Value *numElements = getVLASize(E->getType()).first;
 
     // Effectively, the multiply by the VLA size is part of the GEP.
     // GEP indexes are signed, and scaling an index isn't permitted to

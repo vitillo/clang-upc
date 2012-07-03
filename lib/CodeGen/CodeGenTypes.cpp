@@ -410,6 +410,16 @@ llvm::Type *CodeGenTypes::ConvertType(QualType T) {
     break;
   }
 
+  case Type::UPCThreadArray: {
+    const UPCThreadArrayType *A = cast<UPCThreadArrayType>(Ty);
+    assert(A->getIndexTypeCVRQualifiers() == 0 &&
+           "FIXME: We only handle trivial array types so far!");
+    // VLAs resolve to the innermost element type; this matches
+    // the return of alloca, and there isn't any obviously better choice.
+    ResultType = ConvertTypeForMem(A->getElementType());
+    break;
+  }
+
   case Type::VariableArray: {
     const VariableArrayType *A = cast<VariableArrayType>(Ty);
     assert(A->getIndexTypeCVRQualifiers() == 0 &&

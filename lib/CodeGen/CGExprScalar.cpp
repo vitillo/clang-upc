@@ -1342,9 +1342,10 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
                                            CGF.getContext().getPointerDiffType(),
                                            false);
       // VLA types don't have constant size.
-    } else if (const VariableArrayType *vla
-          = CGF.getContext().getAsVariableArrayType(type)) {
-      llvm::Value *numElts = CGF.getVLASize(vla).first;
+    } else if ((type->isVariableArrayType() ||
+                type->isUPCThreadArrayType()) &&
+               !type.getQualifiers().hasShared()) {
+      llvm::Value *numElts = CGF.getVLASize(type).first;
       if (!isInc) numElts = Builder.CreateNSWNeg(numElts, "vla.negsize");
       if (CGF.getContext().getLangOpts().isSignedOverflowDefined())
         value = Builder.CreateGEP(value, numElts, "vla.inc");
@@ -2006,10 +2007,11 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   }
 
   QualType elementType = pointerType->getPointeeType();
-  if (const VariableArrayType *vla
-        = CGF.getContext().getAsVariableArrayType(elementType)) {
+  if ((elementType->isVariableArrayType() ||
+       elementType->isUPCThreadArrayType()) &&
+      !elementType.getQualifiers().hasShared()) {
     // The element count here is the total number of non-VLA elements.
-    llvm::Value *numElements = CGF.getVLASize(vla).first;
+    llvm::Value *numElements = CGF.getVLASize(elementType).first;
 
     // Effectively, the multiply by the VLA size is part of the GEP.
     // GEP indexes are signed, and scaling an index isn't permitted to
@@ -2121,10 +2123,11 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
   llvm::Value *divisor = 0;
 
   // For a variable-length array, this is going to be non-constant.
-  if (const VariableArrayType *vla
-        = CGF.getContext().getAsVariableArrayType(elementType)) {
+  if ((elementType->isVariableArrayType() ||
+       elementType->isUPCThreadArrayType()) &&
+      !elementType.getQualifiers().hasShared()) {
     llvm::Value *numElements;
-    llvm::tie(numElements, elementType) = CGF.getVLASize(vla);
+    llvm::tie(numElements, elementType) = CGF.getVLASize(elementType);
 
     divisor = numElements;
 
