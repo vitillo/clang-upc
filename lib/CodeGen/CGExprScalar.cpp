@@ -1629,6 +1629,19 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
         size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
 
       return size;
+    } else if (TypeToSize->isUPCThreadArrayType()) {
+      QualType eltType;
+      llvm::Value *numElts;
+      llvm::tie(numElts, eltType) = CGF.getVLASize(TypeToSize);
+
+      llvm::Value *size = numElts;
+
+      // Scale the number of non-VLA elements by the non-VLA element size.
+      CharUnits eltSize = CGF.getContext().getTypeSizeInChars(eltType);
+      if (!eltSize.isOne())
+        size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
+
+      return size;
     }
   }
 
