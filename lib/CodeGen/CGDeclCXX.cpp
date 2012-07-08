@@ -292,8 +292,11 @@ CodeGenModule::EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, false);
 
   // Create a variable initialization function.
+  const char *InitFunctionName = getContext().getLangOpts().UPC ?
+    "__upc_global_var_init" : "__cxx_global_var_init";
+
   llvm::Function *Fn =
-    CreateGlobalInitOrDestructFunction(*this, FTy, "__cxx_global_var_init");
+    CreateGlobalInitOrDestructFunction(*this, FTy, InitFunctionName);
 
   CodeGenFunction(*this).GenerateCXXGlobalVarDeclInitFunc(Fn, D, Addr,
                                                           PerformInit);
@@ -327,9 +330,12 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
 
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, false);
 
+  const char *GlobalInitName = getContext().getLangOpts().UPC ?
+    "__upc_init_decls" : "__cxx_global_var_init";
+
   // Create our global initialization function.
   llvm::Function *Fn = 
-    CreateGlobalInitOrDestructFunction(*this, FTy, "_GLOBAL__I_a");
+    CreateGlobalInitOrDestructFunction(*this, FTy, GlobalInitName);
 
   if (!PrioritizedCXXGlobalInits.empty()) {
     SmallVector<llvm::Constant*, 8> LocalCXXGlobalInits;

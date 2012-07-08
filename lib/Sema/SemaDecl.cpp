@@ -6475,7 +6475,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       Diag(VDecl->getLocation(), diag::warn_extern_init);
 
     // C99 6.7.8p4. All file scoped initializers need to be constant.
-    if (!getLangOpts().CPlusPlus && !VDecl->isInvalidDecl())
+    if (!getLangOpts().CPlusPlus && !getLangOpts().UPC && !VDecl->isInvalidDecl())
       CheckForConstantInitializer(Init, DclT);
   }
 

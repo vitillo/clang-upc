@@ -1525,7 +1525,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
         if (D->getType()->isReferenceType())
           T = D->getType();
 
-        if (getLangOpts().CPlusPlus) {
+        if (getLangOpts().CPlusPlus || getLangOpts().UPC) {
           Init = EmitNullConstant(T);
           NeedsGlobalCtor = true;
         } else {
