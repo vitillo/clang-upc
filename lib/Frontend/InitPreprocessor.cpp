@@ -321,6 +321,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     }
     Builder.append("extern const int MYTHREAD;\n");
     Builder.append("typedef shared struct upc_lock_struct upc_lock_t;\n");
+    Builder.append("extern int main() __asm__(\"upc_main\");\n");
   }
 
   // Not "standard" per se, but available even with the -undef flag.
