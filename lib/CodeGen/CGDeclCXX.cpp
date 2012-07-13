@@ -331,7 +331,7 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, false);
 
   const char *GlobalInitName = getContext().getLangOpts().UPC ?
-    "__upc_init_decls" : "__cxx_global_var_init";
+    "__upc_init_decls" : "_GLOBAL__I_a";
 
   // Create our global initialization function.
   llvm::Function *Fn = 
