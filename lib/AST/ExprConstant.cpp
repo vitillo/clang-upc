@@ -6447,6 +6447,10 @@ bool Expr::EvaluateAsInitializer(APValue &Value, const ASTContext &Ctx,
       !Ctx.getLangOpts().CPlusPlus0x)
     return false;
 
+  // a shared pointer expression is never a compile-time constant
+  if (getType()->hasPointerToSharedRepresentation())
+    return false;
+
   Expr::EvalStatus EStatus;
   EStatus.Diag = &Notes;
 

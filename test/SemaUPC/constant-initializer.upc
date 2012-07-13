@@ -6,4 +6,4 @@ shared int * ptr1 = array;
 shared int * ptr2 = array + 1;
 
 shared int * getptr(void);
-shared int * ptr3 = getptr(); // expected-error{{initializer element is not a compile-time constant}}
+shared int * ptr3 = getptr();
