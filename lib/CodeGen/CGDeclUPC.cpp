@@ -38,21 +38,16 @@ llvm::Constant *CodeGenModule::MaybeEmitUPCSharedArrayInits(const VarDecl *VD) {
 
   ASTContext &Ctx = getContext();
 
-  // generalization of stuff from ExprConstant.cpp (refactor?)
+  // from localsizeof in AST/ExprConstant.cpp (refactor?)
   bool hasTHREADS = false;
   uint64_t ArrayDim = 1;
-  SmallVector<llvm::Constant *, 64> Dims;
   while (isa<ArrayType>(CurTy.getTypePtr())) {
-    if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(CurTy.getTypePtr())) {
-      uint64_t Dim = CAT->getSize().getZExtValue();
-      ArrayDim *= Dim;
-      Dims.push_back(llvm::ConstantInt::get(Int64Ty, Dim));
-    } else if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(CurTy.getTypePtr())) {
-      uint64_t Dim = TAT->getSize().getZExtValue();
-      ArrayDim *= Dim;
+    if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(CurTy.getTypePtr()))
+      ArrayDim *= CAT->getSize().getZExtValue();
+    else if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(CurTy.getTypePtr())) {
+      ArrayDim *= TAT->getSize().getZExtValue();
       if (TAT->getThread())
         hasTHREADS = true;
-      Dims.push_back(llvm::ConstantInt::get(Int64Ty, Dim));
     }
     CurTy = cast<ArrayType>(CurTy.getTypePtr())->getElementType();
   }
