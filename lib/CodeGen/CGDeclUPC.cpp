@@ -61,16 +61,17 @@ llvm::Constant *CodeGenModule::MaybeEmitUPCSharedArrayInits(const VarDecl *VD) {
     Quals.getLayoutQualifier() : uint32_t(1);
 
   uint64_t LocalElements;
-  if (hasTHREADS)
-    ErrorUnsupported(VD, "initialization of shared array in dynamic THREADS environment");
-    //LocalElements = (ArrayDim + BlockSize - 1) / BlockSize * BlockSize;
-
-  uint32_t NThreads = Ctx.getLangOpts().UPCThreads;
-  if (NThreads == 0) {
-    NThreads = 1;
+  if (hasTHREADS) {
+    LocalElements = (ArrayDim + BlockSize - 1) / BlockSize * BlockSize;
   }
-  uint64_t Div = BlockSize * NThreads;
-  LocalElements = ((ArrayDim + Div - 1) / Div * BlockSize);
+  else {
+    uint32_t NThreads = Ctx.getLangOpts().UPCThreads;
+    if (NThreads == 0) {
+      NThreads = 1;
+    }
+    uint64_t Div = BlockSize * NThreads;
+    LocalElements = ((ArrayDim + Div - 1) / Div * BlockSize);
+  }
 
   // now create the local slice of the shared array
   llvm::APInt NumElements(Ctx.getTypeSize(Ctx.getSizeType()), LocalElements);
