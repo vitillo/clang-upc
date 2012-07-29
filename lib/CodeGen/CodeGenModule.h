@@ -873,6 +873,15 @@ public:
   /// annotations are emitted during finalization of the LLVM code.
   void AddGlobalAnnotations(const ValueDecl *D, llvm::GlobalValue *GV);
 
+  // Emit the initializer for a shared array, if it needs special treatment
+  llvm::Constant *MaybeEmitUPCSharedArrayInits(const VarDecl *VD);
+
+  /// EmitCXXGlobalVarDeclInitFunc - Emit the function that initializes the
+  /// specified global (if PerformInit is true) and registers its destructor.
+  void EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
+                                    llvm::GlobalVariable *Addr,
+                                    bool PerformInit);
+
 private:
   llvm::GlobalValue *GetGlobalValue(StringRef Ref);
 
@@ -914,7 +923,6 @@ private:
   void EmitGlobalVarDefinition(const VarDecl *D);
   llvm::Constant *MaybeEmitGlobalStdInitializerListInitializer(const VarDecl *D,
                                                               const Expr *init);
-  llvm::Constant *MaybeEmitUPCSharedArrayInits(const VarDecl *VD);
   void EmitUPCSharedGlobalVarDefinition(const VarDecl *VD);
   void EmitAliasDefinition(GlobalDecl GD);
   void EmitObjCPropertyImplementations(const ObjCImplementationDecl *D);
@@ -950,11 +958,6 @@ private:
   /// EmitCXXGlobalDtorFunc - Emit the function that destroys C++ globals.
   void EmitCXXGlobalDtorFunc();
 
-  /// EmitCXXGlobalVarDeclInitFunc - Emit the function that initializes the
-  /// specified global (if PerformInit is true) and registers its destructor.
-  void EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
-                                    llvm::GlobalVariable *Addr,
-                                    bool PerformInit);
 
   // FIXME: Hardcoding priority here is gross.
   void AddGlobalCtor(llvm::Function *Ctor, int Priority=65535);

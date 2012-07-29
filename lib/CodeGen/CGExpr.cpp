@@ -1557,6 +1557,18 @@ EmitBitCastOfLValueToProperType(CodeGenFunction &CGF,
   return CGF.Builder.CreateBitCast(V, IRType->getPointerTo(AS), Name);
 }
 
+static LValue EmitSharedVarDeclLValue(CodeGenFunction &CGF, llvm::Value *V, CharUnits Alignment, QualType T) {
+  llvm::Value *SectionStart = CGF.CGM.getModule().getOrInsertGlobal("__upc_shared_start", CGF.Int8Ty);
+  llvm::Value *StartInt = CGF.Builder.CreatePtrToInt(SectionStart, CGF.PtrDiffTy, "sect.cast");
+  llvm::Value *VInt = CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "addr.cast");
+  llvm::Value *Ofs = CGF.Builder.CreateSub(VInt, StartInt, "ofs.sub");
+      
+  llvm::Value *UPCPtr = CGF.EmitUPCPointer(llvm::ConstantInt::get(CGF.SizeTy, 0),
+                                           llvm::ConstantInt::get(CGF.SizeTy, 0),
+                                           Ofs);
+  return LValue::MakeAddr(UPCPtr, T, Alignment, CGF.getContext());
+}
+
 static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
                                       const Expr *E, const VarDecl *VD) {
   assert((VD->hasExternalStorage() || VD->isFileVarDecl()) &&
@@ -1574,20 +1586,10 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     V = LI;
     LV = CGF.MakeNaturalAlignAddrLValue(V, T);
   } else {
-    if(T.getQualifiers().hasShared()) {
-      llvm::Value *SectionStart = CGF.CGM.getModule().getOrInsertGlobal("__upc_shared_start", CGF.Int8Ty);
-      llvm::Value *StartInt = CGF.Builder.CreatePtrToInt(SectionStart, CGF.PtrDiffTy, "sect.cast");
-      llvm::Value *VInt = CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "addr.cast");
-      llvm::Value *Ofs = CGF.Builder.CreateSub(VInt, StartInt, "ofs.sub");
-      
-      llvm::Value *UPCPtr = CGF.EmitUPCPointer(llvm::ConstantInt::get(CGF.SizeTy, 0),
-                                               llvm::ConstantInt::get(CGF.SizeTy, 0),
-                                               Ofs);
-      LV = LValue::MakeAddr(UPCPtr, T, Alignment, CGF.getContext());
-    }
-    else {
+    if(T.getQualifiers().hasShared())
+      LV = EmitSharedVarDeclLValue(CGF, V, Alignment, T);
+    else
       LV = CGF.MakeAddrLValue(V, E->getType(), Alignment);
-    }
   }
   setObjCGCLValueClass(CGF.getContext(), E, LV);
   return LV;
@@ -1672,7 +1674,10 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       V = LI;
       LV = MakeNaturalAlignAddrLValue(V, T);
     } else {
-      LV = MakeAddrLValue(V, T, Alignment);
+      if(T.getQualifiers().hasShared())
+        LV = EmitSharedVarDeclLValue(*this, V, getContext().getDeclAlign(VD), T);
+      else
+        LV = MakeAddrLValue(V, T, Alignment);
     }
 
     if (NonGCable) {
