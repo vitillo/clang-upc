@@ -1490,11 +1490,10 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   bool NeedsGlobalCtor = false;
   bool NeedsGlobalDtor = RD && !RD->hasTrivialDestructor();
 
-
-  if(ASTTy->isArrayType() && ASTTy.getQualifiers().hasShared())
+  if (ASTTy->isArrayType() && ASTTy.getQualifiers().hasShared())
     Init = MaybeEmitUPCSharedArrayInits(D);
   
-  if(!Init) {
+  if (!Init) {
     const VarDecl *InitDecl;
     const Expr *InitExpr = D->getAnyInitializer(InitDecl);
   

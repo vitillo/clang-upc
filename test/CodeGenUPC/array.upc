@@ -27,7 +27,6 @@ shared int *pval = &a[3];
 // CHECK-DT:    store %__upc_shared_pointer_type %21, %__upc_shared_pointer_type* @pval, align 8
 
 
-
 // not supported by gupc; possible with full dynamic initialization
 // (probably not useful)
 int val = a[3];
