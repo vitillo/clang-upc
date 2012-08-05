@@ -2144,6 +2144,7 @@ public:
   LValue EmitCallExprLValue(const CallExpr *E);
   // Note: only available for agg return types
   LValue EmitVAArgExprLValue(const VAArgExpr *E);
+  LValue EmitSharedVarDeclLValue(llvm::Value *V, CharUnits Alignment, QualType T);
   LValue EmitDeclRefLValue(const DeclRefExpr *E);
   LValue EmitStringLiteralLValue(const StringLiteral *E);
   LValue EmitObjCEncodeExprLValue(const ObjCEncodeExpr *E);

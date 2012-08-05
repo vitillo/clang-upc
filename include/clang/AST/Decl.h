@@ -772,6 +772,9 @@ private:
 
     /// \brief Whether this variable is (C++0x) constexpr.
     unsigned IsConstexpr : 1;
+
+    /// \brief Whether UPC initialization should be performed strict
+    unsigned IsUPCInitStrict : 1;
   };
   enum { NumVarDeclBits = 14 };
 
@@ -1188,6 +1191,10 @@ public:
   /// Whether this variable is (C++0x) constexpr.
   bool isConstexpr() const { return VarDeclBits.IsConstexpr; }
   void setConstexpr(bool IC) { VarDeclBits.IsConstexpr = IC; }
+
+  /// Whether UPC initialization should be performed strict
+  bool isUPCInitStrict() const { return VarDeclBits.IsUPCInitStrict; }
+  void setUPCInitStrict(bool IS) { VarDeclBits.IsUPCInitStrict = IS; }
 
   /// \brief If this variable is an instantiated static data member of a
   /// class template specialization, returns the templated static data member

@@ -1557,16 +1557,16 @@ EmitBitCastOfLValueToProperType(CodeGenFunction &CGF,
   return CGF.Builder.CreateBitCast(V, IRType->getPointerTo(AS), Name);
 }
 
-static LValue EmitSharedVarDeclLValue(CodeGenFunction &CGF, llvm::Value *V, CharUnits Alignment, QualType T) {
-  llvm::Value *SectionStart = CGF.CGM.getModule().getOrInsertGlobal("__upc_shared_start", CGF.Int8Ty);
-  llvm::Value *StartInt = CGF.Builder.CreatePtrToInt(SectionStart, CGF.PtrDiffTy, "sect.cast");
-  llvm::Value *VInt = CGF.Builder.CreatePtrToInt(V, CGF.PtrDiffTy, "addr.cast");
-  llvm::Value *Ofs = CGF.Builder.CreateSub(VInt, StartInt, "ofs.sub");
+LValue CodeGenFunction::EmitSharedVarDeclLValue(llvm::Value *V, CharUnits Alignment, QualType T) {
+  llvm::Value *SectionStart = CGM.getModule().getOrInsertGlobal("__upc_shared_start", Int8Ty);
+  llvm::Value *StartInt = Builder.CreatePtrToInt(SectionStart, PtrDiffTy, "sect.cast");
+  llvm::Value *VInt = Builder.CreatePtrToInt(V, PtrDiffTy, "addr.cast");
+  llvm::Value *Ofs = Builder.CreateSub(VInt, StartInt, "ofs.sub");
       
-  llvm::Value *UPCPtr = CGF.EmitUPCPointer(llvm::ConstantInt::get(CGF.SizeTy, 0),
-                                           llvm::ConstantInt::get(CGF.SizeTy, 0),
+  llvm::Value *UPCPtr = EmitUPCPointer(llvm::ConstantInt::get(SizeTy, 0),
+                                           llvm::ConstantInt::get(SizeTy, 0),
                                            Ofs);
-  return LValue::MakeAddr(UPCPtr, T, Alignment, CGF.getContext());
+  return LValue::MakeAddr(UPCPtr, T, Alignment, getContext());
 }
 
 static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
@@ -1587,7 +1587,7 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     LV = CGF.MakeNaturalAlignAddrLValue(V, T);
   } else {
     if(T.getQualifiers().hasShared())
-      LV = EmitSharedVarDeclLValue(CGF, V, Alignment, T);
+      LV = CGF.EmitSharedVarDeclLValue(V, Alignment, T);
     else
       LV = CGF.MakeAddrLValue(V, E->getType(), Alignment);
   }
@@ -1675,7 +1675,7 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       LV = MakeNaturalAlignAddrLValue(V, T);
     } else {
       if(T.getQualifiers().hasShared())
-        LV = EmitSharedVarDeclLValue(*this, V, getContext().getDeclAlign(VD), T);
+        LV = EmitSharedVarDeclLValue(V, getContext().getDeclAlign(VD), T);
       else
         LV = MakeAddrLValue(V, T, Alignment);
     }

@@ -1517,7 +1517,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
       // FIXME: It does so in a global constructor, which is *not* what we
       // want.
 
-      if (!Init)
+      // upc shared variables can never be static initialized
+      if (!Init && !ASTTy.getQualifiers().hasShared())
         Init = EmitConstantInit(*InitDecl);
       if (!Init) {
         QualType T = InitExpr->getType();

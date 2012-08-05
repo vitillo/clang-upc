@@ -4062,6 +4062,9 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
     if (D.getDeclSpec().isConstexprSpecified())
       NewVD->setConstexpr(true);
+
+    if (getLangOpts().UPC)
+      NewVD->setUPCInitStrict(IsUPCDefaultStrict());
   }
 
   // Set the lexical context. If the declarator has a C++ scope specifier, the

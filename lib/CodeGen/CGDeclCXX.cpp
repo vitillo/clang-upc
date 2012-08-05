@@ -30,7 +30,25 @@ static void EmitDeclInit(CodeGenFunction &CGF, const VarDecl &D,
 
   CharUnits alignment = Context.getDeclAlign(&D);
   QualType type = D.getType();
-  LValue lv = CGF.MakeAddrLValue(DeclPtr, type, alignment);
+
+  // Deduce UPC strict or relaxed from context, if needed
+  if (Context.getLangOpts().UPC) {
+      Qualifiers Quals = type.getQualifiers();
+      if (Quals.hasShared() && !Quals.hasStrict() && !Quals.hasRelaxed()) {
+        if (D.isUPCInitStrict())
+          Quals.addStrict();
+        else
+          Quals.addRelaxed();
+
+        type = Context.getQualifiedType(type.getUnqualifiedType(), Quals);
+      }
+  }
+
+  LValue lv;
+  if(type.getQualifiers().hasShared())
+    lv = CGF.EmitSharedVarDeclLValue(DeclPtr, alignment, type);
+  else
+    lv = CGF.MakeAddrLValue(DeclPtr, type, alignment);
 
   const Expr *Init = D.getInit();
   if (!CGF.hasAggregateLLVMType(type)) {
