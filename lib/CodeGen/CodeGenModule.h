@@ -968,6 +968,10 @@ private:
   /// suitable for use as a LLVM constructor or destructor array.
   void EmitCtorList(const CtorList &Fns, const char *GlobalName);
 
+  /// EmitUPCInits - Generates a global array of upc initialization functions,
+  /// with appending linkage
+  void EmitUPCInits(const CtorList &Fns, const char *GlobalName);
+
   /// EmitFundamentalRTTIDescriptor - Emit the RTTI descriptors for the
   /// given type.
   void EmitFundamentalRTTIDescriptor(QualType Type);

@@ -156,7 +156,10 @@ void CodeGenModule::Release() {
   if (ObjCRuntime)
     if (llvm::Function *ObjCInitFunction = ObjCRuntime->ModuleInitFunction())
       AddGlobalCtor(ObjCInitFunction);
-  EmitCtorList(GlobalCtors, "llvm.global_ctors");
+  if (getContext().getLangOpts().UPC)
+    EmitUPCInits(GlobalCtors, "__upc_init_array");
+  else
+    EmitCtorList(GlobalCtors, "llvm.global_ctors");
   EmitCtorList(GlobalDtors, "llvm.global_dtors");
   EmitGlobalAnnotations();
   EmitLLVMUsed();
@@ -411,6 +414,31 @@ void CodeGenModule::EmitCtorList(const CtorList &Fns, const char *GlobalName) {
                              GlobalName);
   }
 }
+
+// Just like EmitCtorList except without priorities
+void CodeGenModule::EmitUPCInits(const CtorList &Fns, const char *GlobalName) {
+  // init function type is void()*.
+  llvm::FunctionType* CtorFTy = llvm::FunctionType::get(VoidTy, false);
+  llvm::Type *CtorPFTy = llvm::PointerType::getUnqual(CtorFTy);
+
+  // Construct the constructor and destructor arrays.
+  SmallVector<llvm::Constant*, 8> Ctors;
+  for (CtorList::const_iterator I = Fns.begin(), E = Fns.end(); I != E; ++I) {
+    Ctors.push_back(llvm::ConstantExpr::getBitCast(I->first, CtorPFTy));
+  }
+
+  if (!Ctors.empty()) {
+    llvm::ArrayType *AT = llvm::ArrayType::get(CtorPFTy, Ctors.size());
+    llvm::GlobalVariable *GV =
+      new llvm::GlobalVariable(TheModule, AT, false,
+                             llvm::GlobalValue::AppendingLinkage,
+                             llvm::ConstantArray::get(AT, Ctors),
+                             GlobalName);
+    GV->setSection("upc_init_array");
+  }
+}
+
+
 
 llvm::GlobalValue::LinkageTypes
 CodeGenModule::getFunctionLinkage(const FunctionDecl *D) {
