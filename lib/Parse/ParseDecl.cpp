@@ -4304,7 +4304,6 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
   SmallVector<ParsedType, 2> DynamicExceptions;
   SmallVector<SourceRange, 2> DynamicExceptionRanges;
   ExprResult NoexceptExpr;
-  CachedTokens *ExceptionSpecTokens = 0;
   ParsedAttributes FnAttrs(AttrFactory);
   ParsedType TrailingReturnType;
 
@@ -4373,16 +4372,10 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
                                IsCXX11MemberFunction);
       
       // Parse exception-specification[opt].
-      bool Delayed = (D.getContext() == Declarator::MemberContext &&
-                      D.getDeclSpec().getStorageClassSpec()
-                        != DeclSpec::SCS_typedef &&
-                      !D.getDeclSpec().isFriendSpecified());
-      ESpecType = tryParseExceptionSpecification(Delayed,
-                                                 ESpecRange,
+      ESpecType = tryParseExceptionSpecification(ESpecRange,
                                                  DynamicExceptions,
                                                  DynamicExceptionRanges,
-                                                 NoexceptExpr,
-                                                 ExceptionSpecTokens);
+                                                 NoexceptExpr);
       if (ESpecType != EST_None)
         EndLoc = ESpecRange.getEnd();
 
@@ -4417,7 +4410,6 @@ void Parser::ParseFunctionDeclarator(Declarator &D,
                                              DynamicExceptions.size(),
                                              NoexceptExpr.isUsable() ?
                                                NoexceptExpr.get() : 0,
-                                             ExceptionSpecTokens,
                                              Tracker.getOpenLocation(), 
                                              EndLoc, D,
                                              TrailingReturnType),
