@@ -196,6 +196,10 @@ public:
     return Builder.CreateBitCast(V, ConvertType(E->getType()));
   }
 
+  Value *VisitUPCThreadExpr(UPCThreadExpr *E) {
+    return CGF.EmitUPCThreads();
+  }
+
   Value *VisitSizeOfPackExpr(SizeOfPackExpr *E) {
     return llvm::ConstantInt::get(ConvertType(E->getType()),E->getPackLength());
   }
