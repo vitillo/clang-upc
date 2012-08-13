@@ -644,7 +644,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointerDiff(
     llvm::Value *BlockDiff =
       Builder.CreateMul(Builder.CreateSub(AddrDiff, PhaseDiff), Threads, "block.diff");
 
-    Result = Builder.CreateAdd(BlockDiff, Builder.CreateMul(ThreadDiff, PhaseDiff), "ptr.diff");
+    Result = Builder.CreateAdd(BlockDiff, Builder.CreateAdd(ThreadDiff, PhaseDiff), "ptr.diff");
   }
 
   if (Dim) {

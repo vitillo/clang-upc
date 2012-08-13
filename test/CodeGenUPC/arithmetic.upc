@@ -102,7 +102,7 @@ long long testsub2(shared int * ptr1, shared int * ptr2) { return ptr1 - ptr2; }
 // CHECK-NEXT: %phase.diff = sub i64 %3, %10
 // CHECK-NEXT: %20 = sub i64 %16, %phase.diff
 // CHECK-NEXT: %block.diff = mul i64 %20, %18
-// CHECK-NEXT: %21 = mul i64 %19, %phase.diff
+// CHECK-NEXT: %21 = add i64 %19, %phase.diff
 // CHECK-NEXT: %ptr.diff = add i64 %block.diff, %21
 
 shared int *testsubscript(shared int * ptr, int idx) { return &ptr[idx]; }
@@ -294,7 +294,7 @@ int testarrayminus2(shared array_type * ptr1, shared array_type * ptr2) { return
 // CHECK-NEXT: %phase.diff = sub i64 %3, %10
 // CHECK-NEXT: %23 = sub i64 %19, %phase.diff
 // CHECK-NEXT: %block.diff = mul i64 %23, %21
-// CHECK-NEXT: %24 = mul i64 %22, %phase.diff
+// CHECK-NEXT: %24 = add i64 %22, %phase.diff
 // CHECK-NEXT: %ptr.diff = add i64 %block.diff, %24
 // CHECK-NEXT: %diff.dim = sdiv exact i64 %ptr.diff, %mul.dim4
 // CHECK-NEXT: %conv = trunc i64 %diff.dim to i32
