@@ -97,6 +97,9 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
   unsigned UnitWidth = Context.getCharWidth();
   const char *Result;
 
+  if (!Ty->isPrimitiveType() && !Ty->isPointerTy())
+    return 0;
+
   if(Ty->isFloatTy()) {
     *AccessTy = Context.FloatTy;
     Result = "sf";
@@ -701,7 +704,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointerCompare(
     llvm::Constant *GTResult = llvm::ConstantInt::get(BoolTy, 0);
 
     llvm::Constant *ElemSize = 
-      llvm::ConstantInt::get(SizeTy, getContext().getTypeSize(ElemTy));
+      llvm::ConstantInt::get(SizeTy, getContext().getTypeSizeInChars(ElemTy).getQuantity());
     llvm::Value *AddrByteDiff = Builder.CreateSub(Addr1, Addr2, "addr.diff");
     llvm::Value *PhaseDiff = Builder.CreateSub(Phase1, Phase2, "phase.diff");
     llvm::Value *PhaseByteDiff = Builder.CreateMul(PhaseDiff, ElemSize);
