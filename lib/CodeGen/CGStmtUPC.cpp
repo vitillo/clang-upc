@@ -61,16 +61,23 @@ void CodeGenFunction::EmitUPCBarrierStmt(const UPCBarrierStmt &S) {
   EmitUPCBarrier(*this, "__upc_barrier", S.getIdValue(), S.getBarrierLoc());
 }
 
-static llvm::Value *EmitUPCFenceVar(CodeGenFunction &CGF) {
-  // FIXME: Once we have support for shared variables
-  // with static storage duration, create a real variable.
-  const ASTContext &Ctx = CGF.getContext();
-  return CGF.EmitUPCNullPointer(Ctx.getPointerType(Ctx.getSharedType(Ctx.IntTy)));
+llvm::Constant *CodeGenModule::getUPCFenceVar() {
+  if (!UPCFenceVar) {
+    llvm::GlobalVariable * GV =
+      new llvm::GlobalVariable(getModule(), IntTy, false,
+                               llvm::GlobalValue::LinkOnceODRLinkage,
+                               llvm::ConstantInt::get(IntTy, 0),
+                               "__upc_fence_var");
+    GV->setSection("upc_shared");
+    UPCFenceVar = GV;
+  }
+  return UPCFenceVar;
 }
 
 void CodeGenFunction::EmitUPCFenceStmt(const UPCFenceStmt &S) {
-  llvm::Value *FencePtr = EmitUPCFenceVar(*this);
+  llvm::Value *FencePtr = CGM.getUPCFenceVar();
   CharUnits Align = getContext().getTypeAlignInChars(getContext().IntTy);
+  FencePtr = EmitSharedVarDeclLValue(FencePtr, Align, getContext().IntTy).getAddress();
   llvm::Value *Val = EmitUPCLoad(FencePtr, /*strict*/true, getContext().IntTy, Align, S.getFenceLoc());
   EmitUPCStore(Val, FencePtr, /*strict*/true, getContext().IntTy, Align, S.getFenceLoc());
 }

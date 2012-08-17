@@ -74,7 +74,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
     RRData(0), CFConstantStringClassRef(0),
     ConstantStringClassRef(0), NSConstantStringType(0),
     VMContext(M.getContext()),
-    UPCThreads(0), UPCMyThread(0),
+    UPCThreads(0), UPCMyThread(0), UPCFenceVar(0),
     NSConcreteGlobalBlock(0), NSConcreteStackBlock(0),
     BlockObjectAssign(0), BlockObjectDispose(0),
     BlockDescriptorType(0), GenericBlockLiteralType(0) {
