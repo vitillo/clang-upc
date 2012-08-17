@@ -6961,10 +6961,17 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
       diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/false);
     }
     if (LCanPointeeTy != RCanPointeeTy) {
-      if (LHSIsNull && !RHSIsNull)
-        LHS = ImpCastExprToType(LHS.take(), RHSType, CK_BitCast);
-      else
-        RHS = ImpCastExprToType(RHS.take(), LHSType, CK_BitCast);
+      if (LHSIsNull && !RHSIsNull) {
+        if (!LQuals.hasShared() && RQuals.hasShared())
+          LHS = ImpCastExprToType(LHS.take(), RHSType, CK_NullToPointer);
+        else
+          LHS = ImpCastExprToType(LHS.take(), RHSType, CK_BitCast);
+      } else {
+        if (LQuals.hasShared() && !RQuals.hasShared() && RHSIsNull)
+          RHS = ImpCastExprToType(RHS.take(), LHSType, CK_NullToPointer);
+        else
+          RHS = ImpCastExprToType(RHS.take(), LHSType, CK_BitCast);
+      }
     }
     return ResultTy;
   }
