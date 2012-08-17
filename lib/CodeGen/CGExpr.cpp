@@ -2204,6 +2204,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   LValue LV = MakeAddrLValue(addr, type, alignment);
   LV.getQuals().addCVRQualifiers(cvr);
+  if (base.isShared())
+    LV.getQuals().addShared();
+  if (base.getQuals().hasRelaxed())
+    LV.getQuals().addRelaxed();
+  if (base.getQuals().hasStrict())
+    LV.getQuals().addStrict();
 
   // __weak attribute on a field is ignored.
   if (LV.getQuals().getObjCGCAttr() == Qualifiers::Weak)

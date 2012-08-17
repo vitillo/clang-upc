@@ -935,7 +935,20 @@ void AggExprEmitter::VisitInitListExpr(InitListExpr *E) {
   }
 
   AggValueSlot Dest = EnsureSlot(E->getType());
-  LValue DestLV = CGF.MakeAddrLValue(Dest.getAddr(), E->getType(),
+  QualType DestType = E->getType();
+  Qualifiers DestQuals;
+  if (Dest.isShared()) {
+    DestQuals.addShared();
+    if (Dest.getQualifiers().hasStrict())
+      DestQuals.addStrict();
+    else if (!DestType.getQualifiers().hasRelaxed() &&
+             !DestType.getQualifiers().hasStrict())
+      DestQuals.addRelaxed();
+    if (Dest.getQualifiers().hasLayoutQualifier())
+      DestQuals.setLayoutQualifier(Dest.getQualifiers().getLayoutQualifier());
+    DestType = CGF.getContext().getQualifiedType(DestType, DestQuals);
+  }
+  LValue DestLV = CGF.MakeAddrLValue(Dest.getAddr(), DestType,
                                      Dest.getAlignment());
 
   // Handle initialization of an array.

@@ -1101,6 +1101,11 @@ llvm::Constant *CodeGenModule::EmitConstantValue(const APValue &Value,
       if (isa<llvm::PointerType>(DestTy))
         return llvm::ConstantExpr::getIntToPtr(C, DestTy);
 
+      if (DestType->hasPointerToSharedRepresentation()) {
+        assert(Offset->isNullValue());
+        return llvm::ConstantAggregateZero::get(DestTy);
+      }
+
       // If the types don't match this should only be a truncate.
       if (C->getType() != DestTy)
         return llvm::ConstantExpr::getTrunc(C, DestTy);
