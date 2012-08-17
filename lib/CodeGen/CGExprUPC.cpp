@@ -569,7 +569,9 @@ llvm::Value *CodeGenFunction::EmitUPCPointerArithmetic(
     // same as that of the original pointer and the phase
     // component is defined to always be zero.
 
-    Addr = Builder.CreateAdd(Addr, Index, "add.addr");
+    uint64_t ElemSize = getContext().getTypeSizeInChars(ElemTy).getQuantity();
+    llvm::Value *ByteIndex = Builder.CreateMul(Index, llvm::ConstantInt::get(SizeTy, ElemSize));
+    Addr = Builder.CreateAdd(Addr, ByteIndex, "add.addr");
   } else {
     llvm::Value *OldPhase = Phase;
     llvm::Constant *B = llvm::ConstantInt::get(SizeTy, Quals.getLayoutQualifier());
