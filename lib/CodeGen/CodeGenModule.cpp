@@ -150,6 +150,26 @@ void CodeGenModule::createCUDARuntime() {
 }
 
 void CodeGenModule::Release() {
+  if (getContext().getLangOpts().UPC) {
+    llvm::SmallString<64> str;
+    str += "$GCCUPCConfig: (";
+    str += getModule().getModuleIdentifier();
+    str += ") ";
+    unsigned Threads = getContext().getLangOpts().UPCThreads;
+    if (Threads == 0) {
+      str += "dynamicthreads";
+    } else {
+      str += "staticthreads=";
+      llvm::APInt(32, Threads).toStringUnsigned(str);
+    }
+    str += " process$";
+    llvm::GlobalVariable * conf =
+      new llvm::GlobalVariable(getModule(), llvm::ArrayType::get(Int8Ty, str.size() + 1),
+                               true, llvm::GlobalValue::InternalLinkage,
+                               llvm::ConstantDataArray::getString(getLLVMContext(), str),
+                               "GCCUPCConfig");
+    conf->setSection("upc_pgm_info");
+  }
   EmitDeferred();
   EmitCXXGlobalInitFunc();
   EmitCXXGlobalDtorFunc();
