@@ -97,7 +97,7 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
   unsigned UnitWidth = Context.getCharWidth();
   const char *Result;
 
-  if (!Ty->isPrimitiveType() && !Ty->isPointerTy())
+  if (!Ty->isPrimitiveType() && !Ty->isIntegerTy() && !Ty->isPointerTy())
     return 0;
 
   if(Ty->isFloatTy()) {
