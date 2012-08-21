@@ -9052,6 +9052,11 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
     }
   }
 
+  if (!InvalidDecl && T->isUPCThreadArrayType()) {
+    Diag(Loc, diag::err_typecheck_field_variable_size);
+    InvalidDecl = true;
+  }
+
   // Fields can not have abstract class types
   if (!InvalidDecl && RequireNonAbstractType(Loc, T,
                                              diag::err_abstract_type_in_decl,
