@@ -1688,7 +1688,8 @@ CodeGenModule::GetLLVMLinkageVarDefinition(const VarDecl *D,
              D->getAttr<CommonAttr>()) &&
            !D->hasExternalStorage() && !D->getInit() &&
            !D->getAttr<SectionAttr>() && !D->isThreadSpecified() &&
-           !D->getAttr<WeakImportAttr>()) {
+           !D->getAttr<WeakImportAttr>() &&
+           !D->getType().getQualifiers().hasShared()) {
     // Thread local vars aren't considered common linkage.
     return llvm::GlobalVariable::CommonLinkage;
   }
