@@ -18,8 +18,13 @@ void test_upcforall_int(shared int * ptr, int n) {
 
 // CHECK: upc_forall.filter:
 // CHECK-NEXT: %3 = load i32* %i, align 4
-// CHECK-NEXT: %4 = load i32* @MYTHREAD
-// CHECK-NEXT: %5 = icmp eq i32 %3, %4
-// CHECK-NEXT: %6 = icmp ugt i32 %0, 0
-// CHECK-NEXT: %7 = or i1 %6, %5
-// CHECK-NEXT: br i1 %7, label %upc_forall.body, label %upc_forall.inc
+// CHECK-NEXT: %4 = load i32* @THREADS
+// CHECK-NEXT: %5 = srem i32 %3, %4
+// CHECK-NEXT: %6 = add i32 %5, %4
+// CHECK-NEXT: %7 = icmp slt i32 %5, 0
+// CHECK-NEXT: %8 = select i1 %7, i32 %6, i32 %5
+// CHECK-NEXT: %9 = load i32* @MYTHREAD
+// CHECK-NEXT: %10 = icmp eq i32 %8, %9
+// CHECK-NEXT: %11 = icmp ugt i32 %0, 0
+// CHECK-NEXT: %12 = or i1 %11, %10
+// CHECK-NEXT: br i1 %12, label %upc_forall.body, label %upc_forall.inc

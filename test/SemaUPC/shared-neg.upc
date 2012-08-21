@@ -15,7 +15,7 @@ void test() {
 }
 
 struct S {
-  shared int f[THREADS]; // expected-error{{shared qualifier on field}}
+  shared int f[THREADS]; // expected-error{{shared qualifier on field}} // expected-error{{fields must have a constant size}}
 };
 
 shared [*] int *ptr; // expected-error{{a layout qualifier of '*' is illegal in a pointer type}}

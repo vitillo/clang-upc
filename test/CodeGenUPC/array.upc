@@ -2,11 +2,11 @@
 // RUN: %clang_cc1 %s -emit-llvm -triple x86_64-pc-linux -o - | FileCheck %s -check-prefix=CHECK-DT
 
 shared int a[THREADS], b[THREADS*4];
-// CHECK-ST: @a = common global [1 x i32] zeroinitializer, section "upc_shared", align 16
-// CHECK-ST: @b = common global [4 x i32] zeroinitializer, section "upc_shared", align 16
+// CHECK-ST: @a = global [1 x i32] zeroinitializer, section "upc_shared", align 16
+// CHECK-ST: @b = global [4 x i32] zeroinitializer, section "upc_shared", align 16
 
-// CHECK-DT: @a = common global [1 x i32] zeroinitializer, section "upc_shared", align 4
-// CHECK-DT: @b = common global [4 x i32] zeroinitializer, section "upc_shared", align 4
+// CHECK-DT: @a = global [1 x i32] zeroinitializer, section "upc_shared", align 4
+// CHECK-DT: @b = global [4 x i32] zeroinitializer, section "upc_shared", align 4
 
 // dynamic initialization of pointer-to-shared
 // (details omitted for clarity)
