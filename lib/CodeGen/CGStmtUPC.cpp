@@ -182,20 +182,27 @@ void CodeGenFunction::EmitUPCForAllStmt(const UPCForAllStmt &S) {
       Affinity = EmitUPCPointerGetThread(Affinity);
     } else {
       assert(Affinity->getType()->isIntegerTy());
-    }
-
-    llvm::Value *MyThread = EmitUPCMyThread();
-
-    // Make sure that the number of bits match
-    unsigned MyThreadBits = cast<llvm::IntegerType>(MyThread->getType())->getBitWidth();
-    unsigned AffinityBits = cast<llvm::IntegerType>(Affinity->getType())->getBitWidth();
-    if (MyThreadBits != AffinityBits) {
-      if (MyThreadBits < AffinityBits) {
-        MyThread = Builder.CreateZExt(MyThread, Affinity->getType());
+      llvm::Value *Threads = EmitUPCThreads();
+      if (cast<llvm::IntegerType>(Threads->getType())->getBitWidth() <
+          cast<llvm::IntegerType>(Affinity->getType())->getBitWidth()) {
+        Threads = Builder.CreateIntCast(Threads, Affinity->getType(), false);
       } else {
-        Affinity = Builder.CreateZExt(Affinity, MyThread->getType());
+        Affinity = Builder.CreateIntCast(Affinity, Threads->getType(),
+                                         Afnty->getType()->hasSignedIntegerRepresentation());
+      }
+      if (Afnty->getType()->hasSignedIntegerRepresentation()) {
+        Affinity = Builder.CreateSRem(Affinity, Threads);
+        llvm::Value *Zero = llvm::ConstantInt::get(Affinity->getType(), 0);
+        Affinity = Builder.CreateSelect(Builder.CreateICmpSLT(Affinity, Zero),
+                                        Builder.CreateAdd(Affinity, Threads),
+                                        Affinity);
+      } else {
+        Affinity = Builder.CreateURem(Affinity, Threads);
       }
     }
+    Affinity = Builder.CreateIntCast(Affinity, IntTy, false);
+
+    llvm::Value *MyThread = EmitUPCMyThread();
 
     llvm::Value *Test =
       Builder.CreateOr(Builder.CreateICmpUGT(Depth, llvm::ConstantInt::get(IntTy, 0)),
