@@ -169,6 +169,7 @@ void CodeGenModule::Release() {
                                llvm::ConstantDataArray::getString(getLLVMContext(), str),
                                "GCCUPCConfig");
     conf->setSection("upc_pgm_info");
+    AddUsedGlobal(conf);
   }
   EmitDeferred();
   EmitCXXGlobalInitFunc();
