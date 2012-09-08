@@ -5269,6 +5269,17 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
     else
       crtbegin = "crtbegin.o";
     CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin)));
+
+    if (D.CCCIsUPC) {
+      const char *upc_crtbegin;
+      if (Args.hasArg(options::OPT_static))
+        upc_crtbegin = "upc-crtbeginT.o";
+      else if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
+        upc_crtbegin = "upc-crtbeginS.o";
+      else
+        upc_crtbegin = "upc-crtbegin.o";
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(upc_crtbegin)));
+    }
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
@@ -5301,6 +5312,11 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-lm");
   }
 
+  if (D.CCCIsUPC && !Args.hasArg(options::OPT_nostdlib)) {
+    CmdArgs.push_back(Args.MakeArgString("-T" + ToolChain.GetFilePath("upc.ld")));
+    CmdArgs.push_back("-lupc");
+  }
+
   // Call this before we add the C run-time.
   addAsanRTLinux(getToolChain(), Args, CmdArgs);
 
@@ -5323,6 +5339,18 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
 
     if (!Args.hasArg(options::OPT_nostartfiles)) {
+
+      if (D.CCCIsUPC) {
+        const char *upc_crtend;
+        if (Args.hasArg(options::OPT_static))
+          upc_crtend = "upc-crtendT.o";
+        else if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
+          upc_crtend = "upc-crtendS.o";
+        else
+          upc_crtend = "upc-crtend.o";
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(upc_crtend)));
+      }
+
       const char *crtend;
       if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
         crtend = "crtendS.o";
