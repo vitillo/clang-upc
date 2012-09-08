@@ -429,6 +429,7 @@ PathDiagnosticRange
         case Stmt::WhileStmtClass:
         case Stmt::DoStmtClass:
         case Stmt::ForStmtClass:
+        case Stmt::UPCForAllStmtClass:
         case Stmt::ChooseExprClass:
         case Stmt::IndirectGotoStmtClass:
         case Stmt::SwitchStmtClass:

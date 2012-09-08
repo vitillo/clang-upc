@@ -276,6 +276,7 @@ static bool IsNested(const Stmt *S, ParentMap &PM) {
   if (Parent)
     switch (Parent->getStmtClass()) {
       case Stmt::ForStmtClass:
+      case Stmt::UPCForAllStmtClass:
       case Stmt::DoStmtClass:
       case Stmt::WhileStmtClass:
         return true;
@@ -329,6 +330,10 @@ PathDiagnosticBuilder::getEnclosingStmtLocation(const Stmt *S) {
         if (cast<ForStmt>(Parent)->getBody() == S)
           return PathDiagnosticLocation(S, SMgr, LC);
         break;
+      case Stmt::UPCForAllStmtClass:
+        if (cast<UPCForAllStmt>(Parent)->getBody() == S)
+          return PathDiagnosticLocation(S, SMgr, LC);
+        break;
       case Stmt::IfStmtClass:
         if (cast<IfStmt>(Parent)->getCond() != S)
           return PathDiagnosticLocation(S, SMgr, LC);
@@ -356,6 +361,7 @@ PathDiagnosticBuilder::getEnclosingStmtLocation(const Stmt *S) {
     if (const Stmt *Parent = P.getParent(S)) {
       switch (Parent->getStmtClass()) {
         case Stmt::ForStmtClass:
+        case Stmt::UPCForAllStmtClass:
         case Stmt::ObjCForCollectionStmtClass:
           return PathDiagnosticLocation(Parent, SMgr, LC);
         default:
@@ -369,6 +375,11 @@ PathDiagnosticBuilder::getEnclosingStmtLocation(const Stmt *S) {
     // initialized is an old variable.
     if (const ForStmt *FS =
           dyn_cast_or_null<ForStmt>(P.getParentIgnoreParens(S))) {
+      if (FS->getInit() == S)
+        return PathDiagnosticLocation(FS, SMgr, LC);
+    }
+    if (const UPCForAllStmt *FS =
+          dyn_cast_or_null<UPCForAllStmt>(P.getParentIgnoreParens(S))) {
       if (FS->getInit() == S)
         return PathDiagnosticLocation(FS, SMgr, LC);
     }
@@ -667,7 +678,8 @@ static void GenerateMinimalPathDiagnostic(PathDiagnostic& PD,
         }
 
         case Stmt::WhileStmtClass:
-        case Stmt::ForStmtClass: {
+        case Stmt::ForStmtClass:
+        case Stmt::UPCForAllStmtClass: {
           if (*(Src->succ_begin()+1) == Dst) {
             std::string sbuf;
             llvm::raw_string_ostream os(sbuf);
@@ -1138,6 +1150,8 @@ static void GenerateExtensivePathDiagnostic(PathDiagnostic& PD,
 
           if (!Term) {
             if (const ForStmt *FS = dyn_cast<ForStmt>(Loop))
+              CS = dyn_cast<CompoundStmt>(FS->getBody());
+            else if (const UPCForAllStmt *FS = dyn_cast<UPCForAllStmt>(Loop))
               CS = dyn_cast<CompoundStmt>(FS->getBody());
             else if (const WhileStmt *WS = dyn_cast<WhileStmt>(Loop))
               CS = dyn_cast<CompoundStmt>(WS->getBody());

@@ -532,6 +532,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::DefaultStmtClass:
     case Stmt::DoStmtClass:
     case Stmt::ForStmtClass:
+    case Stmt::UPCForAllStmtClass:
     case Stmt::GotoStmtClass:
     case Stmt::IfStmtClass:
     case Stmt::IndirectGotoStmtClass:
@@ -602,7 +603,6 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::AsTypeExprClass:
     case Stmt::AtomicExprClass:
     case Stmt::UPCThreadExprClass:
-    case Stmt::UPCForAllStmtClass:
     case Stmt::UPCNotifyStmtClass:
     case Stmt::UPCWaitStmtClass:
     case Stmt::UPCBarrierStmtClass:

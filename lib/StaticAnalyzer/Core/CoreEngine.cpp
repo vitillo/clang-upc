@@ -387,6 +387,10 @@ void CoreEngine::HandleBlockExit(const CFGBlock * B, ExplodedNode *Pred) {
         HandleBranch(cast<ForStmt>(Term)->getCond(), Term, B, Pred);
         return;
 
+      case Stmt::UPCForAllStmtClass:
+        HandleBranch(cast<UPCForAllStmt>(Term)->getCond(), Term, B, Pred);
+        return;
+
       case Stmt::ContinueStmtClass:
       case Stmt::BreakStmtClass:
       case Stmt::GotoStmtClass:
