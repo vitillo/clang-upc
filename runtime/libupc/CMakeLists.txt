@@ -183,14 +183,58 @@ add_crt_target(upc-crtendS -DCRT_END)
 add_crt_target(upc-crtbeginT -DCRT_BEGIN)
 add_crt_target(upc-crtendT -DCRT_END)
 
-install(FILES include/upc.h include/upc_strict.h include/upc_relaxed.h
-  DESTINATION lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+find_package(Perl REQUIRED)
 
-install(FILES ${objects}
+set(upc_link_script ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/upc.ld)
+add_custom_target(upc-link-script ALL DEPENDS ${upc_link_script})
+add_custom_command(OUTPUT ${upc_link_script}
+   COMMAND ld --verbose | ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen-upc-ld-script.pl > ${upc_link_script}
+   VERBATIM)
+
+set(header_location lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
+
+set(lib_upc_header ${LLVM_BINARY_DIR}/${header_location}/upc-lib.h)
+set(lib_upc_header_sources ${PROJECT_SOURCE_DIR}/gen-inline-libupc.pl ${PROJECT_SOURCE_DIR}/smp/upc-lib.in
+  ${PROJECT_BINARY_DIR}/config.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_access.c
+  ${PROJECT_SOURCE_DIR}/smp/upc_access.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_config.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_defs.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_mem.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_pts.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_sup.h
+  ${PROJECT_SOURCE_DIR}/smp/upc_sync.h)
+add_custom_target(upc-header ALL DEPENDS ${lib_upc_header})
+add_custom_command(OUTPUT ${lib_upc_header}
+  COMMAND ${PERL_EXECUTABLE} ${lib_upc_header_sources} > ${lib_upc_header}
+  DEPENDS ${lib_upc_header_sources}
+  VERBATIM)
+
+set(upc_headers upc.h upc_strict.h upc_relaxed.h)
+set(upc_header_targets)
+foreach( f ${files} )
+  set( src ${PROJECT_SOURCE_DIR}/include/${f} )
+  set( dst ${header_location}/${f} )
+  add_custom_command(OUTPUT ${dst}
+    DEPENDS ${src}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dst}
+    COMMENT "Copying clang's ${f}...")
+  list(APPEND upc_header_targets ${dst})
+endforeach( f )
+
+add_custom_target(upc-headers ALL DEPENDS ${upc_header_targets})
+
+install(FILES include/upc.h include/upc_strict.h include/upc_relaxed.h
+  DESTINATION ${header_location})
+
+install(FILES ${objects} ${upc_link_script}
   DESTINATION lib${LLVM_LIBDIR_SUFFIX})
 
 install(TARGETS upc
   DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+
+install(FILES ${lib_upc_header}
+  DESTINATION ${header_location})
 
 #===============================================================================
 # Setup Tests
