@@ -212,9 +212,9 @@ add_custom_command(OUTPUT ${lib_upc_header}
 
 set(upc_headers upc.h upc_strict.h upc_relaxed.h)
 set(upc_header_targets)
-foreach( f ${files} )
+foreach( f ${upc_headers} )
   set( src ${PROJECT_SOURCE_DIR}/include/${f} )
-  set( dst ${header_location}/${f} )
+  set( dst ${LLVM_BINARY_DIR}/${header_location}/${f} )
   add_custom_command(OUTPUT ${dst}
     DEPENDS ${src}
     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${src} ${dst}
