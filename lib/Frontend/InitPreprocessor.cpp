@@ -322,6 +322,10 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.append("extern const int MYTHREAD;\n");
     Builder.append("typedef shared struct upc_lock_struct upc_lock_t;\n");
     Builder.append("extern int main() __asm__(\"upc_main\");\n");
+
+    if (LangOpts.UPCInlineLib) {
+      Builder.defineMacro("__UPC_INLINE_LIB__", "1");
+    }
   }
 
   // Not "standard" per se, but available even with the -undef flag.
@@ -752,6 +756,10 @@ void clang::InitializePreprocessor(Preprocessor &PP,
   for (unsigned i = 0, e = InitOpts.MacroIncludes.size(); i != e; ++i)
     AddImplicitIncludeMacros(Builder, InitOpts.MacroIncludes[i],
                              PP.getFileManager());
+
+  if (PP.getLangOpts().UPCInlineLib) {
+    AddImplicitInclude(Builder, "upc-lib.h", PP.getFileManager());
+  }
 
   // Process -include directives.
   for (unsigned i = 0, e = InitOpts.Includes.size(); i != e; ++i) {

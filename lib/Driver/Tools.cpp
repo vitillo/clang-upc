@@ -2532,6 +2532,9 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
   Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_EQ);
   Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_vaddr_order_EQ);
 
+  Args.AddAllArgs(CmdArgs, options::OPT_fupc_inline_lib,
+                  options::OPT_fno_upc_inline_lib);
+
   if (Args.hasFlag(options::OPT_fupc_debug,
                    options::OPT_fno_upc_debug, false))
     CmdArgs.push_back("-fupc-debug");

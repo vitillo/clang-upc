@@ -532,6 +532,8 @@ def fupc_packed_bits_EQ : Joined<"-fupc-packed-bits=">,
                           Group<f_Group>;
 def fupc_pts_vaddr_order_EQ : Joined<"-fupc-pts-vaddr-order=">,
                               Group<f_Group>;
+def fupc_inline_lib : Flag<"-fupc-inline-lib">, Group<f_Group>;
+def fno_upc_inline_lib : Flag<"-fno-upc-inline-lib">, Group<f_Group>;
 def fupc_debug : Flag<"-fupc-debug">, Group<f_Group>;
 def fno_upc_debug : Flag<"-fno-upc-debug">, Group<f_Group>;
 def Wlarge_by_value_copy_def : Flag<"-Wlarge-by-value-copy">;

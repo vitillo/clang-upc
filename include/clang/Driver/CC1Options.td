@@ -861,3 +861,9 @@ def fupc_pts_vaddr_order_EQ : Joined<"-fupc-pts-vaddr-order=">,
 
 def fupc_debug : Flag<"-fupc-debug">,
   HelpText<"Enables debug calls to the UPC runtime">;
+
+def fupc_inline_lib : Flag<"-fupc-inline-lib">,
+  HelpText<"Enables inlining of the UPC runtime">;
+
+def fno_upc_inline_lib : Flag<"-fno-upc-inline-lib">,
+  HelpText<"Disables inlining of the UPC runtime">;

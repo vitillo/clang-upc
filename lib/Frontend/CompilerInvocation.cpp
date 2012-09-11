@@ -2004,6 +2004,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.Optimize = Opt != 0;
   Opts.OptimizeSize = Args.hasArg(OPT_Os) || Args.hasArg(OPT_Oz);
 
+  if (Opts.UPC &&
+      ((Opts.Optimize && !Args.hasArg(OPT_fno_upc_inline_lib)) ||
+       Args.hasFlag(OPT_fupc_inline_lib, OPT_fno_upc_inline_lib, false)))
+    Opts.UPCInlineLib = true;
+
   // This is the __NO_INLINE__ define, which just depends on things like the
   // optimization level and -fno-inline, not actually whether the backend has
   // inlining enabled.
