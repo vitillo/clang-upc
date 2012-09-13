@@ -5321,6 +5321,34 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
     if (Args.getLastArgValue(options::OPT_fupc_pts_EQ, "packed") == "struct") {
       Buf += "-s";
     }
+    if (Args.getLastArgValue(options::OPT_fupc_pts_vaddr_order_EQ, "first") == "last") {
+      Buf += "-l";
+    }
+    if (Arg * A = Args.getLastArg(options::OPT_fupc_packed_bits_EQ)) {
+      llvm::SmallVector<llvm::StringRef, 3> Bits;
+      StringRef(A->getValue(Args)).split(Bits, ",");
+      bool okay = true;
+      int Values[3];
+      if (Bits.size() == 3) {
+        for (int i = 0; i < 3; ++i)
+          if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
+            okay = false;
+        if (Values[0] + Values[1] + Values[2] != 64)
+          okay = false;
+      } else {
+        okay = false;
+      }
+      if (okay) {
+        if(Values[0] != 20 || Values[1] != 10 || Values[2] != 34) {
+          Buf += "-";
+          Buf += Bits[0];
+          Buf += "-";
+          Buf += Bits[1];
+          Buf += "-";
+          Buf += Bits[2];
+        }
+      }
+    }
     CmdArgs.push_back(Args.MakeArgString(Buf));
   }
 
