@@ -1184,16 +1184,6 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
-  StringRef VaddrOrder = Args.getLastArgValue(OPT_fupc_pts_vaddr_order_EQ, "first");
-  if (VaddrOrder == "first")
-    Opts.UPCPtsVaddrFirst = 1;
-  else if (VaddrOrder == "last")
-    Opts.UPCPtsVaddrFirst = 0;
-  else
-    Diags.Report(diag::err_drv_invalid_value)
-      << Args.getLastArg(OPT_fupc_pts_vaddr_order_EQ)->getAsString(Args)
-      << VaddrOrder;
-
   if (Args.hasArg(OPT_fupc_debug))
     Opts.UPCDebug = 1;
 
@@ -1963,6 +1953,16 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
     Diags.Report(diag::err_drv_invalid_value)
       << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args) << UPCPts;
   }
+
+  StringRef VaddrOrder = Args.getLastArgValue(OPT_fupc_pts_vaddr_order_EQ, "first");
+  if (VaddrOrder == "first")
+    Opts.UPCVaddrFirst = 1;
+  else if (VaddrOrder == "last")
+    Opts.UPCVaddrFirst = 0;
+  else
+    Diags.Report(diag::err_drv_invalid_value)
+      << Args.getLastArg(OPT_fupc_pts_vaddr_order_EQ)->getAsString(Args)
+      << VaddrOrder;
 
   int Threads = Args.getLastArgIntValue(OPT_fupc_threads, 0, Diags);
   if (Threads < 0) {

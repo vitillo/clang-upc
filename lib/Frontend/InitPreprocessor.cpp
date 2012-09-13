@@ -333,6 +333,9 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       } else {
         Builder.defineMacro("GUPCR_PTS_STRUCT_REP", "1");
       }
+      if(LangOpts.UPCVaddrFirst) {
+        Builder.defineMacro("GUPCR_PTS_VADDR_FIRST", "1");
+      }
     }
   }
 

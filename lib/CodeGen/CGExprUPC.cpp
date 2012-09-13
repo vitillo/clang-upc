@@ -365,13 +365,13 @@ llvm::Value *CodeGenFunction::EmitUPCPointerGetPhase(llvm::Value *Pointer) {
   unsigned AddrBits = LangOpts.UPCAddrBits;
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, PhaseBits));
     } else {
       return Builder.CreateLShr(Val, ThreadBits + AddrBits);
     }
   } else {
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       return Builder.CreateZExt(Builder.CreateExtractValue(Pointer, 2), Int64Ty);
     } else {
       return Builder.CreateZExt(Builder.CreateExtractValue(Pointer, 0), Int64Ty);
@@ -386,7 +386,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointerGetThread(llvm::Value *Pointer) {
   unsigned AddrBits = LangOpts.UPCAddrBits;
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       Val = Builder.CreateLShr(Val, PhaseBits);
     } else {
       Val = Builder.CreateLShr(Val, AddrBits);
@@ -404,13 +404,13 @@ llvm::Value *CodeGenFunction::EmitUPCPointerGetAddr(llvm::Value *Pointer) {
   unsigned AddrBits = LangOpts.UPCAddrBits;
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val = Builder.CreateExtractValue(Pointer, 0);
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       return Builder.CreateLShr(Val, ThreadBits + PhaseBits);
     } else {
       return Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(64, AddrBits));
     }
   } else {
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       return Builder.CreateExtractValue(Pointer, 0);
     } else {
       return Builder.CreateExtractValue(Pointer, 2);
@@ -426,7 +426,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointer(llvm::Value *Phase, llvm::Value *Th
   llvm::Value *Result = llvm::UndefValue::get(GenericPtsTy);
   if (PhaseBits + ThreadBits + AddrBits == 64) {
     llvm::Value *Val;
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       Val = Builder.CreateOr(Builder.CreateShl(Addr, ThreadBits + PhaseBits),
                              Builder.CreateOr(Builder.CreateShl(Thread, PhaseBits),
                                               Phase));
@@ -439,7 +439,7 @@ llvm::Value *CodeGenFunction::EmitUPCPointer(llvm::Value *Phase, llvm::Value *Th
   } else {
     Phase = Builder.CreateTrunc(Phase, Int32Ty);
     Thread = Builder.CreateTrunc(Thread, Int32Ty);
-    if (CGM.getCodeGenOpts().UPCPtsVaddrFirst) {
+    if (LangOpts.UPCVaddrFirst) {
       Result = Builder.CreateInsertValue(Result, Addr, 0);
       Result = Builder.CreateInsertValue(Result, Thread, 1);
       Result = Builder.CreateInsertValue(Result, Phase, 2);

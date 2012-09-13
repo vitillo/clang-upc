@@ -97,7 +97,6 @@ public:
   unsigned StrictEnums       : 1; /// Optimize based on strict enum definition.
   unsigned TimePasses        : 1; /// Set when -ftime-report is enabled.
   unsigned UPCDebug          : 1; /// Generate debug calls to the UPC runtime
-  unsigned UPCPtsVaddrFirst  : 1; /// Put the addr field first
   unsigned UnitAtATime       : 1; /// Unused. For mirroring GCC optimization
                                   /// selection.
   unsigned UnrollLoops       : 1; /// Control whether loops are unrolled.
@@ -211,7 +210,6 @@ public:
     StrictEnums = 0;
     TimePasses = 0;
     UPCDebug = 0;
-    UPCPtsVaddrFirst = 1;
     UnitAtATime = 1;
     UnrollLoops = 0;
     UnsafeFPMath = 0;
