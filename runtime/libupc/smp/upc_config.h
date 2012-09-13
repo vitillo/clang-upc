@@ -246,6 +246,8 @@ extern void __upc_gum_init (int, int);
 /* The ending address (plus one) of pointers to UPC initialization routines */
 #define GUPCR_INIT_ARRAY_END   __upc_init_array_end
 
+extern char GUPCR_SHARED_SECTION_START[];
+
 //end lib_config_shared_section
 
 #endif /* _UPC_CONFIG_H_ */

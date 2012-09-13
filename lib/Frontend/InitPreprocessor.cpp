@@ -325,6 +325,14 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
 
     if (LangOpts.UPCInlineLib) {
       Builder.defineMacro("__UPC_INLINE_LIB__", "1");
+      Builder.defineMacro("GUPCR_PTS_PHASE_SIZE", Twine(LangOpts.UPCPhaseBits));
+      Builder.defineMacro("GUPCR_PTS_THREAD_SIZE", Twine(LangOpts.UPCThreadBits));
+      Builder.defineMacro("GUPCR_PTS_VADDR_SIZE", Twine(LangOpts.UPCAddrBits));
+      if(LangOpts.UPCPhaseBits + LangOpts.UPCThreadBits + LangOpts.UPCAddrBits == 64) {
+        Builder.defineMacro("GUPCR_PTS_PACKED_REP", "1");
+      } else {
+        Builder.defineMacro("GUPCR_PTS_STRUCT_REP", "1");
+      }
     }
   }
 

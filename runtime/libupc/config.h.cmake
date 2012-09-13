@@ -44,29 +44,11 @@
 /* The required alignment for the UPC struct shared pointer representation. */
 #undef GUPCR_PTS_ALIGN
 
-/* Whether UPC pointers-to-shared use the 'packed' representation */
-#cmakedefine GUPCR_PTS_PACKED_REP 1
-
-/* Size of shared pointer's phase field (in bits) */
-#define GUPCR_PTS_PHASE_SIZE @GUPCR_PTS_PHASE_SIZE@
-
 /* The data type of the 'phase' field in a UPC shared pointer */
 #undef GUPCR_PTS_PHASE_TYPE
 
-/* Whether UPC shared pointers use the 'struct' representation */
-#cmakedefine GUPCR_PTS_STRUCT_REP 1
-
-/* Size of shared pointer's thread field (in bits) */
-#define GUPCR_PTS_THREAD_SIZE @GUPCR_PTS_THREAD_SIZE@
-
 /* The data type of the 'thread' field in a UPC shared pointer */
 #undef GUPCR_PTS_THREAD_TYPE
-
-/* Whether the 'vaddr' field comes first (ie, [[vaddr,thread,phase]]) */
-#cmakedefine GUPCR_PTS_VADDR_FIRST 1
-
-/* Size of shared pointer's vaddr field (in bits) */
-#define GUPCR_PTS_VADDR_SIZE @GUPCR_PTS_VADDR_SIZE@
 
 /* The data type of the 'vaddr' field in a UPC shared pointer */
 #undef GUPCR_PTS_VADDR_TYPE

@@ -59,6 +59,16 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #undef GUPCR_PTS_PHASE_TYPE
 #define GUPCR_PTS_PHASE_TYPE u_intHI_t
 #endif
+#if GUPCR_PTS_VADDR_SIZE == 64
+#undef GUPCR_PTS_VADDR_TYPE
+#define GUPCR_PTS_VADDR_TYPE u_intDI_t
+#elif GUPCR_PTS_VADDR_SIZE == 32
+#undef GUPCR_PTS_VADDR_TYPE
+#define GUPCR_PTS_VADDR_TYPE u_intSI_t
+#elif GUPCR_PTS_VADDR_SIZE == 16
+#undef GUPCR_PTS_VADDR_TYPE
+#define GUPCR_PTS_VADDR_TYPE u_intHI_t
+#endif
 
 #if !__GCC_UPC__
 /* The UPC compiler pre-defines upc_shared_ptr_t to be the

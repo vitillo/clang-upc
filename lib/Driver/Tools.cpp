@@ -5317,7 +5317,11 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
   if (D.CCCIsUPC && !Args.hasArg(options::OPT_nostdlib)) {
     CmdArgs.push_back(Args.MakeArgString("-T" + ToolChain.GetFilePath("upc.ld")));
-    CmdArgs.push_back("-lupc");
+    llvm::SmallString<32> Buf("-lupc");
+    if (Args.getLastArgValue(options::OPT_fupc_pts_EQ, "packed") == "struct") {
+      Buf += "-s";
+    }
+    CmdArgs.push_back(Args.MakeArgString(Buf));
   }
 
   // Call this before we add the C run-time.

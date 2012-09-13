@@ -83,29 +83,26 @@ add_definitions(
 #HAVE_EXECINFO_H
 #HAVE_LIMITS_H
 
-set(UPC_PTS "PACKED" CACHE STRING "UPC Pointer Representation.")
-OPTION(UPC_PTS_VADDR_FIRST "Put the virtual address field first" ON)
+set(LIBUPC_CONFIGURATIONS "p" CACHE STRING "UPC Pointer Representation e.g. p-f-20-10-34;s-l;p-l")
 
-if(UPC_PTS_VADDR_FIRST)
-  set(GUPCR_PTS_VADDR_FIRST ON)
-endif()
-
-if(${UPC_PTS} STREQUAL "PACKED")
- set(UPC_PTS_PACKED_THREAD_BITS 10 CACHE STRING "Bits in the thread field.")
- set(UPC_PTS_PACKED_PHASE_BITS 20 CACHE STRING "Bits in the phase field.")
- set(UPC_PTS_PACKED_ADDR_BITS 34 CACHE STRING "Bits in the addr field.")
- set(GUPCR_PTS_PACKED_REP 1)
- set(GUPCR_PTS_THREAD_SIZE ${UPC_PTS_PACKED_THREAD_BITS})
- set(GUPCR_PTS_PHASE_SIZE ${UPC_PTS_PACKED_PHASE_BITS})
- set(GUPCR_PTS_VADDR_SIZE ${UPC_PTS_PACKED_ADDR_BITS})
-elseif(${UPC_PTS} STREQUAL "STRUCT")
- set(GUPCR_PTS_STRUCT_REP 1)
- set(GUPCR_PTS_THREAD_SIZE 32)
- set(GUPCR_PTS_PHASE_SIZE 32)
- set(GUPCR_PTS_VADDR_SIZE 64)
+#string(REGEX MATCHALL "([^;]+)" ${LIBUPC_CONFIGURATIONS} all_configs)
+#message(WARNING ${LIBUPC_CONFIGURATIONS} - ${all_configs})
+set(all_configs ${LIBUPC_CONFIGURATIONS})
+if(all_configs)
+  set(CONFIGURATIONS)
+  foreach(conf ${all_configs})
+    set(okay)
+    string(REGEX MATCH "^(-([psfl]|[0-9]+))*$" okay "-${conf}")
+    if(okay)
+      list(APPEND CONFIGURATIONS ${conf})
+    else()
+      message(WARNING "Invalid library specification ${conf}.")
+    endif()
+  endforeach()
 else()
- echo("Huh?")
+  set(CONFIGURATIONS p)
 endif()
+
 
 set(UPC_TREE_FANOUT 4 CACHE STRING "The maximum number of children in each sub-tree used to implement UPC collectives operations (e. g. upc_barrier)")
 
@@ -153,15 +150,83 @@ set(LIBUPC_SOURCES
   collectives/upc_coll_sort.upc
 )
 
-if(LIBUPC_ENABLE_SHARED)
-  add_library(upc SHARED
-    ${LIBUPC_SOURCES}
-    )
-else()
-  add_library(upc STATIC
-    ${LIBUPC_SOURCES}
-    )
-endif()
+foreach(config ${CONFIGURATIONS})
+  set(pts_type PACKED)
+  set(vaddr_order FIRST)
+  set(packed_bits)
+  
+  foreach(argument ${config})
+    if(${argument} STREQUAL p)
+      set(pts_type PACKED)
+    elseif(${argument} STREQUAL s)
+      set(pts_type STRUCT)
+    elseif(${argument} STREQUAL f)
+      set(vaddr_order FIRST)
+    elseif(${argument} STREQUAL l)
+      set(vaddr_order LAST)
+    else()
+      list(APPEND packed_bits ${argument})
+    endif()
+  endforeach()
+
+  if(pts_type STREQUAL PACKED)
+    if(packed_bits)
+      list(GET ${packed_bits} 0 phase)
+      list(GET ${packed_bits} 1 thread)
+      list(GET ${packed_bits} 2 addr)
+    else()
+      set(phase 20)
+      set(thread 10)
+      set(addr 34)
+    endif()
+  else()
+    set(phase 32)
+    set(thread 32)
+    set(addr 64)
+  endif()
+
+  # calculate the library name
+  set(lib_name "upc")
+  if(${pts_type} STREQUAL STRUCT)
+    set(lib_name ${lib_name}-s)
+  endif()
+  if(${vaddr_order} STREQUAL LAST)
+    set(lib_name ${lib_name}-l)
+  endif()
+  if((${pts_type} STREQUAL PACKED) AND
+     NOT (${phase} EQUAL 20 AND ${thread} EQUAL 10 AND ${addr} EQUAL 34))
+    set(lib_name ${lib_name}-${phase}-${thread}-${addr})
+  endif()
+
+  # Compute the preprocessor definitions
+  if(${pts_type} STREQUAL PACKED)
+    set(lib_defs "GUPCR_PTS_PACKED_REP=1")
+    set(flags "-fupc-pts=packed -fupc-pts-packed-bits=${phase},${thread},${addr}")
+  elseif(${pts_type} STREQUAL STRUCT)
+    set(lib_defs "GUPCR_PTS_STRUCT_REP=1")
+    set(flags "-fupc-pts=struct")
+  endif()
+  set(lib_defs ${lib_defs};GUPCR_PTS_PHASE_SIZE=${phase})
+  set(lib_defs ${lib_defs};GUPCR_PTS_THREAD_SIZE=${thread})
+  set(lib_defs ${lib_defs};GUPCR_PTS_VADDR_SIZE=${addr})
+  if(${vaddr_order} STREQUAL FIRST)
+    set(lib_defs ${lib_defs};GUPCR_PTS_VADDR_FIRST=1)
+    set(flags "${flags} -fupc-pts-vaddr-order=first")
+  else()
+    set(flags "${flags} -fupc-pts-vaddr-order=last")
+  endif()
+
+  # Build the library
+  if(LIBUPC_ENABLE_SHARED)
+    add_library(${lib_name} SHARED ${LIBUPC_SOURCES})
+  else()
+    add_library(${lib_name} STATIC ${LIBUPC_SOURCES})
+  endif()
+
+  set_property(TARGET ${lib_name} PROPERTY COMPILE_DEFINITIONS ${lib_defs})
+  set_property(TARGET ${lib_name} PROPERTY COMPILE_FLAGS ${flags})
+
+endforeach()
 
 set_property(SOURCE ${LIBUPC_SOURCES} PROPERTY LANGUAGE C)
 
