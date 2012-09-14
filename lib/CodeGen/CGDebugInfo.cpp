@@ -464,6 +464,12 @@ llvm::DIType CGDebugInfo::CreateQualifiedType(QualType Ty, llvm::DIFile Unit) {
   } else if (Qc.hasRestrict()) {
     Tag = llvm::dwarf::DW_TAG_restrict_type;
     Qc.removeRestrict();
+  } else if (Qc.hasShared()) {
+    // FIXME: Actually implement this
+    Qc.removeShared();
+    Qc.removeLayoutQualifier();
+    Qc.removeStrict();
+    Qc.removeRelaxed();
   } else {
     assert(Qc.empty() && "Unknown type qualifier for debug info");
     return getOrCreateType(QualType(T, 0), Unit);
