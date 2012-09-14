@@ -10,28 +10,13 @@ cmake_minimum_required(VERSION 2.8)
 set(PACKAGE_NAME libupc)
 set(PACKAGE_VERSION trunk-svn)
 set(PACKAGE_STRING "${PACKAGE_NAME} ${PACKAGE_VERSION}")
-set(PACKAGE_BUGREPORT "llvmbugs@cs.uiuc.edu")
-
-# Add path for custom modules
-#set(CMAKE_MODULE_PATH
-#  ${CMAKE_MODULE_PATH}
-#  "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
-#  "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules"
-#  )
-
-# Require out of source build.
-#include(MacroEnsureOutOfSourceBuild)
-#MACRO_ENSURE_OUT_OF_SOURCE_BUILD(
-# "${PROJECT_NAME} requires an out of source build. Please create a separate
-# build directory and run 'cmake /path/to/${PROJECT_NAME} [options]' there."
-# )
 
 #===============================================================================
 # Setup CMake Options
 #===============================================================================
 
 # Define options.
-option(LIBUPC_ENABLE_SHARED "Build libupc as a shared library." ON)
+option(LIBUPC_ENABLE_SHARED "Build libupc as a shared library. (Broken)" OFF)
 
 #===============================================================================
 # Configure System
@@ -80,13 +65,8 @@ add_definitions(
  ${LIBUPC_FEATURE_FLAGS}
  )
 
-#HAVE_EXECINFO_H
-#HAVE_LIMITS_H
-
 set(LIBUPC_CONFIGURATIONS "p" CACHE STRING "UPC Pointer Representation e.g. p-f-20-10-34;s-l;p-l")
 
-#string(REGEX MATCHALL "([^;]+)" ${LIBUPC_CONFIGURATIONS} all_configs)
-#message(WARNING ${LIBUPC_CONFIGURATIONS} - ${all_configs})
 set(all_configs ${LIBUPC_CONFIGURATIONS})
 if(all_configs)
   set(CONFIGURATIONS)
@@ -102,7 +82,6 @@ if(all_configs)
 else()
   set(CONFIGURATIONS p)
 endif()
-
 
 set(UPC_TREE_FANOUT 4 CACHE STRING "The maximum number of children in each sub-tree used to implement UPC collectives operations (e. g. upc_barrier)")
 
