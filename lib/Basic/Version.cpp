@@ -117,8 +117,13 @@ std::string getClangFullVersion() {
 #ifdef CLANG_VENDOR
   OS << CLANG_VENDOR;
 #endif
+
   OS << "clang version " CLANG_VERSION_STRING " "
      << getClangFullRepositoryVersion();
+
+#ifdef CLANG_UPC_VERSION
+  OS << " (UPC " CLANG_UPC_VERSION_STRING ")";
+#endif
 
   // If vendor supplied, include the base LLVM version as well.
 #ifdef CLANG_VENDOR

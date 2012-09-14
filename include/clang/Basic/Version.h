@@ -41,6 +41,9 @@
   CLANG_MAKE_VERSION_STRING(CLANG_VERSION_MAJOR,CLANG_VERSION_MINOR)
 #endif
 
+#define CLANG_MAKE_VERSION_STRING_I(X) CLANG_MAKE_VERSION_STRING2(X)
+#define CLANG_UPC_VERSION_STRING CLANG_MAKE_VERSION_STRING_I(CLANG_UPC_VERSION)
+
 namespace clang {
   /// \brief Retrieves the repository path (e.g., Subversion path) that
   /// identifies the particular Clang branch, tag, or trunk from which this
