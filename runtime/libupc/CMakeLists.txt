@@ -207,6 +207,8 @@ foreach(config ${CONFIGURATIONS})
   set_property(TARGET ${lib_name} PROPERTY COMPILE_DEFINITIONS ${lib_defs})
   set_property(TARGET ${lib_name} PROPERTY COMPILE_FLAGS ${flags})
 
+  add_dependencies(${lib_name} clang)
+
 endforeach()
 
 set_property(SOURCE ${LIBUPC_SOURCES} PROPERTY LANGUAGE C)
@@ -220,6 +222,7 @@ macro(add_crt_target name opts)
   MAIN_DEPENDENCY upc-crtstuff.c
   IMPLICIT_DEPENDENCY upc-crtstuff.c
   VERBATIM)
+  add_dependencies(${name} clang)
 endmacro()
 
 add_crt_target(upc-crtbegin -DCRT_BEGIN)
@@ -250,11 +253,12 @@ set(lib_upc_header_sources ${PROJECT_SOURCE_DIR}/gen-inline-libupc.pl ${PROJECT_
   ${PROJECT_SOURCE_DIR}/smp/upc_pts.h
   ${PROJECT_SOURCE_DIR}/smp/upc_sup.h
   ${PROJECT_SOURCE_DIR}/smp/upc_sync.h)
-add_custom_target(upc-header ALL DEPENDS ${lib_upc_header})
 add_custom_command(OUTPUT ${lib_upc_header}
-  COMMAND ${PERL_EXECUTABLE} ${lib_upc_header_sources} > ${lib_upc_header}
+  COMMAND ${CMAKE_COMMAND} -E make_directory ${LLVM_BINARY_DIR}/${header_location} &&
+    ${PERL_EXECUTABLE} ${lib_upc_header_sources} > ${lib_upc_header}
   DEPENDS ${lib_upc_header_sources}
   VERBATIM)
+add_custom_target(upc-header ALL DEPENDS ${lib_upc_header})
 
 set(upc_headers upc.h upc_strict.h upc_relaxed.h)
 set(upc_header_targets)
