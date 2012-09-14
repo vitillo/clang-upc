@@ -203,7 +203,7 @@ foreach(config ${CONFIGURATIONS})
   # Compute the preprocessor definitions
   if(${pts_type} STREQUAL PACKED)
     set(lib_defs "GUPCR_PTS_PACKED_REP=1")
-    set(flags "-fupc-pts=packed -fupc-pts-packed-bits=${phase},${thread},${addr}")
+    set(flags "-fupc-pts=packed -fupc-packed-bits=${phase},${thread},${addr}")
   elseif(${pts_type} STREQUAL STRUCT)
     set(lib_defs "GUPCR_PTS_STRUCT_REP=1")
     set(flags "-fupc-pts=struct")
