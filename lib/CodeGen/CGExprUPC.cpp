@@ -38,33 +38,49 @@ static void getFileAndLine(CodeGenFunction &CGF, SourceLocation Loc,
   Out->add(RValue::get(Tmp[1]), Ctx.IntTy);
 }
 
+RValue EmitUPCCall(CodeGenFunction &CGF,
+                   llvm::StringRef Name,
+                   QualType ResultTy,
+                   const CallArgList& Args) {
+  ASTContext &Context = CGF.CGM.getContext();
+  llvm::SmallVector<QualType, 5> ArgTypes;
+
+  for (CallArgList::const_iterator iter = Args.begin(),
+         end = Args.end(); iter != end; ++iter) {
+    ArgTypes.push_back(iter->Ty);
+  }
+
+  QualType FuncType =
+    Context.getFunctionType(ResultTy,
+                            ArgTypes.data(), ArgTypes.size(),
+                            FunctionProtoType::ExtProtoInfo());
+    const CGFunctionInfo &Info =
+      CGF.getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
+    llvm::FunctionType * FTy =
+      cast<llvm::FunctionType>(CGF.ConvertType(FuncType));
+    llvm::Value * Fn = CGF.CGM.CreateRuntimeFunction(FTy, Name);
+
+    return CGF.EmitCall(Info, Fn, ReturnValueSlot(), Args);
+}
+
 llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value,
                                                        QualType DestTy,
                                                        SourceLocation Loc) {
-  llvm::Type *DestLTy = ConvertType(DestTy);
-
-  llvm::SmallVector<llvm::Value*, 3> Args;
-  llvm::SmallVector<llvm::Type*, 3> ArgTypes;
-
-  Args.push_back(Value);
-  ArgTypes.push_back(GenericPtsTy);
+  const ASTContext& Context = getContext();
+  QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
 
   const char *FnName = "__getaddr";
 
+  CallArgList Args;
+  Args.add(RValue::get(Value), ArgTy);
   if (CGM.getCodeGenOpts().UPCDebug) {
-    ArgTypes.push_back(Int8PtrTy);
-    ArgTypes.push_back(IntTy);
     getFileAndLine(*this, Loc, &Args);
     FnName = "__getaddrg";
   }
 
-  llvm::FunctionType *FTy = llvm::FunctionType::get(VoidPtrTy, ArgTypes, false);
-  llvm::Constant *Fn = CGM.CreateRuntimeFunction(FTy, FnName);
+  RValue Result = EmitUPCCall(*this, FnName, DestTy, Args);
 
-  Value = Builder.CreateCall(Fn, Args);
-  Value = Builder.CreateBitCast(Value, DestLTy);
-
-  return Value;
+  return Result.getScalarVal();
 }
 
 llvm::Value *CodeGenFunction::EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy) {
@@ -141,31 +157,6 @@ static const char * getUPCTypeID(CodeGenFunction& CGF,
     return Result;
   else
     return 0;
-}
-
-RValue EmitUPCCall(CodeGenFunction &CGF,
-                   llvm::StringRef Name,
-                   QualType ResultTy,
-                   const CallArgList& Args) {
-  ASTContext &Context = CGF.CGM.getContext();
-  llvm::SmallVector<QualType, 5> ArgTypes;
-
-  for (CallArgList::const_iterator iter = Args.begin(),
-         end = Args.end(); iter != end; ++iter) {
-    ArgTypes.push_back(iter->Ty);
-  }
-
-  QualType FuncType =
-    Context.getFunctionType(ResultTy,
-                            ArgTypes.data(), ArgTypes.size(),
-                            FunctionProtoType::ExtProtoInfo());
-    const CGFunctionInfo &Info =
-      CGF.getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
-    llvm::FunctionType * FTy =
-      cast<llvm::FunctionType>(CGF.ConvertType(FuncType));
-    llvm::Value * Fn = CGF.CGM.CreateRuntimeFunction(FTy, Name);
-
-    return CGF.EmitCall(Info, Fn, ReturnValueSlot(), Args);
 }
 
 llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
