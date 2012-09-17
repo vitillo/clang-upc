@@ -323,19 +323,26 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.append("typedef shared struct upc_lock_struct upc_lock_t;\n");
     Builder.append("extern int main() __asm__(\"upc_main\");\n");
 
+    // implementation specific macros
+    Builder.defineMacro("__UPC_PHASE_SIZE__", Twine(LangOpts.UPCPhaseBits));
+    Builder.defineMacro("__UPC_THREAD_SIZE__", Twine(LangOpts.UPCThreadBits));
+    Builder.defineMacro("__UPC_VADDR_SIZE__", Twine(LangOpts.UPCAddrBits));
+    if (LangOpts.UPCVaddrFirst) {
+      Builder.defineMacro("__UPC_VADDR_FIRST__", "1");
+    }
+    if(LangOpts.UPCPhaseBits + LangOpts.UPCThreadBits + LangOpts.UPCAddrBits == 64) {
+      Builder.defineMacro("__UPC_PTS_PACKED_REP__", "1");
+    } else {
+      Builder.defineMacro("__UPC_PTS_STRUCT_REP__", "1");
+      Builder.defineMacro("__UPC_PHASE_TYPE__", "__INT32_TYPE__");
+      Builder.defineMacro("__UPC_THREAD_TYPE__", "__INT32_TYPE__");
+      Builder.defineMacro("__UPC_VADDR_TYPE__", "char *");
+    }
+    Builder.defineMacro("__UPC_COLLECTIVE__", "1");
+    Builder.defineMacro("__GCC_UPC__", "1");
+
     if (LangOpts.UPCInlineLib) {
       Builder.defineMacro("__UPC_INLINE_LIB__", "1");
-      Builder.defineMacro("GUPCR_PTS_PHASE_SIZE", Twine(LangOpts.UPCPhaseBits));
-      Builder.defineMacro("GUPCR_PTS_THREAD_SIZE", Twine(LangOpts.UPCThreadBits));
-      Builder.defineMacro("GUPCR_PTS_VADDR_SIZE", Twine(LangOpts.UPCAddrBits));
-      if(LangOpts.UPCPhaseBits + LangOpts.UPCThreadBits + LangOpts.UPCAddrBits == 64) {
-        Builder.defineMacro("GUPCR_PTS_PACKED_REP", "1");
-      } else {
-        Builder.defineMacro("GUPCR_PTS_STRUCT_REP", "1");
-      }
-      if(LangOpts.UPCVaddrFirst) {
-        Builder.defineMacro("GUPCR_PTS_VADDR_FIRST", "1");
-      }
     }
   }
 

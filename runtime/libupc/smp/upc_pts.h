@@ -70,11 +70,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define GUPCR_PTS_VADDR_TYPE u_intHI_t
 #endif
 
-#if !__GCC_UPC__
-/* The UPC compiler pre-defines upc_shared_ptr_t to be the
-   representation of a shared pointer.  Since most of the
-   runtime is written in regular "C", we need to define
-   the pointer representation here.  */
 typedef struct shared_ptr_struct
   {
 #if GUPCR_PTS_VADDR_FIRST
@@ -95,7 +90,6 @@ typedef upc_shared_ptr_t *upc_shared_ptr_p;
 /* upc_dbg_shared_ptr_t is used by debugger to figure out
    shared pointer layout */
 typedef upc_shared_ptr_t upc_dbg_shared_ptr_t;
-#endif
 
 #define GUPCR_PTS_TO_REP(V) *((upc_shared_ptr_t *)&(V)) 
 #define GUPCR_PTS_IS_NULL(P) (!(P).vaddr && !(P).thread && !(P).phase)
@@ -136,7 +130,6 @@ typedef upc_shared_ptr_t upc_dbg_shared_ptr_t;
 #define GUPCR_PTS_THREAD_MASK	((GUPCR_ONE << GUPCR_PTS_THREAD_SIZE) - GUPCR_ONE)
 #define GUPCR_PTS_PHASE_MASK	((GUPCR_ONE << GUPCR_PTS_PHASE_SIZE) - GUPCR_ONE)
 
-#if !__GCC_UPC__
 /* upc_dbg_shared_ptr_t is used by debugger to figure out
    shared pointer layout */
 typedef struct shared_ptr_struct
@@ -154,7 +147,6 @@ typedef struct shared_ptr_struct
 
 typedef GUPCR_PTS_REP_T upc_shared_ptr_t;
 typedef upc_shared_ptr_t *upc_shared_ptr_p;
-#endif
 
 #define GUPCR_PTS_IS_NULL(P) !(P)
 #define GUPCR_PTS_SET_NULL_SHARED(P) { (P) = 0; }

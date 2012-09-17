@@ -97,6 +97,18 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    nested upc_forall statements.  */
 extern GUPCR_THREAD_LOCAL int __upc_forall_depth;
 
+#define GUPCR_PTS_PHASE_SIZE __UPC_PHASE_SIZE__
+#define GUPCR_PTS_THREAD_SIZE __UPC_THREAD_SIZE__
+#define GUPCR_PTS_VADDR_SIZE __UPC_VADDR_SIZE__
+#ifdef __UPC_PTS_PACKED_REP__
+#define GUPCR_PTS_PACKED_REP 1
+#elif defined(__UPC_PTS_STRUCT_REP__)
+#define GUPCR_PTS_STRUCT_REP 1
+#endif
+#ifdef __UPC_VADDR_FIRST__
+#define GUPCR_PTS_VADDR_FIRST 1
+#endif
+
 #if !defined(_CRAYT3E)
 /* The UPC runtime's main program must run first,
  * we rename the user's main to upc_main(). */
