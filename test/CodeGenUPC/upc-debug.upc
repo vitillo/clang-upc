@@ -6,7 +6,7 @@ const char * file() { return __FILE__; }
 
 int * test_getaddr(shared int * ptr) { return (int*)ptr; }
 // CHECK: test_getaddr
-// CHECK: %1 = call i8* @__getaddrg(%__upc_shared_pointer_type %0, i8* [[__FILE__]], i32 7)
+// CHECK: %call = call i8* @__getaddrg(i64 %1, i8* [[__FILE__]], i32 7)
 
 int test_getsi(shared int *ptr) { return *ptr; }
 // CHECK: test_getsi

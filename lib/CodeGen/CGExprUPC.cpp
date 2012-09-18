@@ -68,6 +68,7 @@ llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value,
                                                        SourceLocation Loc) {
   const ASTContext& Context = getContext();
   QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
+  QualType ResultTy = Context.VoidPtrTy;
 
   const char *FnName = "__getaddr";
 
@@ -78,9 +79,9 @@ llvm::Value *CodeGenFunction::EmitUPCCastSharedToLocal(llvm::Value *Value,
     FnName = "__getaddrg";
   }
 
-  RValue Result = EmitUPCCall(*this, FnName, DestTy, Args);
+  RValue Result = EmitUPCCall(*this, FnName, ResultTy, Args);
 
-  return Result.getScalarVal();
+  return Builder.CreateBitCast(Result.getScalarVal(), ConvertType(DestTy));
 }
 
 llvm::Value *CodeGenFunction::EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy) {
