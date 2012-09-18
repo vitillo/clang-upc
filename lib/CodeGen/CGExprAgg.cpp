@@ -956,6 +956,13 @@ void AggExprEmitter::VisitInitListExpr(InitListExpr *E) {
     if (E->isStringLiteralInit())
       return Visit(E->getInit(0));
 
+    if (Dest.isShared()) {
+      // This shouldn't be reachable.  It's just here
+      // to catch any changes.
+      CGF.ErrorUnsupported(E, "initialization of shared array", true);
+      return;
+    }
+
     QualType elementType =
         CGF.getContext().getAsArrayType(E->getType())->getElementType();
 
