@@ -37,6 +37,7 @@ extern size_t upc_phaseof (shared void *);
 extern shared void *upc_resetphase (shared void *);
 extern size_t upc_addrfield (shared void *);
 extern size_t upc_affinitysize (size_t, size_t, size_t);
+#define upc_poll() ((void)0)
 
 #if IN_TARGET_LIBS || __UPC_PUPC_INST__
 /* Profiled memory allocation routines */
