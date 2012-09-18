@@ -88,6 +88,10 @@ namespace types {
   /// lookupCXXTypeForCType - Lookup CXX input type that corresponds to given
   /// C type (used for clang++ emulation of g++ behaviour)
   ID lookupCXXTypeForCType(ID Id);
+  
+  /// lookupUPCTypeForCType - Lookup UPC input type that corresponds to given
+  /// C type (used for clangupc emulation of gupc behaviour)
+  ID lookupUPCTypeForCType(ID Id);
 
 } // end namespace types
 } // end namespace driver

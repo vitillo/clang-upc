@@ -955,6 +955,14 @@ void Driver::BuildInputs(const ToolChain &TC, const DerivedArgList &Args,
               Diag(clang::diag::warn_drv_treating_input_as_cxx)
                 << getTypeName(OldTy) << getTypeName(Ty);
           }
+          if (CCCIsUPC) {
+            types::ID OldTy = Ty;
+            Ty = types::lookupUPCTypeForCType(Ty);
+
+            if (Ty != OldTy)
+              Diag(clang::diag::warn_drv_treating_input_as_upc)
+                << getTypeName(OldTy) << getTypeName(Ty);
+          }
         }
 
         // -ObjC and -ObjC++ override the default language, but only for "source

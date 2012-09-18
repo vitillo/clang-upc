@@ -130,6 +130,9 @@ def warn_ignoring_ftabstop_value : Warning<
 def warn_drv_treating_input_as_cxx : Warning<
   "treating '%0' input as '%1' when in C++ mode, this behavior is deprecated">,
   InGroup<Deprecated>;
+def warn_drv_treating_input_as_upc : Warning<
+  "treating '%0' input as '%1' when in UPC mode, this behavior is deprecated">,
+  InGroup<Deprecated>;
 def warn_drv_objc_gc_unsupported : Warning<
   "Objective-C garbage collection is not supported on this platform, ignoring '%0'">;
 def warn_drv_pch_not_first_include : Warning<

@@ -256,3 +256,19 @@ ID types::lookupCXXTypeForCType(ID Id) {
     return types::TY_PP_CXXHeader;
   }
 }
+
+ID types::lookupUPCTypeForCType(ID Id) {
+  switch (Id) {
+  default:
+    return Id;
+    
+  case types::TY_C:
+    return types::TY_UPC;
+  case types::TY_PP_C:
+    return types::TY_PP_UPC;
+  case types::TY_CHeader:
+    return types::TY_UPCHeader;
+  case types::TY_PP_CHeader:
+    return types::TY_PP_UPCHeader;
+  }
+}
