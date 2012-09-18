@@ -959,25 +959,7 @@ CodeGenFunction::getVLASize(QualType type) {
 
 std::pair<llvm::Value*, QualType>
 CodeGenFunction::getVLASize(const VariableArrayType *type) {
-  // The number of elements so far; always size_t.
-  llvm::Value *numElements = 0;
-
-  QualType elementType;
-  do {
-    elementType = type->getElementType();
-    llvm::Value *vlaSize = VLASizeMap[type->getSizeExpr()];
-    assert(vlaSize && "no size for VLA!");
-    assert(vlaSize->getType() == SizeTy);
-
-    if (!numElements) {
-      numElements = vlaSize;
-    } else {
-      // It's undefined behavior if this wraps around, so mark it that way.
-      numElements = Builder.CreateNUWMul(numElements, vlaSize);
-    }
-  } while ((type = getContext().getAsVariableArrayType(elementType)));
-
-  return std::pair<llvm::Value*,QualType>(numElements, elementType);
+  return getVLASize(getContext().getQualifiedType(type, Qualifiers()));
 }
 
 void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
