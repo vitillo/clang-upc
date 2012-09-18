@@ -1385,6 +1385,12 @@ static bool HandleLValueArrayAdjustment(EvalInfo &Info, const Expr *E,
   if (!HandleSizeof(Info, E->getExprLoc(), EltTy, SizeOfPointee))
     return false;
 
+  if (EltTy.getQualifiers().hasShared()) {
+    Qualifiers Qs = EltTy.getQualifiers();
+    if (!Qs.hasLayoutQualifier() || Qs.getLayoutQualifier() != 0)
+      return false;
+  }
+
   // Compute the new offset in the appropriate width.
   LVal.Offset += Adjustment * SizeOfPointee;
   LVal.adjustIndex(Info, E, Adjustment);

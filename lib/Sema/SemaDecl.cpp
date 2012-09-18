@@ -6379,7 +6379,8 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
     // C99 6.7.8p4: All the expressions in an initializer for an object that has
     // static storage duration shall be constant expressions or string literals.
     // C++ does not have this restriction.
-    if (!getLangOpts().CPlusPlus && !VDecl->isInvalidDecl() &&
+    if (!getLangOpts().CPlusPlus && !getLangOpts().UPC &&
+        !VDecl->isInvalidDecl() &&
         VDecl->getStorageClass() == SC_Static)
       CheckForConstantInitializer(Init, DclT);
   } else if (VDecl->isStaticDataMember() &&
