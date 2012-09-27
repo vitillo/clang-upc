@@ -4123,7 +4123,7 @@ static CastKind CheckPointerToSharedConversion(ASTContext& Context, QualType Src
   // pointer-to-shared type with indefinite block size or
   // with block size of one, the result is a pointer with
   // phase of zero.
-  if (SrcPointee->isVoidType() &&
+  if (SrcPointee->isVoidType() && !DestPointee->isVoidType() &&
       DestPointee.getQualifiers().getLayoutQualifier() <= 1)
     return CK_UPCBitCastZeroPhase;
   // UPC 1.2 6.4.3p2
