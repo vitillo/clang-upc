@@ -1265,8 +1265,7 @@ void InitListChecker::CheckArrayType(const InitializedEntity &Entity,
       DeclType = SemaRef.Context.getConstantArrayType(elementType, maxElements,
                                                       ArrayType::Normal, 0);
     }
-    if (SemaRef.getLangOpts().UPC) {
-      assert(Entity.getKind() == InitializedEntity::EK_Variable);
+    if (SemaRef.getLangOpts().UPC && Entity.getKind() == InitializedEntity::EK_Variable) {
       SourceLocation Loc = cast<VarDecl>(Entity.getDecl())->getLocation();
       DeclType = SemaRef.ResolveLayoutQualifierStar(DeclType, Loc);
     }
