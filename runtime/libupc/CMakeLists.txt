@@ -115,6 +115,7 @@ set(LIBUPC_SOURCES
   smp/upc_pgm_info.c
   smp/upc_pupc.c
   smp/upc_sysdep.c
+  smp/upc_tick.c
   smp/upc_vm.c
 
   collectives/upc_coll_broadcast.upc
@@ -261,7 +262,7 @@ add_custom_command(OUTPUT ${lib_upc_header}
   VERBATIM)
 add_custom_target(upc-header ALL DEPENDS ${lib_upc_header})
 
-set(upc_headers upc.h upc_strict.h upc_relaxed.h upc_collective.h)
+set(upc_headers upc.h upc_strict.h upc_relaxed.h upc_collective.h upc_tick.h)
 set(upc_header_targets)
 foreach( f ${upc_headers} )
   set( src ${PROJECT_SOURCE_DIR}/include/${f} )
@@ -275,7 +276,8 @@ endforeach( f )
 
 add_custom_target(upc-headers ALL DEPENDS ${upc_header_targets})
 
-install(FILES include/upc.h include/upc_strict.h include/upc_relaxed.h include/upc_collective.h
+install(FILES include/upc.h include/upc_strict.h include/upc_relaxed.h
+  include/upc_collective.h include/upc_collective.h
   DESTINATION ${header_location})
 
 install(FILES ${objects} ${upc_link_script}
