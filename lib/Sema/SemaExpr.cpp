@@ -5651,7 +5651,10 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
     // int -> T*
     if (RHSType->isIntegerType()) {
       Kind = CK_IntegralToPointer; // FIXME: null?
-      return IntToPointer;
+      if (LHSPointer->getPointeeType().getQualifiers().hasShared())
+        return Incompatible;
+      else
+        return IntToPointer;
     }
 
     // C pointers are not compatible with ObjC object pointers,
