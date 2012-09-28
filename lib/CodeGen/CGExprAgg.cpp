@@ -1158,7 +1158,7 @@ static void CheckAggExprForMemSetUse(AggValueSlot &Slot, const Expr *E,
                                      CodeGenFunction &CGF) {
   // If the slot is already known to be zeroed, nothing to do.  Don't mess with
   // volatile stores.
-  if (Slot.isZeroed() || Slot.isVolatile() || Slot.getAddr() == 0) return;
+  if (Slot.isZeroed() || Slot.isVolatile() || Slot.isShared() || Slot.getAddr() == 0) return;
 
   // C++ objects with a user-declared constructor don't need zero'ing.
   if (CGF.getContext().getLangOpts().CPlusPlus)
