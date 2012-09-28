@@ -1092,6 +1092,10 @@ llvm::Constant *CodeGenModule::EmitConstantValue(const APValue &Value,
       if (isa<llvm::PointerType>(DestTy))
         return llvm::ConstantExpr::getBitCast(C, DestTy);
 
+      if (DestType->hasPointerToSharedRepresentation()) {
+        return C;
+      }
+
       return llvm::ConstantExpr::getPtrToInt(C, DestTy);
     } else {
       C = Offset;
