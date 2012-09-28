@@ -1330,17 +1330,22 @@ static bool isArraySizeTHREAD(Sema& S, Expr *ArraySize, llvm::APSInt &SizeVal)
   // once in one dimension of the array declarator (including through
   // typedefs).  Further, the THREADS expression shall only occur either
   // alone or when multiplied by an integer constant expression.
-  if (isa<UPCThreadExpr>(ArraySize->IgnoreParens())) {
+  ArraySize = ArraySize->IgnoreParenImpCasts();
+  if (isa<UPCThreadExpr>(ArraySize)) {
     SizeVal = 1;
     return true;
-  } else if(BinaryOperator *BO = dyn_cast<BinaryOperator>(ArraySize->IgnoreParens())) {
+  } else if(BinaryOperator *BO = dyn_cast<BinaryOperator>(ArraySize)) {
     if (BO->getOpcode() == BO_Mul) {
-      if (isa<UPCThreadExpr>(BO->getLHS()->IgnoreParenImpCasts()) &&
-          BO->getRHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
-        return true;
-      } else if (isa<UPCThreadExpr>(BO->getRHS()->IgnoreParenImpCasts()) &&
-          BO->getLHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
-        return true;
+      if (BO->getRHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
+        llvm::APSInt tmp(SizeVal.getBitWidth(), SizeVal.isUnsigned());
+        bool result = isArraySizeTHREAD(S, BO->getLHS(), tmp);
+        SizeVal *= tmp;
+        return result;
+      } else if (BO->getLHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
+        llvm::APSInt tmp(SizeVal.getBitWidth(), SizeVal.isUnsigned());
+        bool result = isArraySizeTHREAD(S, BO->getRHS(), tmp);
+        SizeVal *= tmp;
+        return result;
       }
     }
   }
