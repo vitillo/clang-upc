@@ -1092,9 +1092,7 @@ llvm::Constant *CodeGenModule::EmitConstantValue(const APValue &Value,
       if (isa<llvm::PointerType>(DestTy))
         return llvm::ConstantExpr::getBitCast(C, DestTy);
 
-      if (DestType->hasPointerToSharedRepresentation()) {
-        return C;
-      }
+      assert(!DestType->hasPointerToSharedRepresentation());
 
       return llvm::ConstantExpr::getPtrToInt(C, DestTy);
     } else {

@@ -2932,6 +2932,9 @@ bool LValueExprEvaluator::VisitVarDecl(const Expr *E, const VarDecl *VD) {
       Result.set(VD, Info.CurrentCall->Index);
       return true;
     }
+    if (VD->getType().getQualifiers().hasShared()) {
+      return Error(E);
+    }
     return Success(VD);
   }
 
