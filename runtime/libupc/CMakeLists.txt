@@ -277,7 +277,7 @@ endforeach( f )
 add_custom_target(upc-headers ALL DEPENDS ${upc_header_targets})
 
 install(FILES include/upc.h include/upc_strict.h include/upc_relaxed.h
-  include/upc_collective.h include/upc_collective.h
+  include/upc_collective.h include/upc_collective.h include/upc_tick.h
   DESTINATION ${header_location})
 
 install(FILES ${objects} ${upc_link_script}
