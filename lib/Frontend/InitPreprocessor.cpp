@@ -322,6 +322,7 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     Builder.append("extern const int MYTHREAD;\n");
     Builder.append("typedef shared struct upc_lock_struct upc_lock_t;\n");
     Builder.append("extern int main() __asm__(\"upc_main\");\n");
+    Builder.defineMacro("exit", "__upc_exit");
 
     // implementation specific macros
     Builder.defineMacro("__UPC_PHASE_SIZE__", Twine(LangOpts.UPCPhaseBits));
