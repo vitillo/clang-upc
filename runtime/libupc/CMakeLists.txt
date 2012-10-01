@@ -65,7 +65,7 @@ add_definitions(
  ${LIBUPC_FEATURE_FLAGS}
  )
 
-set(LIBUPC_CONFIGURATIONS "p" CACHE STRING "UPC Pointer Representation e.g. p-f-20-10-34;s-l;p-l")
+set(LIBUPC_CONFIGURATIONS "p;s;p-l;s-l" CACHE STRING "UPC Pointer Representation e.g. p-f-20-10-34;s-l;p-l")
 
 set(all_configs ${LIBUPC_CONFIGURATIONS})
 if(all_configs)
