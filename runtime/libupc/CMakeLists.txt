@@ -211,6 +211,9 @@ foreach(config ${CONFIGURATIONS})
 
   add_dependencies(${lib_name} clang)
 
+  install(TARGETS ${lib_name}
+    DESTINATION lib${LLVM_LIBDIR_SUFFIX})
+
 endforeach()
 
 set_property(SOURCE ${LIBUPC_SOURCES} PROPERTY LANGUAGE C)
@@ -281,9 +284,6 @@ install(FILES include/upc.h include/upc_strict.h include/upc_relaxed.h
   DESTINATION ${header_location})
 
 install(FILES ${objects} ${upc_link_script}
-  DESTINATION lib${LLVM_LIBDIR_SUFFIX})
-
-install(TARGETS upc
   DESTINATION lib${LLVM_LIBDIR_SUFFIX})
 
 install(FILES ${lib_upc_header}
