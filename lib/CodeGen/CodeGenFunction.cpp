@@ -89,6 +89,7 @@ bool CodeGenFunction::hasAggregateLLVMType(QualType type) {
   // Complexes, arrays, records, and Objective-C objects.
   case Type::Complex:
   case Type::ConstantArray:
+  case Type::UPCThreadArray:
   case Type::IncompleteArray:
   case Type::VariableArray:
   case Type::Record:
@@ -921,22 +922,29 @@ llvm::Value *CodeGenFunction::emitArrayLength(const ArrayType *origArrayType,
 
 std::pair<llvm::Value*, QualType>
 CodeGenFunction::getVLASize(QualType type) {
-  const VariableArrayType *vla = getContext().getAsVariableArrayType(type);
-  assert(vla && "type was not a variable array type!");
-  return getVLASize(vla);
-}
-
-std::pair<llvm::Value*, QualType>
-CodeGenFunction::getVLASize(const VariableArrayType *type) {
   // The number of elements so far; always size_t.
   llvm::Value *numElements = 0;
 
-  QualType elementType;
-  do {
-    elementType = type->getElementType();
-    llvm::Value *vlaSize = VLASizeMap[type->getSizeExpr()];
-    assert(vlaSize && "no size for VLA!");
-    assert(vlaSize->getType() == SizeTy);
+  QualType elementType = type;
+  while(true) {
+    llvm::Value *vlaSize;
+    if (const VariableArrayType *VAT =
+        getContext().getAsVariableArrayType(elementType)) {
+      elementType = VAT->getElementType();
+      vlaSize = VLASizeMap[VAT->getSizeExpr()];
+      assert(vlaSize && "no size for VLA!");
+      assert(vlaSize->getType() == SizeTy);
+    } else if(const UPCThreadArrayType *TAT =
+              getContext().getAsUPCThreadArrayType(elementType)) {
+      elementType = TAT->getElementType();
+      vlaSize = llvm::ConstantInt::get(SizeTy, TAT->getSize());
+      if (TAT->getThread()) {
+        llvm::Value *Threads = Builder.CreateZExt(EmitUPCThreads(), SizeTy);
+        vlaSize = Builder.CreateNUWMul(vlaSize, Threads);
+      }
+    } else {
+      break;
+    }
 
     if (!numElements) {
       numElements = vlaSize;
@@ -944,9 +952,14 @@ CodeGenFunction::getVLASize(const VariableArrayType *type) {
       // It's undefined behavior if this wraps around, so mark it that way.
       numElements = Builder.CreateNUWMul(numElements, vlaSize);
     }
-  } while ((type = getContext().getAsVariableArrayType(elementType)));
+  }
 
   return std::pair<llvm::Value*,QualType>(numElements, elementType);
+}
+
+std::pair<llvm::Value*, QualType>
+CodeGenFunction::getVLASize(const VariableArrayType *type) {
+  return getVLASize(getContext().getQualifiedType(type, Qualifiers()));
 }
 
 void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
@@ -1003,6 +1016,7 @@ void CodeGenFunction::EmitVariablyModifiedType(QualType type) {
       break;
 
     case Type::ConstantArray:
+    case Type::UPCThreadArray:
     case Type::IncompleteArray:
       // Losing element qualification here is fine.
       type = cast<ArrayType>(ty)->getElementType();

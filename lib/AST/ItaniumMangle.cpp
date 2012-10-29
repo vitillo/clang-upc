@@ -838,6 +838,7 @@ void CXXNameMangler::mangleUnresolvedPrefix(NestedNameSpecifier *qualifier,
     case Type::RValueReference:
     case Type::MemberPointer:
     case Type::ConstantArray:
+    case Type::UPCThreadArray:
     case Type::IncompleteArray:
     case Type::VariableArray:
     case Type::DependentSizedArray:
@@ -1964,6 +1965,9 @@ void CXXNameMangler::mangleType(const ConstantArrayType *T) {
   Out << 'A' << T->getSize() << '_';
   mangleType(T->getElementType());
 }
+void CXXNameMangler::mangleType(const UPCThreadArrayType *T) {
+  llvm_unreachable("not implemented: UPC is incompatible with C++.");
+}
 void CXXNameMangler::mangleType(const VariableArrayType *T) {
   Out << 'A';
   // decayed vla types (size 0) will just be skipped.
@@ -2411,6 +2415,7 @@ recurse:
   case Expr::AsTypeExprClass:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
+  case Expr::UPCThreadExprClass:
   {
     // As bad as this diagnostic is, it's better than crashing.
     DiagnosticsEngine &Diags = Context.getDiags();
@@ -2625,12 +2630,34 @@ recurse:
     case UETT_AlignOf:
       Out << 'a';
       break;
-    case UETT_VecStep:
+    case UETT_VecStep: {
       DiagnosticsEngine &Diags = Context.getDiags();
       unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
                                      "cannot yet mangle vec_step expression");
       Diags.Report(DiagID);
       return;
+    }
+    case UETT_UPC_LocalSizeOf: {
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "cannot yet mangle upc_localsizeof expression");
+      Diags.Report(DiagID);
+      return;
+    }
+    case UETT_UPC_BlockSizeOf: {
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "cannot yet mangle upc_blocksizeof expression");
+      Diags.Report(DiagID);
+      return;
+    }
+    case UETT_UPC_ElemSizeOf: {
+      DiagnosticsEngine &Diags = Context.getDiags();
+      unsigned DiagID = Diags.getCustomDiagID(DiagnosticsEngine::Error,
+                                     "cannot yet mangle upc_elemsizeof expression");
+      Diags.Report(DiagID);
+      return;
+    }
     }
     if (SAE->isArgumentType()) {
       Out << 't';

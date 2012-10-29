@@ -623,6 +623,7 @@ public:
   QualType RebuildArrayType(QualType ElementType,
                             ArrayType::ArraySizeModifier SizeMod,
                             const llvm::APInt *Size,
+                            bool HasThread,
                             Expr *SizeExpr,
                             unsigned IndexTypeQuals,
                             SourceRange BracketsRange);
@@ -635,6 +636,18 @@ public:
   QualType RebuildConstantArrayType(QualType ElementType,
                                     ArrayType::ArraySizeModifier SizeMod,
                                     const llvm::APInt &Size,
+                                    unsigned IndexTypeQuals,
+                                    SourceRange BracketsRange);
+
+  /// \brief Build a new thread array type given the element type, size
+  /// modifier, (known) size of the array, and index type qualifiers.
+  ///
+  /// By default, performs semantic analysis when building the array type.
+  /// Subclasses may override this routine to provide different behavior.
+  QualType RebuildUPCThreadArrayType(QualType ElementType,
+                                    ArrayType::ArraySizeModifier SizeMod,
+                                    const llvm::APInt &Size,
+                                    bool hasThread,
                                     unsigned IndexTypeQuals,
                                     SourceRange BracketsRange);
 
@@ -1144,6 +1157,59 @@ public:
   /// Subclasses may override this routine to provide different behavior.
   StmtResult RebuildReturnStmt(SourceLocation ReturnLoc, Expr *Result) {
     return getSema().ActOnReturnStmt(ReturnLoc, Result);
+  }
+
+  /// \brief Build a new upc_notify statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCNotifyStmt(SourceLocation Loc, Expr *Id) {
+    return getSema().ActOnUPCNotifyStmt(Loc, Id);
+  }
+
+  /// \brief Build a new upc_wait statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCWaitStmt(SourceLocation Loc, Expr *Id) {
+    return getSema().ActOnUPCWaitStmt(Loc, Id);
+  }
+
+  /// \brief Build a new upc_barrier statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCBarrierStmt(SourceLocation Loc, Expr *Id) {
+    return getSema().ActOnUPCBarrierStmt(Loc, Id);
+  }
+
+  /// \brief Build a new upc_fence statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCFenceStmt(SourceLocation Loc) {
+    return getSema().ActOnUPCFenceStmt(Loc);
+  }
+
+  /// \brief Build a new #pragma upc statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCPragmaStmt(SourceLocation Loc, Sema::PragmaUPCKind Access) {
+    return getSema().ActOnPragmaUPC(Loc, Access);
+  }
+
+  /// \brief Build a new upc_forall statement.
+  ///
+  /// By default, performs semantic analysis to build the new statement.
+  /// Subclasses may override this routine to provide different behavior.
+  StmtResult RebuildUPCForAllStmt(SourceLocation ForLoc, SourceLocation LParenLoc,
+                                  Stmt *Init, Sema::FullExprArg Cond, 
+                                  VarDecl *CondVar, Sema::FullExprArg Inc,
+                                  Sema::FullExprArg Afnty,
+                                  SourceLocation RParenLoc, Stmt *Body) {
+    return getSema().ActOnUPCForAllStmt(ForLoc, LParenLoc, Init, Cond, 
+                                        CondVar, Inc, Afnty, RParenLoc, Body);
   }
 
   /// \brief Build a new declaration statement.
@@ -3707,6 +3773,48 @@ TreeTransform<Derived>::TransformConstantArrayType(TypeLocBuilder &TLB,
 }
 
 template<typename Derived>
+QualType
+TreeTransform<Derived>::TransformUPCThreadArrayType(TypeLocBuilder &TLB,
+                                                    UPCThreadArrayTypeLoc TL) {
+  const UPCThreadArrayType *T = TL.getTypePtr();
+  QualType ElementType = getDerived().TransformType(TLB, TL.getElementLoc());
+  if (ElementType.isNull())
+    return QualType();
+
+  QualType Result = TL.getType();
+  if (getDerived().AlwaysRebuild() ||
+      ElementType != T->getElementType()) {
+    Result = getDerived().RebuildUPCThreadArrayType(ElementType,
+                                                    T->getSizeModifier(),
+                                                    T->getSize(),
+                                                    T->getThread(),
+                                             T->getIndexTypeCVRQualifiers(),
+                                                    TL.getBracketsRange());
+    if (Result.isNull())
+      return QualType();
+  }
+
+  // We might have either a ConstantArrayType or a VariableArrayType now:
+  // a ConstantArrayType is allowed to have an element type which is a
+  // VariableArrayType if the type is dependent.  Fortunately, all array
+  // types have the same location layout.
+  ArrayTypeLoc NewTL = TLB.push<ArrayTypeLoc>(Result);
+  NewTL.setLBracketLoc(TL.getLBracketLoc());
+  NewTL.setRBracketLoc(TL.getRBracketLoc());
+
+  Expr *Size = TL.getSizeExpr();
+  if (Size) {
+    EnterExpressionEvaluationContext Unevaluated(SemaRef,
+                                                 Sema::ConstantEvaluated);
+    Size = getDerived().TransformExpr(Size).template takeAs<Expr>();
+    Size = SemaRef.ActOnConstantExpression(Size).take();
+  }
+  NewTL.setSizeExpr(Size);
+
+  return Result;
+}
+
+template<typename Derived>
 QualType TreeTransform<Derived>::TransformIncompleteArrayType(
                                               TypeLocBuilder &TLB,
                                               IncompleteArrayTypeLoc TL) {
@@ -5498,6 +5606,143 @@ TreeTransform<Derived>::TransformReturnStmt(ReturnStmt *S) {
 
 template<typename Derived>
 StmtResult
+TreeTransform<Derived>::TransformUPCNotifyStmt(UPCNotifyStmt *S) {
+  ExprResult Result = getDerived().TransformExpr(S->getIdValue());
+  if (Result.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Result.get() == S->getIdValue())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCNotifyStmt(S->getNotifyLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCWaitStmt(UPCWaitStmt *S) {
+  ExprResult Result = getDerived().TransformExpr(S->getIdValue());
+  if (Result.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Result.get() == S->getIdValue())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCWaitStmt(S->getWaitLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCBarrierStmt(UPCBarrierStmt *S) {
+  ExprResult Result = getDerived().TransformExpr(S->getIdValue());
+  if (Result.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Result.get() == S->getIdValue())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCBarrierStmt(S->getBarrierLoc(), Result.get());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCFenceStmt(UPCFenceStmt *S) {
+  if (!getDerived().AlwaysRebuild())
+    return SemaRef.Owned(S);
+  return getDerived().RebuildUPCFenceStmt(S->getFenceLoc());
+}
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCPragmaStmt(UPCPragmaStmt *S) {
+  // Always rebuild because we need the flag to be set
+  return getDerived().RebuildUPCPragmaStmt(
+    S->getPragmaLoc(),
+    S->getStrict()? Sema::PUPCK_Strict : Sema::PUPCK_Relaxed);
+}
+
+
+template<typename Derived>
+StmtResult
+TreeTransform<Derived>::TransformUPCForAllStmt(UPCForAllStmt *S) {
+  // Transform the initialization statement
+  StmtResult Init = getDerived().TransformStmt(S->getInit());
+  if (Init.isInvalid())
+    return StmtError();
+
+  // Transform the condition
+  ExprResult Cond;
+  VarDecl *ConditionVar = 0;
+  if (S->getConditionVariable()) {
+    ConditionVar 
+      = cast_or_null<VarDecl>(
+                   getDerived().TransformDefinition(
+                                      S->getConditionVariable()->getLocation(),
+                                                    S->getConditionVariable()));
+    if (!ConditionVar)
+      return StmtError();
+  } else {
+    Cond = getDerived().TransformExpr(S->getCond());
+    
+    if (Cond.isInvalid())
+      return StmtError();
+
+    if (S->getCond()) {
+      // Convert the condition to a boolean value.
+      ExprResult CondE = getSema().ActOnBooleanCondition(0, S->getForLoc(), 
+                                                         Cond.get());
+      if (CondE.isInvalid())
+        return StmtError();
+
+      Cond = CondE.get();
+    }
+  }
+
+  Sema::FullExprArg FullCond(getSema().MakeFullExpr(Cond.take()));  
+  if (!S->getConditionVariable() && S->getCond() && !FullCond.get())
+    return StmtError();
+
+  // Transform the increment
+  ExprResult Inc = getDerived().TransformExpr(S->getInc());
+  if (Inc.isInvalid())
+    return StmtError();
+
+  Sema::FullExprArg FullInc(getSema().MakeFullExpr(Inc.get()));
+  if (S->getInc() && !FullInc.get())
+    return StmtError();
+
+  // Transform the affinity
+  ExprResult Afnty = getDerived().TransformExpr(S->getAfnty());
+  if (Afnty.isInvalid())
+    return StmtError();
+
+  Sema::FullExprArg FullAfnty(getSema().MakeFullExpr(Afnty.get()));
+  if (S->getAfnty() && !FullAfnty.get())
+    return StmtError();
+
+  // Transform the body
+  StmtResult Body = getDerived().TransformStmt(S->getBody());
+  if (Body.isInvalid())
+    return StmtError();
+
+  if (!getDerived().AlwaysRebuild() &&
+      Init.get() == S->getInit() &&
+      FullCond.get() == S->getCond() &&
+      Inc.get() == S->getInc() &&
+      Afnty.get() == S->getAfnty() &&
+      Body.get() == S->getBody())
+    return SemaRef.Owned(S);
+
+  return getDerived().RebuildUPCForAllStmt(S->getForLoc(), S->getLParenLoc(),
+                                           Init.get(), FullCond, ConditionVar,
+                                           FullInc, FullAfnty, S->getRParenLoc(), Body.get());
+}
+
+
+template<typename Derived>
+StmtResult
 TreeTransform<Derived>::TransformDeclStmt(DeclStmt *S) {
   bool DeclChanged = false;
   SmallVector<Decl *, 4> Decls;
@@ -6132,6 +6377,12 @@ TreeTransform<Derived>::TransformStringLiteral(StringLiteral *E) {
 template<typename Derived>
 ExprResult
 TreeTransform<Derived>::TransformCharacterLiteral(CharacterLiteral *E) {
+  return SemaRef.Owned(E);
+}
+
+template<typename Derived>
+ExprResult
+TreeTransform<Derived>::TransformUPCThreadExpr(UPCThreadExpr *E) {
   return SemaRef.Owned(E);
 }
 
@@ -8888,6 +9139,7 @@ QualType
 TreeTransform<Derived>::RebuildArrayType(QualType ElementType,
                                          ArrayType::ArraySizeModifier SizeMod,
                                          const llvm::APInt *Size,
+                                         bool HasThread,
                                          Expr *SizeExpr,
                                          unsigned IndexTypeQuals,
                                          SourceRange BracketsRange) {
@@ -8911,9 +9163,19 @@ TreeTransform<Derived>::RebuildArrayType(QualType ElementType,
 
   // Note that we can return a VariableArrayType here in the case where
   // the element type was a dependent VariableArrayType.
-  IntegerLiteral *ArraySize
+  Expr *ArraySize
       = IntegerLiteral::Create(SemaRef.Context, *Size, SizeType,
                                /*FIXME*/BracketsRange.getBegin());
+
+  if (HasThread) {
+    UPCThreadExpr * Thread =
+      new (SemaRef.Context) UPCThreadExpr(/*FIXME*/BracketsRange.getBegin(),
+                                          SemaRef.Context.IntTy);
+    ExprResult Op = SemaRef.CreateBuiltinBinOp(/*FIXME*/BracketsRange.getBegin(),
+                                               BO_Mul, ArraySize, Thread);
+    ArraySize = Op.take();
+  }
+
   return SemaRef.BuildArrayType(ElementType, SizeMod, ArraySize,
                                 IndexTypeQuals, BracketsRange,
                                 getDerived().getBaseEntity());
@@ -8926,7 +9188,19 @@ TreeTransform<Derived>::RebuildConstantArrayType(QualType ElementType,
                                                  const llvm::APInt &Size,
                                                  unsigned IndexTypeQuals,
                                                  SourceRange BracketsRange) {
-  return getDerived().RebuildArrayType(ElementType, SizeMod, &Size, 0,
+  return getDerived().RebuildArrayType(ElementType, SizeMod, &Size, false, 0,
+                                        IndexTypeQuals, BracketsRange);
+}
+
+template<typename Derived>
+QualType
+TreeTransform<Derived>::RebuildUPCThreadArrayType(QualType ElementType,
+                                                  ArrayType::ArraySizeModifier SizeMod,
+                                                  const llvm::APInt &Size,
+                                                  bool HasThread,
+                                                  unsigned IndexTypeQuals,
+                                                  SourceRange BracketsRange) {
+  return getDerived().RebuildArrayType(ElementType, SizeMod, &Size, HasThread, 0,
                                         IndexTypeQuals, BracketsRange);
 }
 
@@ -8936,7 +9210,7 @@ TreeTransform<Derived>::RebuildIncompleteArrayType(QualType ElementType,
                                           ArrayType::ArraySizeModifier SizeMod,
                                                  unsigned IndexTypeQuals,
                                                    SourceRange BracketsRange) {
-  return getDerived().RebuildArrayType(ElementType, SizeMod, 0, 0,
+  return getDerived().RebuildArrayType(ElementType, SizeMod, 0, false, 0,
                                        IndexTypeQuals, BracketsRange);
 }
 
@@ -8947,7 +9221,7 @@ TreeTransform<Derived>::RebuildVariableArrayType(QualType ElementType,
                                                  Expr *SizeExpr,
                                                  unsigned IndexTypeQuals,
                                                  SourceRange BracketsRange) {
-  return getDerived().RebuildArrayType(ElementType, SizeMod, 0,
+  return getDerived().RebuildArrayType(ElementType, SizeMod, 0, false,
                                        SizeExpr,
                                        IndexTypeQuals, BracketsRange);
 }
@@ -8959,7 +9233,7 @@ TreeTransform<Derived>::RebuildDependentSizedArrayType(QualType ElementType,
                                                        Expr *SizeExpr,
                                                        unsigned IndexTypeQuals,
                                                    SourceRange BracketsRange) {
-  return getDerived().RebuildArrayType(ElementType, SizeMod, 0,
+  return getDerived().RebuildArrayType(ElementType, SizeMod, 0, false,
                                        SizeExpr,
                                        IndexTypeQuals, BracketsRange);
 }

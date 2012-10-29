@@ -80,6 +80,7 @@ bool types::isAcceptedByClang(ID Id) {
   case TY_CL:
   case TY_CUDA:
   case TY_ObjC: case TY_PP_ObjC: case TY_PP_ObjC_Alias:
+  case TY_UPC: case TY_PP_UPC:
   case TY_CXX: case TY_PP_CXX:
   case TY_ObjCXX: case TY_PP_ObjCXX: case TY_PP_ObjCXX_Alias:
   case TY_CHeader: case TY_PP_CHeader:
@@ -87,6 +88,7 @@ bool types::isAcceptedByClang(ID Id) {
   case TY_ObjCHeader: case TY_PP_ObjCHeader:
   case TY_CXXHeader: case TY_PP_CXXHeader:
   case TY_ObjCXXHeader: case TY_PP_ObjCXXHeader:
+  case TY_UPCHeader: case TY_PP_UPCHeader:
   case TY_AST:
   case TY_LLVM_IR: case TY_LLVM_BC:
     return true;
@@ -177,6 +179,8 @@ types::ID types::lookupTypeForExtension(const char *Ext) {
            .Case("F90", TY_Fortran)
            .Case("F95", TY_Fortran)
            .Case("mii", TY_PP_ObjCXX)
+           .Case("upc", TY_UPC)
+           .Case("upci", TY_PP_UPC)
            .Default(TY_INVALID);
 }
 
@@ -250,5 +254,21 @@ ID types::lookupCXXTypeForCType(ID Id) {
     return types::TY_CXXHeader;
   case types::TY_PP_CHeader:
     return types::TY_PP_CXXHeader;
+  }
+}
+
+ID types::lookupUPCTypeForCType(ID Id) {
+  switch (Id) {
+  default:
+    return Id;
+    
+  case types::TY_C:
+    return types::TY_UPC;
+  case types::TY_PP_C:
+    return types::TY_PP_UPC;
+  case types::TY_CHeader:
+    return types::TY_UPCHeader;
+  case types::TY_PP_CHeader:
+    return types::TY_PP_UPCHeader;
   }
 }

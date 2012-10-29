@@ -265,6 +265,27 @@ SourceRange ReturnStmt::getSourceRange() const {
     return SourceRange(RetLoc);
 }
 
+SourceRange UPCNotifyStmt::getSourceRange() const {
+  if (IdExpr)
+    return SourceRange(NotifyLoc, IdExpr->getLocEnd());
+  else
+    return SourceRange(NotifyLoc);
+}
+
+SourceRange UPCWaitStmt::getSourceRange() const {
+  if (IdExpr)
+    return SourceRange(WaitLoc, IdExpr->getLocEnd());
+  else
+    return SourceRange(WaitLoc);
+}
+
+SourceRange UPCBarrierStmt::getSourceRange() const {
+  if (IdExpr)
+    return SourceRange(BarrierLoc, IdExpr->getLocEnd());
+  else
+    return SourceRange(BarrierLoc);
+}
+
 bool Stmt::hasImplicitControlFlow() const {
   switch (StmtBits.sClass) {
     default:
@@ -721,6 +742,38 @@ VarDecl *ForStmt::getConditionVariable() const {
 }
 
 void ForStmt::setConditionVariable(ASTContext &C, VarDecl *V) {
+  if (!V) {
+    SubExprs[CONDVAR] = 0;
+    return;
+  }
+  
+  SourceRange VarRange = V->getSourceRange();
+  SubExprs[CONDVAR] = new (C) DeclStmt(DeclGroupRef(V), VarRange.getBegin(),
+                                       VarRange.getEnd());
+}
+
+UPCForAllStmt::UPCForAllStmt(ASTContext &C, Stmt *Init, Expr *Cond, VarDecl *condVar, 
+                             Expr *Inc, Expr *Afnty, Stmt *Body, SourceLocation FL, SourceLocation LP, 
+                             SourceLocation RP)
+  : Stmt(UPCForAllStmtClass), ForLoc(FL), LParenLoc(LP), RParenLoc(RP) 
+{
+  SubExprs[INIT] = Init;
+  setConditionVariable(C, condVar);
+  SubExprs[COND] = reinterpret_cast<Stmt*>(Cond);
+  SubExprs[INC] = reinterpret_cast<Stmt*>(Inc);
+  SubExprs[AFNTY] = reinterpret_cast<Stmt*>(Afnty);
+  SubExprs[BODY] = Body;
+}
+
+VarDecl *UPCForAllStmt::getConditionVariable() const {
+  if (!SubExprs[CONDVAR])
+    return 0;
+  
+  DeclStmt *DS = cast<DeclStmt>(SubExprs[CONDVAR]);
+  return cast<VarDecl>(DS->getSingleDecl());
+}
+
+void UPCForAllStmt::setConditionVariable(ASTContext &C, VarDecl *V) {
   if (!V) {
     SubExprs[CONDVAR] = 0;
     return;

@@ -30,7 +30,25 @@ static void EmitDeclInit(CodeGenFunction &CGF, const VarDecl &D,
 
   CharUnits alignment = Context.getDeclAlign(&D);
   QualType type = D.getType();
-  LValue lv = CGF.MakeAddrLValue(DeclPtr, type, alignment);
+
+  // Deduce UPC strict or relaxed from context, if needed
+  if (Context.getLangOpts().UPC) {
+      Qualifiers Quals = type.getQualifiers();
+      if (Quals.hasShared() && !Quals.hasStrict() && !Quals.hasRelaxed()) {
+        if (D.isUPCInitStrict())
+          Quals.addStrict();
+        else
+          Quals.addRelaxed();
+
+        type = Context.getQualifiedType(type.getUnqualifiedType(), Quals);
+      }
+  }
+
+  LValue lv;
+  if(type.getQualifiers().hasShared())
+    lv = CGF.EmitSharedVarDeclLValue(DeclPtr, alignment, type);
+  else
+    lv = CGF.MakeAddrLValue(DeclPtr, type, alignment);
 
   const Expr *Init = D.getInit();
   if (!CGF.hasAggregateLLVMType(type)) {
@@ -274,7 +292,9 @@ CreateGlobalInitOrDestructFunction(CodeGenModule &CGM,
                            Name, &CGM.getModule());
   if (!CGM.getContext().getLangOpts().AppleKext) {
     // Set the section if needed.
-    if (const char *Section = 
+    if (CGM.getContext().getLangOpts().UPC)
+      Fn->setSection("upc_init");
+    else if (const char *Section = 
           CGM.getContext().getTargetInfo().getStaticInitSectionSpecifier())
       Fn->setSection(Section);
   }
@@ -292,8 +312,11 @@ CodeGenModule::EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, false);
 
   // Create a variable initialization function.
+  const char *InitFunctionName = getContext().getLangOpts().UPC ?
+    "__upc_global_var_init" : "__cxx_global_var_init";
+
   llvm::Function *Fn =
-    CreateGlobalInitOrDestructFunction(*this, FTy, "__cxx_global_var_init");
+    CreateGlobalInitOrDestructFunction(*this, FTy, InitFunctionName);
 
   CodeGenFunction(*this).GenerateCXXGlobalVarDeclInitFunc(Fn, D, Addr,
                                                           PerformInit);
@@ -327,9 +350,12 @@ CodeGenModule::EmitCXXGlobalInitFunc() {
 
   llvm::FunctionType *FTy = llvm::FunctionType::get(VoidTy, false);
 
+  const char *GlobalInitName = getContext().getLangOpts().UPC ?
+    "__upc_init_decls" : "_GLOBAL__I_a";
+
   // Create our global initialization function.
   llvm::Function *Fn = 
-    CreateGlobalInitOrDestructFunction(*this, FTy, "_GLOBAL__I_a");
+    CreateGlobalInitOrDestructFunction(*this, FTy, GlobalInitName);
 
   if (!PrioritizedCXXGlobalInits.empty()) {
     SmallVector<llvm::Constant*, 8> LocalCXXGlobalInits;

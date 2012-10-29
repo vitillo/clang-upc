@@ -81,6 +81,8 @@ class CodeGenTypes {
   /// RecordDeclTypes - This contains the LLVM IR type for any converted
   /// RecordDecl.
   llvm::DenseMap<const Type*, llvm::StructType *> RecordDeclTypes;
+
+  llvm::Type * UPCPtsType;
   
   /// FunctionInfos - Hold memoized CGFunctionInfo results.
   llvm::FoldingSet<CGFunctionInfo> FunctionInfos;
@@ -140,6 +142,8 @@ public:
   /// given a CXXMethodDecl. If the method to has an incomplete return type,
   /// and/or incomplete argument types, this will return the opaque type.
   llvm::Type *GetFunctionTypeForVTable(GlobalDecl GD);
+
+  llvm::Type * GetUPCPointerToSharedType();
 
   const CGRecordLayout &getCGRecordLayout(const RecordDecl*);
 

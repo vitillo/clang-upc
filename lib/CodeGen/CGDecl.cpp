@@ -174,7 +174,12 @@ CodeGenFunction::CreateStaticVarDecl(const VarDecl &D,
                                      const char *Separator,
                                      llvm::GlobalValue::LinkageTypes Linkage) {
   QualType Ty = D.getType();
-  assert(Ty->isConstantSizeType() && "VLAs can't be static");
+  llvm::Constant *SharedInit = 0;
+  // allow non-constant size iff shared array
+  if (Ty->isArrayType() && Ty.getQualifiers().hasShared())
+    SharedInit = CGM.MaybeEmitUPCSharedArrayInits(&D);
+  else 
+    assert(Ty->isConstantSizeType() && "VLAs can't be static");
 
   // Use the label if the variable is renamed with the asm-label extension.
   std::string Name;
@@ -183,16 +188,21 @@ CodeGenFunction::CreateStaticVarDecl(const VarDecl &D,
   else
     Name = GetStaticDeclName(*this, D, Separator);
 
-  llvm::Type *LTy = CGM.getTypes().ConvertTypeForMem(Ty);
-  llvm::GlobalVariable *GV =
+  llvm::Type *LTy = 
+    SharedInit ? SharedInit->getType() : CGM.getTypes().ConvertTypeForMem(Ty);
+  llvm::Constant *Init = 
+    SharedInit ? SharedInit : CGM.EmitNullConstant(D.getType());
+  llvm::GlobalVariable *GV = 
     new llvm::GlobalVariable(CGM.getModule(), LTy,
                              Ty.isConstant(getContext()), Linkage,
-                             CGM.EmitNullConstant(D.getType()), Name, 0,
+                             Init, Name, 0,
                              D.isThreadSpecified(),
                              CGM.getContext().getTargetAddressSpace(Ty));
   GV->setAlignment(getContext().getDeclAlign(&D).getQuantity());
   if (Linkage != llvm::GlobalValue::InternalLinkage)
     GV->setVisibility(CurFn->getVisibility());
+  if(SharedInit)
+    GV->setSection("upc_shared");
   return GV;
 }
 
@@ -211,19 +221,28 @@ static bool hasNontrivialDestruction(QualType T) {
 llvm::GlobalVariable *
 CodeGenFunction::AddInitializerToStaticVarDecl(const VarDecl &D,
                                                llvm::GlobalVariable *GV) {
-  llvm::Constant *Init = CGM.EmitConstantInit(D, this);
+  llvm::Constant *Init = 0;
 
-  // If constant emission failed, then this should be a C++ static
+  // upc shared variables can never be static initialized
+  if(!D.getType().getQualifiers().hasShared())
+    Init = CGM.EmitConstantInit(D, this);
+
+  // If constant emission failed, then this should be a C++ or UPC static
   // initializer.
   if (!Init) {
-    if (!getContext().getLangOpts().CPlusPlus)
+    if (!(getContext().getLangOpts().CPlusPlus ||
+          getContext().getLangOpts().UPC))
       CGM.ErrorUnsupported(D.getInit(), "constant l-value expression");
     else if (Builder.GetInsertBlock()) {
       // Since we have a static initializer, this global variable can't
       // be constant.
       GV->setConstant(false);
 
-      EmitCXXGuardedInit(D, GV, /*PerformInit*/true);
+      // emit UPC static initializers as global functions
+      if (getContext().getLangOpts().UPC)
+        CGM.EmitCXXGlobalVarDeclInitFunc(&D, GV, true);
+      else // emit C++ initializers as guarded block
+        EmitCXXGuardedInit(D, GV, /*PerformInit*/true);
     }
     return GV;
   }

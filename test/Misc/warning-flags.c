@@ -17,7 +17,7 @@ This test serves two purposes:
 
 The list of warnings below should NEVER grow.  It should gradually shrink to 0.
 
-CHECK: Warnings without flags (253):
+CHECK: Warnings without flags (255):
 CHECK-NEXT:   ext_anonymous_struct_union_qualified
 CHECK-NEXT:   ext_binary_literal
 CHECK-NEXT:   ext_cast_fn_obj
@@ -231,6 +231,8 @@ CHECK-NEXT:   warn_pragma_unused_expected_punc
 CHECK-NEXT:   warn_pragma_unused_expected_var
 CHECK-NEXT:   warn_pragma_unused_expected_var_arg
 CHECK-NEXT:   warn_pragma_unused_undeclared_var
+CHECK-NEXT:   warn_pragma_upc_invalid
+CHECK-NEXT:   warn_pragma_upc_must_precede_statements
 CHECK-NEXT:   warn_previous_alias_decl
 CHECK-NEXT:   warn_printf_asterisk_missing_arg
 CHECK-NEXT:   warn_property_attr_mismatch

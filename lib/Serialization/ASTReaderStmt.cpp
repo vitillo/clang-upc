@@ -264,6 +264,49 @@ void ASTStmtReader::VisitReturnStmt(ReturnStmt *S) {
   S->setNRVOCandidate(ReadDeclAs<VarDecl>(Record, Idx));
 }
 
+void ASTStmtReader::VisitUPCNotifyStmt(UPCNotifyStmt *S) {
+  VisitStmt(S);
+  S->setIdValue(Reader.ReadSubExpr());
+  S->setNotifyLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCWaitStmt(UPCWaitStmt *S) {
+  VisitStmt(S);
+  S->setIdValue(Reader.ReadSubExpr());
+  S->setWaitLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCBarrierStmt(UPCBarrierStmt *S) {
+  VisitStmt(S);
+  S->setIdValue(Reader.ReadSubExpr());
+  S->setBarrierLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCFenceStmt(UPCFenceStmt *S) {
+  VisitStmt(S);
+  S->setFenceLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCPragmaStmt(UPCPragmaStmt *S) {
+  VisitStmt(S);
+  S->setStrict(Record[Idx++] != 0);
+  S->setPragmaLoc(ReadSourceLocation(Record, Idx));
+}
+
+void ASTStmtReader::VisitUPCForAllStmt(UPCForAllStmt *S) {
+  VisitStmt(S);
+  S->setInit(Reader.ReadSubStmt());
+  S->setCond(Reader.ReadSubExpr());
+  S->setConditionVariable(Reader.getContext(),
+                          ReadDeclAs<VarDecl>(Record, Idx));
+  S->setInc(Reader.ReadSubExpr());
+  S->setAfnty(Reader.ReadSubExpr());
+  S->setBody(Reader.ReadSubStmt());
+  S->setForLoc(ReadSourceLocation(Record, Idx));
+  S->setLParenLoc(ReadSourceLocation(Record, Idx));
+  S->setRParenLoc(ReadSourceLocation(Record, Idx));
+}
+
 void ASTStmtReader::VisitDeclStmt(DeclStmt *S) {
   VisitStmt(S);
   S->setStartLoc(ReadSourceLocation(Record, Idx));
@@ -406,6 +449,11 @@ void ASTStmtReader::VisitCharacterLiteral(CharacterLiteral *E) {
   E->setValue(Record[Idx++]);
   E->setLocation(ReadSourceLocation(Record, Idx));
   E->setKind(static_cast<CharacterLiteral::CharacterKind>(Record[Idx++]));
+}
+
+void ASTStmtReader::VisitUPCThreadExpr(UPCThreadExpr *E) {
+  VisitExpr(E);
+  E->setLocation(ReadSourceLocation(Record, Idx));
 }
 
 void ASTStmtReader::VisitParenExpr(ParenExpr *E) {
@@ -1726,6 +1774,10 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
       S = new (Context) CharacterLiteral(Empty);
       break;
 
+    case EXPR_UPC_THREAD:
+      S = new (Context) UPCThreadExpr(Empty);
+      break;
+
     case EXPR_PAREN:
       S = new (Context) ParenExpr(Empty);
       break;
@@ -2200,6 +2252,25 @@ Stmt *ASTReader::ReadStmtFromStream(ModuleFile &F) {
                                          NumArrayIndexVars);
       break;
     }
+
+    case STMT_UPC_NOTIFY:
+      S = new (Context) UPCNotifyStmt(Empty);
+      break;
+    case STMT_UPC_WAIT:
+      S = new (Context) UPCWaitStmt(Empty);
+      break;
+    case STMT_UPC_BARRIER:
+      S = new (Context) UPCBarrierStmt(Empty);
+      break;
+    case STMT_UPC_FENCE:
+      S = new (Context) UPCFenceStmt(Empty);
+      break;
+    case STMT_UPC_PRAGMA:
+      S = new (Context) UPCPragmaStmt(Empty);
+      break;
+    case STMT_UPC_FORALL:
+      S = new (Context) UPCForAllStmt(Empty);
+      break;
     }
     
     // We hit a STMT_STOP, so we're done with this expression.

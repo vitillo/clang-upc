@@ -393,10 +393,12 @@ static const char *getInputKindName(InputKind Kind) {
   case IK_ObjCXX:            return "objective-c++";
   case IK_OpenCL:            return "cl";
   case IK_CUDA:              return "cuda";
+  case IK_UPC:               return "upc";
   case IK_PreprocessedC:     return "cpp-output";
   case IK_PreprocessedCXX:   return "c++-cpp-output";
   case IK_PreprocessedObjC:  return "objective-c-cpp-output";
   case IK_PreprocessedObjCXX:return "objective-c++-cpp-output";
+  case IK_PreprocessedUPC:   return "upc-cpp-output";
   }
 
   llvm_unreachable("Unexpected language kind!");
@@ -729,6 +731,8 @@ static void LangOptsToArgs(const LangOptions &Opts, ToArgsList &Res) {
     Res.push_back("-ffast-math");
   if (Opts.Static)
     Res.push_back("-static-define");
+  if (Opts.UPCThreads)
+    Res.push_back("-upc-threads", llvm::utostr(Opts.UPCThreads));
   if (Opts.DumpRecordLayoutsSimple)
     Res.push_back("-fdump-record-layouts-simple");
   else if (Opts.DumpRecordLayouts)
@@ -1180,6 +1184,9 @@ static bool ParseCodeGenArgs(CodeGenOptions &Opts, ArgList &Args, InputKind IK,
     }
   }
 
+  if (Args.hasArg(OPT_fupc_debug))
+    Opts.UPCDebug = 1;
+
   return Success;
 }
 
@@ -1489,6 +1496,9 @@ static InputKind ParseFrontendArgs(FrontendOptions &Opts, ArgList &Args,
       .Case("objective-c-header", IK_ObjC)
       .Case("c++-header", IK_CXX)
       .Case("objective-c++-header", IK_ObjCXX)
+      .Case("upc", IK_UPC)
+      .Case("upc-cpp-output", IK_PreprocessedUPC)
+      .Case("upc-header", IK_UPC)
       .Case("ast", IK_AST)
       .Case("ir", IK_LLVM_IR)
       .Default(IK_None);
@@ -1634,6 +1644,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
              IK == IK_PreprocessedObjC ||
              IK == IK_PreprocessedObjCXX) {
     Opts.ObjC1 = Opts.ObjC2 = 1;
+  } else if (IK == IK_UPC) {
+    Opts.UPC = 1;
   }
 
   if (LangStd == LangStandard::lang_unspecified) {
@@ -1654,6 +1666,8 @@ void CompilerInvocation::setLangDefaults(LangOptions &Opts, InputKind IK,
     case IK_PreprocessedC:
     case IK_ObjC:
     case IK_PreprocessedObjC:
+    case IK_UPC:
+    case IK_PreprocessedUPC:
       LangStd = LangStandard::lang_gnu99;
       break;
     case IK_CXX:
@@ -1721,8 +1735,10 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       switch (IK) {
       case IK_C:
       case IK_ObjC:
+      case IK_UPC:
       case IK_PreprocessedC:
       case IK_PreprocessedObjC:
+      case IK_PreprocessedUPC:
         if (!(Std.isC89() || Std.isC99()))
           Diags.Report(diag::err_drv_argument_not_allowed_with)
             << A->getAsString(Args) << "C/ObjC";
@@ -1898,6 +1914,66 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PICLevel = Args.getLastArgIntValue(OPT_pic_level, 0, Diags);
   Opts.PIELevel = Args.getLastArgIntValue(OPT_pie_level, 0, Diags);
   Opts.Static = Args.hasArg(OPT_static_define);
+
+  StringRef UPCPts = Args.getLastArgValue(OPT_fupc_pts_EQ, "packed");
+  if (UPCPts == "packed") {
+    if (Arg * A = Args.getLastArg(OPT_fupc_packed_bits_EQ)) {
+      llvm::SmallVector<llvm::StringRef, 3> Bits;
+      StringRef(A->getValue(Args)).split(Bits, ",");
+      bool okay = true;
+      int Values[3];
+      if (Bits.size() == 3) {
+        for (int i = 0; i < 3; ++i)
+          if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
+            okay = false;
+        if (Values[0] + Values[1] + Values[2] != 64)
+          okay = false;
+      } else {
+        okay = false;
+      }
+
+      if (okay) {
+        Opts.UPCPhaseBits = Values[0];
+        Opts.UPCThreadBits = Values[1];
+        Opts.UPCAddrBits = Values[2];
+      }
+      else
+        Diags.Report(diag::err_drv_invalid_value)
+          << A->getAsString(Args) << A->getValue(Args);
+    }
+  } else if(UPCPts == "struct") {
+    Opts.UPCPhaseBits = 32;
+    Opts.UPCThreadBits = 32;
+    Opts.UPCAddrBits = 64;
+    if (Args.hasArg(OPT_fupc_packed_bits_EQ))
+      Diags.Report(diag::err_drv_argument_not_allowed_with)
+        << Args.getLastArg(OPT_fupc_packed_bits_EQ)->getAsString(Args)
+        << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args);
+  } else {
+    Diags.Report(diag::err_drv_invalid_value)
+      << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args) << UPCPts;
+  }
+
+  StringRef VaddrOrder = Args.getLastArgValue(OPT_fupc_pts_vaddr_order_EQ, "first");
+  if (VaddrOrder == "first")
+    Opts.UPCVaddrFirst = 1;
+  else if (VaddrOrder == "last")
+    Opts.UPCVaddrFirst = 0;
+  else
+    Diags.Report(diag::err_drv_invalid_value)
+      << Args.getLastArg(OPT_fupc_pts_vaddr_order_EQ)->getAsString(Args)
+      << VaddrOrder;
+
+  int Threads = Args.getLastArgIntValue(OPT_fupc_threads, 0, Diags);
+  if (Threads < 0) {
+    Diags.Report(diag::err_drv_invalid_int_value)
+      << Args.getLastArg(OPT_fupc_threads)->getAsString(Args) << Threads;
+  } else if (Threads > (uint64_t(1u) << Opts.UPCThreadBits)) {
+    Diags.Report(diag::err_drv_invalid_upc_threads) << Threads << (1u << Opts.UPCThreadBits);
+  } else {
+    Opts.UPCThreads = Threads;
+  }
+
   Opts.DumpRecordLayoutsSimple = Args.hasArg(OPT_fdump_record_layouts_simple);
   Opts.DumpRecordLayouts = Opts.DumpRecordLayoutsSimple 
                         || Args.hasArg(OPT_fdump_record_layouts);
@@ -1927,6 +2003,11 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   unsigned Opt = getOptimizationLevel(Args, IK, Diags);
   Opts.Optimize = Opt != 0;
   Opts.OptimizeSize = Args.hasArg(OPT_Os) || Args.hasArg(OPT_Oz);
+
+  if (Opts.UPC &&
+      ((Opts.Optimize && !Args.hasArg(OPT_fno_upc_inline_lib)) ||
+       Args.hasFlag(OPT_fupc_inline_lib, OPT_fno_upc_inline_lib, false)))
+    Opts.UPCInlineLib = true;
 
   // This is the __NO_INLINE__ define, which just depends on things like the
   // optimization level and -fno-inline, not actually whether the backend has

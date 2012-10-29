@@ -1724,7 +1724,8 @@ void CodeGenFunction::EmitCallArg(CallArgList &args, const Expr *E,
 
   if (hasAggregateLLVMType(type) && !E->getType()->isAnyComplexType() &&
       isa<ImplicitCastExpr>(E) &&
-      cast<CastExpr>(E)->getCastKind() == CK_LValueToRValue) {
+      cast<CastExpr>(E)->getCastKind() == CK_LValueToRValue &&
+      !cast<CastExpr>(E)->getSubExpr()->getType().getQualifiers().hasShared()) {
     LValue L = EmitLValue(cast<CastExpr>(E)->getSubExpr());
     assert(L.isSimple());
     args.add(L.asAggregateRValue(), type, /*NeedsCopy*/true);

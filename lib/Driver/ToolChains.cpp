@@ -2102,6 +2102,9 @@ Linux::Linux(const Driver &D, const llvm::Triple &Triple, const ArgList &Args)
   }
   addPathIfExists(SysRoot + "/lib", Paths);
   addPathIfExists(SysRoot + "/usr/lib", Paths);
+
+  addPathIfExists(getDriver().Dir + "/../lib", Paths);
+  addPathIfExists(getDriver().Dir + "/../" + Multilib, Paths);
 }
 
 bool Linux::HasNativeLLVMSupport() const {

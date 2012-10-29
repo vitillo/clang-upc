@@ -474,6 +474,20 @@ static bool IsStructurallyEquivalent(StructuralEquivalenceContext &Context,
       return false;
     break;
   }
+      
+  case Type::UPCThreadArray: {
+    const UPCThreadArrayType *Array1 = cast<UPCThreadArrayType>(T1);
+    const UPCThreadArrayType *Array2 = cast<UPCThreadArrayType>(T2);
+    if (!IsSameValue(Array1->getSize(), Array2->getSize()))
+      return false;
+
+    if (Array1->getThread() != Array2->getThread())
+      return false;
+    
+    if (!IsArrayStructurallyEquivalent(Context, Array1, Array2))
+      return false;
+    break;
+  }
 
   case Type::IncompleteArray:
     if (!IsArrayStructurallyEquivalent(Context, 

@@ -830,6 +830,10 @@ DEF_TRAVERSE_TYPE(ConstantArrayType, {
     TRY_TO(TraverseType(T->getElementType()));
   })
 
+DEF_TRAVERSE_TYPE(UPCThreadArrayType, {
+    TRY_TO(TraverseType(T->getElementType()));
+  })
+
 DEF_TRAVERSE_TYPE(IncompleteArrayType, {
     TRY_TO(TraverseType(T->getElementType()));
   })
@@ -1040,6 +1044,11 @@ bool RecursiveASTVisitor<Derived>::TraverseArrayTypeLocHelper(ArrayTypeLoc TL) {
 }
 
 DEF_TRAVERSE_TYPELOC(ConstantArrayType, {
+    TRY_TO(TraverseTypeLoc(TL.getElementLoc()));
+    return TraverseArrayTypeLocHelper(TL);
+  })
+
+DEF_TRAVERSE_TYPELOC(UPCThreadArrayType, {
     TRY_TO(TraverseTypeLoc(TL.getElementLoc()));
     return TraverseArrayTypeLocHelper(TL);
   })
@@ -2215,6 +2224,15 @@ DEF_TRAVERSE_STMT(ObjCDictionaryLiteral, { })
   
 // Traverse OpenCL: AsType, Convert.
 DEF_TRAVERSE_STMT(AsTypeExpr, { })
+
+// Traverse UPC
+DEF_TRAVERSE_STMT(UPCNotifyStmt, { })
+DEF_TRAVERSE_STMT(UPCWaitStmt, { })
+DEF_TRAVERSE_STMT(UPCBarrierStmt, { })
+DEF_TRAVERSE_STMT(UPCFenceStmt, { })
+DEF_TRAVERSE_STMT(UPCPragmaStmt, { })
+DEF_TRAVERSE_STMT(UPCThreadExpr, { })
+DEF_TRAVERSE_STMT(UPCForAllStmt, { })
 
 // FIXME: look at the following tricky-seeming exprs to see if we
 // need to recurse on anything.  These are ones that have methods

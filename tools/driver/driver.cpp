@@ -281,17 +281,20 @@ static void ParseProgName(SmallVectorImpl<const char *> &ArgVector,
     const char *Suffix;
     bool IsCXX;
     bool IsCPP;
+    bool IsUPC;
   } suffixes [] = {
-    { "clang", false, false },
-    { "clang++", true, false },
-    { "clang-c++", true, false },
-    { "clang-cc", false, false },
-    { "clang-cpp", false, true },
-    { "clang-g++", true, false },
-    { "clang-gcc", false, false },
-    { "cc", false, false },
-    { "cpp", false, true },
-    { "++", true, false },
+    { "clang", false, false, false },
+    { "clang++", true, false, false },
+    { "clangupc", false, false, true },
+    { "clang-c++", true, false, false },
+    { "clang-cc", false, false, false },
+    { "clang-cpp", false, true, false },
+    { "clang-g++", true, false, false },
+    { "clang-gcc", false, false, false },
+    { "cc", false, false, false },
+    { "cpp", false, true, false },
+    { "++", true, false, false },
+    { "upc", false, false, true }
   };
   std::string ProgName(llvm::sys::path::stem(ArgVector[0]));
   StringRef ProgNameRef(ProgName);
@@ -308,6 +311,8 @@ static void ParseProgName(SmallVectorImpl<const char *> &ArgVector,
           TheDriver.CCCIsCXX = true;
         if (suffixes[i].IsCPP)
           TheDriver.CCCIsCPP = true;
+        if (suffixes[i].IsUPC)
+          TheDriver.CCCIsUPC = true;
         break;
       }
     }

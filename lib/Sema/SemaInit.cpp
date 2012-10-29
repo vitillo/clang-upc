@@ -1258,8 +1258,17 @@ void InitListChecker::CheckArrayType(const InitializedEntity &Entity,
                     diag::ext_typecheck_zero_array_size);
     }
 
-    DeclType = SemaRef.Context.getConstantArrayType(elementType, maxElements,
-                                                     ArrayType::Normal, 0);
+    if (elementType.getCanonicalType()->isUPCThreadArrayType()) {
+      DeclType = SemaRef.Context.getUPCThreadArrayType(elementType, maxElements, false,
+                                                       ArrayType::Normal, 0);
+    } else {
+      DeclType = SemaRef.Context.getConstantArrayType(elementType, maxElements,
+                                                      ArrayType::Normal, 0);
+    }
+    if (SemaRef.getLangOpts().UPC && Entity.getKind() == InitializedEntity::EK_Variable) {
+      SourceLocation Loc = cast<VarDecl>(Entity.getDecl())->getLocation();
+      DeclType = SemaRef.ResolveLayoutQualifierStar(DeclType, Loc);
+    }
   }
   if (!hadError && VerifyOnly) {
     // Check if there are any members of the array that get value-initialized.

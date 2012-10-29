@@ -224,6 +224,10 @@ public:
   /// of 0 indicates default alignment.
   void *PackContext; // Really a "PragmaPackStack*"
 
+  /// UPCIsStrict - Indicates whether the global #pragma upc
+  /// state is strict or relaxed.
+  bool UPCIsStrict;
+
   bool MSStructPragmaOn; // True when #pragma ms_struct on
 
   /// VisContext - Manages the stack for #pragma GCC visibility.
@@ -868,6 +872,8 @@ public:
   // Type Analysis / Processing: SemaType.cpp.
   //
 
+  uint32_t CheckLayoutQualifier(Expr *);
+  QualType ResolveLayoutQualifierStar(QualType T, SourceLocation Loc);
   QualType BuildQualifiedType(QualType T, SourceLocation Loc, Qualifiers Qs);
   QualType BuildQualifiedType(QualType T, SourceLocation Loc, unsigned CVR) {
     return BuildQualifiedType(T, Loc, Qualifiers::fromCVRMask(CVR));
@@ -2285,6 +2291,14 @@ public:
                           FullExprArg Third,
                           SourceLocation RParenLoc,
                           Stmt *Body);
+  StmtResult ActOnUPCForAllStmt(SourceLocation ForLoc,
+                                SourceLocation LParenLoc,
+                                Stmt *First, FullExprArg Second,
+                                Decl *SecondVar,
+                                FullExprArg Third,
+                                FullExprArg Fourth,
+                                SourceLocation RParenLoc,
+                                Stmt *Body);
   ExprResult ActOnObjCForCollectionOperand(SourceLocation forLoc,
                                            Expr *collection);
   StmtResult ActOnObjCForCollectionStmt(SourceLocation ForColLoc,
@@ -2316,6 +2330,10 @@ public:
                                          bool AllowFunctionParameters);
 
   StmtResult ActOnReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
+  StmtResult ActOnUPCNotifyStmt(SourceLocation NotifyLoc, Expr *IdExp);
+  StmtResult ActOnUPCWaitStmt(SourceLocation WaitLoc, Expr *IdExp);
+  StmtResult ActOnUPCBarrierStmt(SourceLocation BarrierLoc, Expr *IdExp);
+  StmtResult ActOnUPCFenceStmt(SourceLocation FenceLoc);
   StmtResult ActOnCapScopeReturnStmt(SourceLocation ReturnLoc, Expr *RetValExp);
 
   StmtResult ActOnAsmStmt(SourceLocation AsmLoc,
@@ -2624,6 +2642,7 @@ public:
   ExprResult ActOnIntegerConstant(SourceLocation Loc, uint64_t Val);
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = 0);
   ExprResult ActOnCharacterConstant(const Token &Tok, Scope *UDLScope = 0);
+  ExprResult ActOnUPCThreadsExpr(SourceLocation Loc);
   ExprResult ActOnParenExpr(SourceLocation L, SourceLocation R, Expr *E);
   ExprResult ActOnParenListExpr(SourceLocation L,
                                 SourceLocation R,
@@ -6013,6 +6032,11 @@ public:
     PPK_Pop      // #pragma pack(pop, [identifier], [n])
   };
 
+  enum PragmaUPCKind {
+    PUPCK_Relaxed,
+    PUPCK_Strict
+  };
+
   enum PragmaMSStructKind {
     PMSST_OFF,  // #pragms ms_struct off
     PMSST_ON    // #pragms ms_struct on
@@ -6025,6 +6049,9 @@ public:
                        SourceLocation PragmaLoc,
                        SourceLocation LParenLoc,
                        SourceLocation RParenLoc);
+
+  /// ActOnPragmaUPC - Called on well formed #pragma upc [relaxed|strict].
+  StmtResult ActOnPragmaUPC(SourceLocation PragmaLoc, PragmaUPCKind Kind);
 
   /// ActOnPragmaMSStruct - Called on well formed #pragms ms_struct [on|off].
   void ActOnPragmaMSStruct(PragmaMSStructKind Kind);
@@ -6188,6 +6215,10 @@ public:
   QualType UsualArithmeticConversions(ExprResult &LHS, ExprResult &RHS,
                                       bool IsCompAssign = false);
 
+  /// IsUPCDefaultStrict - returns true if the default access for
+  /// UPC shared variables is strict and false if it is relaxed.
+  bool IsUPCDefaultStrict() const;
+
   /// AssignConvertType - All of the 'assignment' semantic checks return this
   /// enum to indicate whether the assignment was allowed.  These checks are
   /// done for simple assignments, as well as initialization, return from
@@ -6233,6 +6264,11 @@ public:
     /// levels differ e.g. char ** -> const char **, but we accept them as an
     /// extension.
     IncompatibleNestedPointerQualifiers,
+
+    // IncompatiblePointerToSharedIncomplete - The assignment is between two
+    // UPC pointer-to-shared types at least one of which is incomplete, and
+    // we would need to know the size to determine how to cast
+    IncompatiblePointerToSharedIncomplete,
 
     /// IncompatibleVectors - The assignment is between two vector types that
     /// have the same size, which we accept as an extension.
@@ -6351,7 +6387,7 @@ public:
   // For simple assignment, pass both expressions and a null converted type.
   // For compound assignment, pass both expressions and the converted type.
   QualType CheckAssignmentOperands( // C99 6.5.16.[1,2]
-    Expr *LHSExpr, ExprResult &RHS, SourceLocation Loc, QualType CompoundType);
+    ExprResult &LHS, ExprResult &RHS, SourceLocation Loc, QualType CompoundType);
 
   ExprResult checkPseudoObjectIncDec(Scope *S, SourceLocation OpLoc,
                                      UnaryOperatorKind Opcode, Expr *Op);

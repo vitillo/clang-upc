@@ -3,6 +3,7 @@
 set(known_subdirs
   "compiler-rt"
   "libcxx"
+  "libupc"
   )
 
 foreach (dir ${known_subdirs})

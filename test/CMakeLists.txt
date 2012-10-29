@@ -1,5 +1,6 @@
 set(CLANG_TEST_DIRECTORIES
   "Analysis"
+  "AST"
   "CodeCompletion"
   "CodeGen"
   "CodeGenCUDA"
@@ -110,7 +111,7 @@ if(PYTHONINTERP_FOUND)
 
   add_dependencies(clang-test clang-test.deps)
   add_dependencies(clang-test.deps
-                 clang clang-headers c-index-test diagtool arcmt-test c-arcmt-test
+                 clang clang-headers c-index-test ast-test diagtool arcmt-test c-arcmt-test
                  clang-check
                  )
 

@@ -358,6 +358,30 @@ static void CheckForNullPointerDereference(Sema &S, Expr *E) {
   }
 }
 
+static void CheckUPCReferenceType(Sema &S, Expr *&E) {
+  QualType T = E->getType();
+  Qualifiers Quals = T.getQualifiers();
+  if (Quals.hasShared() && !Quals.hasStrict() && !Quals.hasRelaxed()) {
+
+    if (S.IsUPCDefaultStrict())
+      Quals.addStrict();
+    else
+      Quals.addRelaxed();
+
+    QualType NewType =
+      S.getASTContext().getQualifiedType(T.getUnqualifiedType(), Quals);
+    E = ImplicitCastExpr::Create(
+      S.getASTContext(), NewType,
+      CK_LValueBitCast, E, 0, VK_LValue);
+  }
+}
+
+static void CheckUPCReferenceType(Sema &S, ExprResult &E) {
+  Expr *Temp = E.take();
+  CheckUPCReferenceType(S, Temp);
+  E = S.Owned(Temp);
+}
+
 ExprResult Sema::DefaultLvalueConversion(Expr *E) {
   // Handle any placeholder expressions which made it here.
   if (E->getType()->isPlaceholderType()) {
@@ -391,6 +415,10 @@ ExprResult Sema::DefaultLvalueConversion(Expr *E) {
     return Owned(E);
 
   CheckForNullPointerDereference(*this, E);
+
+  // Mark shared access as either strict or relaxed
+  if (getLangOpts().UPC)
+    CheckUPCReferenceType(*this, E);
 
   // C++ [conv.lval]p1:
   //   [...] If T is a non-class type, the type of the prvalue is the
@@ -2735,6 +2763,10 @@ ExprResult Sema::ActOnNumericConstant(const Token &Tok, Scope *UDLScope) {
   return Owned(Res);
 }
 
+ExprResult Sema::ActOnUPCThreadsExpr(SourceLocation Loc) {
+  return Owned(new (Context) UPCThreadExpr(Loc, Context.IntTy));
+}
+
 ExprResult Sema::ActOnParenExpr(SourceLocation L, SourceLocation R, Expr *E) {
   assert((E != 0) && "ActOnParenExpr() missing expr");
   return Owned(new (Context) ParenExpr(L, R, E));
@@ -2765,8 +2797,15 @@ static bool CheckExtensionTraitOperandType(Sema &S, QualType T,
   // C99 6.5.3.4p1:
   if (T->isFunctionType()) {
     // alignof(function) is allowed as an extension.
-    if (TraitKind == UETT_SizeOf)
-      S.Diag(Loc, diag::ext_sizeof_function_type) << ArgRange;
+    switch (TraitKind) {
+    case UETT_SizeOf:
+    case UETT_UPC_LocalSizeOf:
+    case UETT_UPC_BlockSizeOf:
+    case UETT_UPC_ElemSizeOf:
+      S.Diag(Loc, diag::ext_sizeof_function_type) << TraitKind << ArgRange;
+      break;
+    default: break;
+    }
     return false;
   }
 
@@ -2815,6 +2854,19 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(Expr *E,
   if (ExprKind == UETT_VecStep)
     return CheckVecStepTraitOperandType(*this, ExprTy, E->getExprLoc(),
                                         E->getSourceRange());
+
+  // Can only be appied to shared qualified types
+  switch (ExprKind) {
+  case UETT_UPC_LocalSizeOf:
+  case UETT_UPC_BlockSizeOf:
+  case UETT_UPC_ElemSizeOf:
+    if (!ExprTy.getQualifiers().hasShared()) {
+      Diag(E->getExprLoc(), diag::err_upc_xsizeof_applied_to_non_shared)
+        << ExprKind << E->getSourceRange();
+      return true;
+    }
+  default: break;
+  }
 
   // Whitelist some types as extensions
   if (!CheckExtensionTraitOperandType(*this, ExprTy, E->getExprLoc(),
@@ -2875,6 +2927,19 @@ bool Sema::CheckUnaryExprOrTypeTraitOperand(QualType ExprType,
   if (ExprType->isDependentType())
     return false;
 
+  // Can only be appied to shared qualified types
+  switch (ExprKind) {
+  case UETT_UPC_LocalSizeOf:
+  case UETT_UPC_BlockSizeOf:
+  case UETT_UPC_ElemSizeOf:
+    if (!ExprType.getQualifiers().hasShared()) {
+      Diag(OpLoc, diag::err_upc_xsizeof_applied_to_non_shared)
+        << ExprKind << ExprRange;
+      return true;
+    }
+  default: break;
+  }
+
   // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
   //   the result is the size of the referenced type."
   // C++ [expr.alignof]p3: "When alignof is applied to a reference type, the
@@ -2915,7 +2980,7 @@ static bool CheckAlignOfExpr(Sema &S, Expr *E) {
 
   if (E->getBitField()) {
     S.Diag(E->getExprLoc(), diag::err_sizeof_alignof_bitfield)
-       << 1 << E->getSourceRange();
+       << UETT_AlignOf << E->getSourceRange();
     return true;
   }
 
@@ -2979,10 +3044,10 @@ Sema::CreateUnaryExprOrTypeTraitExpr(Expr *E, SourceLocation OpLoc,
   } else if (ExprKind == UETT_VecStep) {
     isInvalid = CheckVecStepExpr(E);
   } else if (E->getBitField()) {  // C99 6.5.3.4p1.
-    Diag(E->getExprLoc(), diag::err_sizeof_alignof_bitfield) << 0;
+    Diag(E->getExprLoc(), diag::err_sizeof_alignof_bitfield) << ExprKind;
     isInvalid = true;
   } else {
-    isInvalid = CheckUnaryExprOrTypeTraitOperand(E, UETT_SizeOf);
+    isInvalid = CheckUnaryExprOrTypeTraitOperand(E, ExprKind);
   }
 
   if (isInvalid)
@@ -3034,8 +3099,13 @@ static QualType CheckRealImagOperand(Sema &S, ExprResult &V, SourceLocation Loc,
   }
 
   // These operators return the element type of a complex type.
-  if (const ComplexType *CT = V.get()->getType()->getAs<ComplexType>())
-    return CT->getElementType();
+  if (const ComplexType *CT = V.get()->getType()->getAs<ComplexType>()) {
+    Qualifiers Quals = V.get()->getType().getQualifiers();
+    if (Quals.hasShared()) {
+      Quals.setLayoutQualifier(0);
+    }
+    return S.getASTContext().getQualifiedType(CT->getElementType(), Quals);
+  }
 
   // Otherwise they pass through real integer and floating point types here.
   if (V.get()->getType()->isArithmeticType())
@@ -4046,6 +4116,43 @@ CastKind Sema::PrepareCastToObjCObjectPointer(ExprResult &E) {
   }
 }
 
+
+static CastKind CheckPointerToSharedConversion(ASTContext& Context, QualType SrcPointee, QualType DestPointee) {
+  // UPC 1.2 6.4.3p3
+  // If a generic pointer-to-shared is cast to a non-generic
+  // pointer-to-shared type with indefinite block size or
+  // with block size of one, the result is a pointer with
+  // phase of zero.
+  if (SrcPointee->isVoidType() && !DestPointee->isVoidType() &&
+      DestPointee.getQualifiers().getLayoutQualifier() <= 1)
+    return CK_UPCBitCastZeroPhase;
+  // UPC 1.2 6.4.3p2
+  // The casting or assignment from one pointer-to-shared to
+  // another in which either the type size or the block size
+  // differs results in a pointer with zero phase, unless one
+  // of the types is a qualified or unqualified version of
+  // shared void *, the generic pointer-to-shared, in which
+  // case the phase is preserved unchanged in the resulting
+  // pointer value.
+  if (SrcPointee->isVoidType() || DestPointee->isVoidType())
+    return CK_BitCast;
+  // If we have a block size of one, or an indefinite block
+  // size, the phase is always zero, so a BitCast is safe
+  if (SrcPointee.getQualifiers().getLayoutQualifier() <= 1)
+    return CK_BitCast;
+  if (SrcPointee.getQualifiers().getLayoutQualifier() !=
+      DestPointee.getQualifiers().getLayoutQualifier())
+    return CK_UPCBitCastZeroPhase;
+  // This is an error, but the Diag is elsewhere
+  if (SrcPointee->isIncompleteType() || DestPointee->isIncompleteType())
+    return CK_BitCast;
+  if (Context.getTypeSize(SrcPointee) !=
+      Context.getTypeSize(DestPointee))
+    return CK_UPCBitCastZeroPhase;
+  return CK_BitCast;
+}
+
+
 /// Prepares for a scalar cast, performing all the necessary stages
 /// except the final cast and returning the kind required.
 CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
@@ -4065,6 +4172,28 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
   switch (Type::ScalarTypeKind SrcKind = SrcTy->getScalarTypeKind()) {
   case Type::STK_MemberPointer:
     llvm_unreachable("member pointer type in C");
+
+  case Type::STK_UPCSharedPointer:
+    switch (DestTy->getScalarTypeKind()) {
+    case Type::STK_UPCSharedPointer: {
+      QualType SrcPointee = SrcTy->getAs<PointerType>()->getPointeeType();
+      QualType DestPointee = DestTy->getAs<PointerType>()->getPointeeType();
+      return CheckPointerToSharedConversion(Context, SrcPointee, DestPointee);
+    }
+    case Type::STK_CPointer:
+      return CK_UPCSharedToLocal;
+    case Type::STK_Bool:
+      return CK_PointerToBoolean;
+    case Type::STK_Integral:
+      return CK_PointerToIntegral;
+    case Type::STK_BlockPointer:
+    case Type::STK_ObjCObjectPointer:
+    case Type::STK_Floating:
+    case Type::STK_FloatingComplex:
+    case Type::STK_IntegralComplex:
+    case Type::STK_MemberPointer:
+      llvm_unreachable("illegal cast from pointer");
+    }
 
   case Type::STK_CPointer:
   case Type::STK_BlockPointer:
@@ -4086,6 +4215,10 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
       return CK_PointerToBoolean;
     case Type::STK_Integral:
       return CK_PointerToIntegral;
+    case Type::STK_UPCSharedPointer:
+      assert (Src.get()->isNullPointerConstant(Context,
+                                               Expr::NPC_ValueDependentIsNull));
+      return CK_NullToPointer;
     case Type::STK_Floating:
     case Type::STK_FloatingComplex:
     case Type::STK_IntegralComplex:
@@ -4100,6 +4233,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
     case Type::STK_CPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
+    case Type::STK_UPCSharedPointer:
       if (Src.get()->isNullPointerConstant(Context,
                                            Expr::NPC_ValueDependentIsNull))
         return CK_NullToPointer;
@@ -4144,6 +4278,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
                               CK_FloatingToIntegral);
       return CK_IntegralRealToComplex;
     case Type::STK_CPointer:
+    case Type::STK_UPCSharedPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
       llvm_unreachable("valid float->pointer cast?");
@@ -4173,6 +4308,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
                               CK_FloatingComplexToReal);
       return CK_FloatingToIntegral;
     case Type::STK_CPointer:
+    case Type::STK_UPCSharedPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
       llvm_unreachable("valid complex float->pointer cast?");
@@ -4202,6 +4338,7 @@ CastKind Sema::PrepareScalarCast(ExprResult &Src, QualType DestTy) {
                               CK_IntegralComplexToReal);
       return CK_IntegralToFloating;
     case Type::STK_CPointer:
+    case Type::STK_UPCSharedPointer:
     case Type::STK_ObjCObjectPointer:
     case Type::STK_BlockPointer:
       llvm_unreachable("valid complex int->pointer cast?");
@@ -4592,6 +4729,13 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
   lhptee = S.Context.getQualifiedType(lhptee.getUnqualifiedType(), lhQual);
   rhptee = S.Context.getQualifiedType(rhptee.getUnqualifiedType(), rhQual);
 
+  if (lhQual.hasShared() != rhQual.hasShared()) {
+    S.Diag(Loc, diag::err_typecheck_cond_incompatible_operands)
+      << LHSTy << RHSTy << LHS.get()->getSourceRange()
+      << RHS.get()->getSourceRange();
+    return QualType();
+  }
+
   QualType CompositeTy = S.Context.mergeTypes(lhptee, rhptee);
 
   if (CompositeTy.isNull()) {
@@ -4601,7 +4745,13 @@ static QualType checkConditionalPointerCompatibility(Sema &S, ExprResult &LHS,
     // In this situation, we assume void* type. No especially good
     // reason, but this is what gcc does, and we do have to pick
     // to get a consistent AST.
-    QualType incompatTy = S.Context.getPointerType(S.Context.VoidTy);
+    QualType Pointee = S.Context.VoidTy;
+    if (lhQual.hasShared()) {
+      Qualifiers Quals;
+      Quals.addShared();
+      Pointee = S.Context.getQualifiedType(Pointee, Quals);
+    }
+    QualType incompatTy = S.Context.getPointerType(Pointee);
     LHS = S.ImpCastExprToType(LHS.take(), incompatTy, CK_BitCast);
     RHS = S.ImpCastExprToType(RHS.take(), incompatTy, CK_BitCast);
     return incompatTy;
@@ -5172,6 +5322,13 @@ checkPointerTypesForAssignment(Sema &S, QualType LHSType, QualType RHSType) {
     rhq.removeObjCLifetime();
   }
 
+  // If either argument is the generic pointer-to-shared,
+  // it's okay if the other has a layout qualifier.
+  if (lhptee->isVoidType() || rhptee->isVoidType()) {
+    lhq.removeLayoutQualifier();
+    rhq.removeLayoutQualifier();
+  }
+
   if (!lhq.compatiblyIncludes(rhq)) {
     // Treat address-space mismatches as fatal.  TODO: address subspaces
     if (lhq.getAddressSpace() != rhq.getAddressSpace())
@@ -5188,11 +5345,26 @@ checkPointerTypesForAssignment(Sema &S, QualType LHSType, QualType RHSType) {
     // Treat lifetime mismatches as fatal.
     else if (lhq.getObjCLifetime() != rhq.getObjCLifetime())
       ConvTy = Sema::IncompatiblePointerDiscardsQualifiers;
+
+    else if (lhq.hasShared() != rhq.hasShared())
+      return Sema::IncompatiblePointerDiscardsQualifiers;
+
+    else if (lhq.getLayoutQualifier() != rhq.getLayoutQualifier())
+      ConvTy = Sema::IncompatiblePointer;
     
     // For GCC compatibility, other qualifier mismatches are treated
     // as still compatible in C.
     else ConvTy = Sema::CompatiblePointerDiscardsQualifiers;
   }
+
+  // If one argument is a pointer to an incomplete type and the
+  // arguments have equal layout qualifiers greater than one,
+  // we can't determine whether the phase should be preserved
+  // or set to zero.
+  if ((lhptee->isIncompleteType() || rhptee->isIncompleteType()) &&
+      lhq.getLayoutQualifier() > 1 &&
+      lhq.getLayoutQualifier() == rhq.getLayoutQualifier())
+    return Sema::IncompatiblePointerToSharedIncomplete;
 
   // C99 6.5.16.1p1 (constraint 4): If one operand is a pointer to an object or
   // incomplete type and the other is a pointer to a qualified or unqualified
@@ -5347,6 +5519,7 @@ Sema::CheckAssignmentConstraints(SourceLocation Loc,
   return CheckAssignmentConstraints(LHSType, RHSPtr, K);
 }
 
+
 /// CheckAssignmentConstraints (C99 6.5.16) - This routine currently
 /// has code to accommodate several GCC extensions when type checking
 /// pointers. Here are some objectionable examples that GCC considers warnings:
@@ -5462,15 +5635,26 @@ Sema::CheckAssignmentConstraints(QualType LHSType, ExprResult &RHS,
   // Conversions to normal pointers.
   if (const PointerType *LHSPointer = dyn_cast<PointerType>(LHSType)) {
     // U* -> T*
-    if (isa<PointerType>(RHSType)) {
-      Kind = CK_BitCast;
+    if (const PointerType *RHSPointer = dyn_cast<PointerType>(RHSType)) {
+      QualType LHSPointee = LHSPointer->getPointeeType();
+      QualType RHSPointee = RHSPointer->getPointeeType();
+      if (RHSPointee.getQualifiers().hasShared())
+        if (LHSPointee.getQualifiers().hasShared()) 
+          Kind = CheckPointerToSharedConversion(Context, RHSPointee, LHSPointee);
+        else
+          Kind = CK_UPCSharedToLocal;
+      else
+        Kind = CK_BitCast;
       return checkPointerTypesForAssignment(*this, LHSType, RHSType);
     }
 
     // int -> T*
     if (RHSType->isIntegerType()) {
       Kind = CK_IntegralToPointer; // FIXME: null?
-      return IntToPointer;
+      if (LHSPointer->getPointeeType().getQualifiers().hasShared())
+        return Incompatible;
+      else
+        return IntToPointer;
     }
 
     // C pointers are not compatible with ObjC object pointers,
@@ -5987,7 +6171,8 @@ QualType Sema::CheckRemainderOperands(
 /// \brief Diagnose invalid arithmetic on two void pointers.
 static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
                                                 Expr *LHSExpr, Expr *RHSExpr) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
+  S.Diag(Loc, (S.getLangOpts().CPlusPlus ||
+               LHSExpr->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared())
                 ? diag::err_typecheck_pointer_arith_void_type
                 : diag::ext_gnu_void_ptr)
     << 1 /* two pointers */ << LHSExpr->getSourceRange()
@@ -5997,7 +6182,8 @@ static void diagnoseArithmeticOnTwoVoidPointers(Sema &S, SourceLocation Loc,
 /// \brief Diagnose invalid arithmetic on a void pointer.
 static void diagnoseArithmeticOnVoidPointer(Sema &S, SourceLocation Loc,
                                             Expr *Pointer) {
-  S.Diag(Loc, S.getLangOpts().CPlusPlus
+  S.Diag(Loc, (S.getLangOpts().CPlusPlus ||
+               Pointer->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared())
                 ? diag::err_typecheck_pointer_arith_void_type
                 : diag::ext_gnu_void_ptr)
     << 0 /* one pointer */ << Pointer->getSourceRange();
@@ -6319,7 +6505,13 @@ QualType Sema::CheckSubtractionOperands(ExprResult &LHS, ExprResult &RHS,
         }
       } else {
         // Pointee types must be compatible C99 6.5.6p3
-        if (!Context.typesAreCompatible(
+        Qualifiers LQuals = lpointee.getCanonicalType().getQualifiers();
+        Qualifiers RQuals = rpointee.getCanonicalType().getQualifiers();
+        if (LQuals.hasShared() != RQuals.hasShared() ||
+            LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier()) {
+          diagnosePointerIncompatibility(*this, Loc, LHS.get(), RHS.get());
+          return QualType();
+        } else if (!Context.typesAreCompatible(
                 Context.getCanonicalType(lpointee).getUnqualifiedType(),
                 Context.getCanonicalType(rpointee).getUnqualifiedType())) {
           diagnosePointerIncompatibility(*this, Loc, LHS.get(), RHS.get());
@@ -6744,8 +6936,15 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
       else
         return ResultTy;
     }
+    Qualifiers LQuals = LCanPointeeTy.getQualifiers();
+    Qualifiers RQuals = RCanPointeeTy.getQualifiers();
     // C99 6.5.9p2 and C99 6.5.8p2
-    if (Context.typesAreCompatible(LCanPointeeTy.getUnqualifiedType(),
+    if ((LQuals.hasShared() != RQuals.hasShared() ||
+         (LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier() &&
+          !LCanPointeeTy->isVoidType() && !RCanPointeeTy->isVoidType())) &&
+        !LHSIsNull && !RHSIsNull) {
+      diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/true);
+    } else if (Context.typesAreCompatible(LCanPointeeTy.getUnqualifiedType(),
                                    RCanPointeeTy.getUnqualifiedType())) {
       // Valid unless a relational comparison of function pointers
       if (IsRelational && LCanPointeeTy->isFunctionType()) {
@@ -6765,10 +6964,17 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
       diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/false);
     }
     if (LCanPointeeTy != RCanPointeeTy) {
-      if (LHSIsNull && !RHSIsNull)
-        LHS = ImpCastExprToType(LHS.take(), RHSType, CK_BitCast);
-      else
-        RHS = ImpCastExprToType(RHS.take(), LHSType, CK_BitCast);
+      if (LHSIsNull && !RHSIsNull) {
+        if (!LQuals.hasShared() && RQuals.hasShared())
+          LHS = ImpCastExprToType(LHS.take(), RHSType, CK_NullToPointer);
+        else
+          LHS = ImpCastExprToType(LHS.take(), RHSType, CK_BitCast);
+      } else {
+        if (LQuals.hasShared() && !RQuals.hasShared() && RHSIsNull)
+          RHS = ImpCastExprToType(RHS.take(), LHSType, CK_NullToPointer);
+        else
+          RHS = ImpCastExprToType(RHS.take(), LHSType, CK_BitCast);
+      }
     }
     return ResultTy;
   }
@@ -7300,16 +7506,16 @@ static bool CheckForModifiableLvalue(Expr *E, SourceLocation Loc, Sema &S) {
 
 
 // C99 6.5.16.1
-QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
+QualType Sema::CheckAssignmentOperands(ExprResult &LHS, ExprResult &RHS,
                                        SourceLocation Loc,
                                        QualType CompoundType) {
-  assert(!LHSExpr->hasPlaceholderType(BuiltinType::PseudoObject));
+  assert(!LHS.get()->hasPlaceholderType(BuiltinType::PseudoObject));
 
   // Verify that LHS is a modifiable lvalue, and emit error if not.
-  if (CheckForModifiableLvalue(LHSExpr, Loc, *this))
+  if (CheckForModifiableLvalue(LHS.get(), Loc, *this))
     return QualType();
 
-  QualType LHSType = LHSExpr->getType();
+  QualType LHSType = LHS.get()->getType();
   QualType RHSType = CompoundType.isNull() ? RHS.get()->getType() :
                                              CompoundType;
   AssignConvertType ConvTy;
@@ -7355,9 +7561,9 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
 
     if (ConvTy == Compatible) {
       if (LHSType.getObjCLifetime() == Qualifiers::OCL_Strong)
-        checkRetainCycles(LHSExpr, RHS.get());
+        checkRetainCycles(LHS.get(), RHS.get());
       else if (getLangOpts().ObjCAutoRefCount)
-        checkUnsafeExprAssigns(Loc, LHSExpr, RHS.get());
+        checkUnsafeExprAssigns(Loc, LHS.get(), RHS.get());
     }
   } else {
     // Compound assignment "x += y"
@@ -7368,7 +7574,10 @@ QualType Sema::CheckAssignmentOperands(Expr *LHSExpr, ExprResult &RHS,
                                RHS.get(), AA_Assigning))
     return QualType();
 
-  CheckForNullPointerDereference(*this, LHSExpr);
+  CheckForNullPointerDereference(*this, LHS.get());
+
+  if (getLangOpts().UPC)
+    CheckUPCReferenceType(*this, LHS);
 
   // C99 6.5.16p3: The type of an assignment expression is the type of the
   // left operand unless the left operand has qualified type, in which case
@@ -7902,7 +8111,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
 
   switch (Opc) {
   case BO_Assign:
-    ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, QualType());
+    ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, QualType());
     if (getLangOpts().CPlusPlus &&
         LHS.get()->getObjectKind() != OK_ObjCProperty) {
       VK = LHS.get()->getValueKind();
@@ -7959,30 +8168,30 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
                                                Opc == BO_DivAssign);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_RemAssign:
     CompResultTy = CheckRemainderOperands(LHS, RHS, OpLoc, true);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_AddAssign:
     CompResultTy = CheckAdditionOperands(LHS, RHS, OpLoc, Opc, &CompLHSTy);
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_SubAssign:
     CompResultTy = CheckSubtractionOperands(LHS, RHS, OpLoc, &CompLHSTy);
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_ShlAssign:
   case BO_ShrAssign:
     CompResultTy = CheckShiftOperands(LHS, RHS, OpLoc, Opc, true);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_AndAssign:
   case BO_XorAssign:
@@ -7990,7 +8199,7 @@ ExprResult Sema::CreateBuiltinBinOp(SourceLocation OpLoc,
     CompResultTy = CheckBitwiseOperands(LHS, RHS, OpLoc, true);
     CompLHSTy = CompResultTy;
     if (!CompResultTy.isNull() && !LHS.isInvalid() && !RHS.isInvalid())
-      ResultTy = CheckAssignmentOperands(LHS.get(), RHS, OpLoc, CompResultTy);
+      ResultTy = CheckAssignmentOperands(LHS, RHS, OpLoc, CompResultTy);
     break;
   case BO_Comma:
     ResultTy = CheckCommaOperands(*this, LHS, RHS, OpLoc);
@@ -8310,6 +8519,8 @@ ExprResult Sema::CreateBuiltinUnaryOp(SourceLocation OpLoc,
                                                 Opc == UO_PostInc,
                                                 Opc == UO_PreInc ||
                                                 Opc == UO_PreDec);
+    if (getLangOpts().UPC)
+      CheckUPCReferenceType(*this, Input);
     break;
   case UO_AddrOf:
     resultType = CheckAddressOfOperand(*this, Input, OpLoc);
@@ -9332,6 +9543,12 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
     } else if (lhq.getObjCLifetime() != rhq.getObjCLifetime()) {
       DiagKind = diag::err_typecheck_incompatible_ownership;
       break;
+    } else if (lhq.hasShared() && !rhq.hasShared()) {
+      DiagKind = diag::err_upc_typecheck_discard_shared;
+      break;
+    } else if (!lhq.hasShared() && rhq.hasShared()) {
+      DiagKind = diag::err_upc_cast_local_to_shared;
+      break;
     }
 
     llvm_unreachable("unknown error case for discarding qualifiers!");
@@ -9354,6 +9571,9 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
     break;
   case IncompatibleNestedPointerQualifiers:
     DiagKind = diag::ext_nested_pointer_qualifier_mismatch;
+    break;
+  case IncompatiblePointerToSharedIncomplete:
+    DiagKind = diag::err_upc_pointer_cast_requires_complete_type;
     break;
   case IntToBlockPointer:
     DiagKind = diag::err_int_to_block_pointer;

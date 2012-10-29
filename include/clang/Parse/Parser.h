@@ -159,6 +159,7 @@ class Parser : public CodeCompletionHandler {
   OwningPtr<PragmaHandler> GCCVisibilityHandler;
   OwningPtr<PragmaHandler> OptionsHandler;
   OwningPtr<PragmaHandler> PackHandler;
+  OwningPtr<PragmaHandler> UPCHandler;
   OwningPtr<PragmaHandler> MSStructHandler;
   OwningPtr<PragmaHandler> UnusedHandler;
   OwningPtr<PragmaHandler> WeakHandler;
@@ -415,6 +416,10 @@ private:
   /// \brief Handle the annotation token produced for
   /// #pragma pack...
   void HandlePragmaPack();
+
+  /// \brief Handle the annotation token produced for
+  /// #pragma upc...
+  StmtResult HandlePragmaUPC();
 
   /// GetLookAheadToken - This peeks ahead N tokens and returns that token
   /// without consuming any tokens.  LookAhead(0) returns 'Tok', LookAhead(1)
@@ -1555,10 +1560,15 @@ private:
   StmtResult ParseWhileStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseDoStatement();
   StmtResult ParseForStatement(SourceLocation *TrailingElseLoc);
+  StmtResult ParseUPCForAllStatement(SourceLocation *TrailingElseLoc);
   StmtResult ParseGotoStatement();
   StmtResult ParseContinueStatement();
   StmtResult ParseBreakStatement();
   StmtResult ParseReturnStatement();
+  StmtResult ParseUPCNotifyStatement();
+  StmtResult ParseUPCWaitStatement();
+  StmtResult ParseUPCBarrierStatement();
+  StmtResult ParseUPCFenceStatement();
   StmtResult ParseAsmStatement(bool &msAsm);
   StmtResult ParseMicrosoftAsmStatement(SourceLocation AsmLoc);
 

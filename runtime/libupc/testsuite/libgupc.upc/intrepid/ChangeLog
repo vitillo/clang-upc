@@ -1,0 +1,129 @@
+2012-09-26  Gary Funck  <gary@intrepid.com>
+
+	* test31.upc: Make the timing check more tolerant.
+
+2012-09-26  Gary Funck  <gary@intrepid.com>
+
+	* test17.upc: Call upc_all_lock_free.
+	* test18.upc: Call upc_all_free, upc_all_lock_free,
+	  and call upc_alloc instead of deprecated upc_local_alloc.
+	* test19.upc: Call upc_all_free.
+	* test20.upc: Call upc_all_free.
+	* test21.upc: Call upc_all_free.
+	* test22.upc: Call upc_alloc instead of deprecated upc_local_alloc.
+	* test24.upc: Call upc_alloc instead of deprecated upc_local_alloc.
+	* test28.upc: Call upc_all_lock_free.
+	* test31.upc: New.  Test UPC wall-clock timer (upc_tick) library.
+
+2012-08-14  Gary Funck  <gary@intrepid.com>
+
+	* test29.upc: handle sprintf overflow on systems that
+	do no provide correct support for long double
+
+2012-08-09  Gary Funck  <gary@intrepid.com>
+
+	* test27.upc (fold_address_of_test): New.
+	Implement test for correct handling of &array[0].field
+	where 'array' is a UPC shared array.
+	Improve formatting and indentation.
+
+2012-07-25  Gary Funck  <gary@intrepid.com>
+
+	* test26.upc: Implement check for 6.4.2p6 conformance
+	and improve formatting and indentation.
+
+2012-01-04  Gary Funck  <gary@intrepid.com>
+
+	* test18.upc: Revert lost GCC/UPC -> GUPC change.
+	* test28.upc: Ditto.
+	* test30.upc: Ditto.
+
+2012-01-04  Gary Funck  <gary@intrepid.com>
+
+	* test00.upc: Fix spelling errors and split long lines.
+	* test03.upc: Ditto.
+	* test04.upc: Ditto.
+	* test07.upc: Ditto.
+	* test08.upc: Ditto.
+	* test12.upc: Ditto.
+	* test14.upc: Ditto.
+	* test15.upc: Ditto.
+	* test16.upc: Ditto.
+	* test17.upc: Ditto.
+	* test18.upc: Ditto.
+	* test19.upc: Ditto.
+	* test20.upc: Ditto.
+	* test21.upc: Ditto.
+	* test22.upc: Ditto.
+	* test23.upc: Ditto.
+	* test24.upc: Ditto.
+	* test25.upc: Ditto.
+	* test26.upc: Ditto.
+	* test27.upc: Ditto.
+	* test28.upc: Ditto.
+	* test30.upc: Ditto.
+
+2011-10-25  Gary Funck  <gary@intrepid.com>
+
+	Re-fix typo in previous commit.
+
+2011-10-24  Gary Funck  <gary@intrepid.com>
+
+	* test21.upc: Fix typo in "passed" message. Terminate with '.'.
+	* test24.upc: Ditto.
+	* test25.upc: Ditto.
+	* test30.upc: Ditto.
+
+2011-10-26  Gary Funck  <gary@intrepid.com>
+
+	Rename "GCC/UPC" to "GNU UPC", "UPC" to "GUPC", and
+	"libupc" to "libgupc".
+	* test18.upc: Change "GCC/UPC" to "GNU UPC".
+	* test28.upc: Ditto.
+	* test30.upc: Ditto.
+
+2011-09-07  Gary Funck  <gary@intrepid.com>
+
+	* test30.upc: Fix spelling error in diagnostic message.
+
+2011-09-07  Gary Funck  <gary@intrepid.com>
+
+	* test30.upc: New.  Missed in previous commit.
+	Print "pass" even when compiled with packed
+	UPC pointer-to-shared configuration.
+
+2011-09-07  Gary Funck  <gary@intrepid.com>
+
+	* test30.upc: New. Test UPC pointer-to-shared alignment
+	for struct PTS.
+
+2011-02-08  Gary Funck  <gary@intrepid.com>
+
+	* test00.upc, test01.upc, test02.upc, test03.upc, test04.upc,
+	  test05.upc, test06.upc, test07.upc, test08.upc, test09.upc,
+	  test10.upc, test11.upc, test12.upc, test13.upc, test14.upc,
+	  test15.upc, test16.upc, test17.upc, test18.upc, test19.upc,
+	  test20.upc, test21.upc, test22.upc, test23.upc, test24.upc,
+	  test25.upc, test26.upc, test27.upc, test28.upc, test29.upc:
+	Update copyright notices.
+
+2010-11-28  Gary Funck  <gary@intrepid.com>
+
+	Merge GCC/UPC 4.5.1.2 changes into gupc branch.
+	* test18.upc: Add new test for ICE when compiling
+	a declaration of the form:
+	shared [*] int A[THREADS][16];
+	when compiled in a dynamic THREADS context.
+	Conditionally defined __attribute__()
+	to match the non- GCC-specific version of this test.
+	* test29.upc: New test.
+	Add a test for operations on 'shared long double types'.
+
+2010-07-03  Gary Funck  <gary@intrepid.com>
+
+	Merge trunk version 161517 into gupc branch.
+	* test18.upc:
+	Add 'unused' attributes to avoid "set, but
+	not referenced" warnings.
+	* test19.upc:
+	Likewise.

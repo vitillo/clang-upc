@@ -442,6 +442,17 @@ void JumpScopeChecker::BuildScopeInformation(Stmt *S, unsigned &origParentScope)
       continue;
     }
 
+    // Disallow jumps into any part of a upc_forall statement
+    if (UPCForAllStmt *FS = dyn_cast<UPCForAllStmt>(SubStmt)) {
+      Scopes.push_back(GotoScope(ParentScope,
+                                 diag::warn_upc_enter_upc_forall,
+                                 diag::warn_upc_exits_upc_forall,
+                                 FS->getSourceRange().getBegin()));
+      BuildScopeInformation(SubStmt, (newParentScope = Scopes.size()-1));
+
+      continue;
+    }
+
     // Disallow jumps into the protected statement of an @autoreleasepool.
     if (ObjCAutoreleasePoolStmt *AS = dyn_cast<ObjCAutoreleasePoolStmt>(SubStmt)){
       // Recursively walk the AST for the @autoreleasepool part, protected by a new
@@ -729,19 +740,25 @@ void JumpScopeChecker::CheckJump(Stmt *From, Stmt *To, SourceLocation DiagLoc,
 
   unsigned CommonScope = GetDeepestCommonScope(FromScope, ToScope);
 
-  // It's okay to jump out from a nested scope.
-  if (CommonScope == ToScope) return;
+  SmallVector<unsigned, 10> FromScopesUPCForAll;
+  for (unsigned I = FromScope; I != CommonScope; I = Scopes[I].ParentScope) {
+    if (Scopes[I].OutDiag == diag::warn_upc_exits_upc_forall)
+      FromScopesUPCForAll.push_back(I);
+  }
 
   // Pull out (and reverse) any scopes we might need to diagnose skipping.
   SmallVector<unsigned, 10> ToScopesCXX98Compat;
   SmallVector<unsigned, 10> ToScopesError;
   SmallVector<unsigned, 10> ToScopesWarning;
+  SmallVector<unsigned, 10> ToScopesUPCForAll;
   for (unsigned I = ToScope; I != CommonScope; I = Scopes[I].ParentScope) {
     if (S.getLangOpts().MicrosoftMode && JumpDiagWarning != 0 &&
         IsMicrosoftJumpWarning(JumpDiagError, Scopes[I].InDiag))
       ToScopesWarning.push_back(I);
     else if (IsCXX98CompatWarning(S, Scopes[I].InDiag))
       ToScopesCXX98Compat.push_back(I);
+    else if (Scopes[I].InDiag == diag::warn_upc_enter_upc_forall)
+      ToScopesUPCForAll.push_back(I);
     else if (Scopes[I].InDiag)
       ToScopesError.push_back(I);
   }
@@ -750,6 +767,17 @@ void JumpScopeChecker::CheckJump(Stmt *From, Stmt *To, SourceLocation DiagLoc,
   if (!ToScopesWarning.empty()) {
     S.Diag(DiagLoc, JumpDiagWarning);
     NoteJumpIntoScopes(ToScopesWarning);
+  }
+
+  if (!FromScopesUPCForAll.empty()) {
+    S.Diag(DiagLoc, diag::warn_upc_exits_upc_forall) << "goto";
+  }
+
+  if (!ToScopesUPCForAll.empty()) {
+    if (isa<GotoStmt>(From))
+      S.Diag(DiagLoc, diag::warn_upc_enter_upc_forall) << "goto";
+    else if (isa<SwitchStmt>(From))
+      S.Diag(DiagLoc, diag::warn_upc_enter_upc_forall) << "switch";
   }
 
   // Handle errors.
@@ -763,6 +791,7 @@ void JumpScopeChecker::CheckJump(Stmt *From, Stmt *To, SourceLocation DiagLoc,
     S.Diag(DiagLoc, JumpDiagCXX98Compat);
     NoteJumpIntoScopes(ToScopesCXX98Compat);
   }
+
 }
 
 void Sema::DiagnoseInvalidJumps(Stmt *Body) {

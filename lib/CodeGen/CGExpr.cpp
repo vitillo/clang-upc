@@ -544,8 +544,7 @@ void CodeGenFunction::EmitCheck(llvm::Value *Address, unsigned Size) {
 CodeGenFunction::ComplexPairTy CodeGenFunction::
 EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
                          bool isInc, bool isPre) {
-  ComplexPairTy InVal = LoadComplexFromAddr(LV.getAddress(),
-                                            LV.isVolatileQualified());
+  ComplexPairTy InVal = EmitLoadOfComplex(LV);
   
   llvm::Value *NextVal;
   if (isa<llvm::IntegerType>(InVal.first->getType())) {
@@ -568,7 +567,7 @@ EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
   ComplexPairTy IncVal(NextVal, InVal.second);
   
   // Store the updated result through the lvalue.
-  StoreComplexToAddr(IncVal, LV.getAddress(), LV.isVolatileQualified());
+  EmitStoreOfComplex(IncVal, LV);
   
   // If this is a postinc, return the value read from memory, otherwise use the
   // updated value.
@@ -856,6 +855,12 @@ CodeGenFunction::tryEmitAsConstant(DeclRefExpr *refExpr) {
 }
 
 llvm::Value *CodeGenFunction::EmitLoadOfScalar(LValue lvalue) {
+  if (lvalue.isShared()) {
+    assert(lvalue.isStrict() || lvalue.isRelaxed());
+    return EmitUPCLoad(lvalue.getAddress(), lvalue.isStrict(),
+                       lvalue.getType(), lvalue.getAlignment(),
+                       lvalue.getLoc());
+  }
   return EmitLoadOfScalar(lvalue.getAddress(), lvalue.isVolatile(),
                           lvalue.getAlignment().getQuantity(),
                           lvalue.getType(), lvalue.getTBAAInfo());
@@ -975,6 +980,12 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, llvm::Value *Addr,
 
 void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
     bool isInit) {
+  if (lvalue.isShared()) {
+    assert(lvalue.isStrict() || lvalue.isRelaxed());
+    EmitUPCStore(value, lvalue.getAddress(), lvalue.isStrict(),
+                 lvalue.getType(), lvalue.getAlignment(), lvalue.getLoc());
+    return;
+  }
   EmitStoreOfScalar(value, lvalue.getAddress(), lvalue.isVolatile(),
                     lvalue.getAlignment().getQuantity(), lvalue.getType(),
                     lvalue.getTBAAInfo(), isInit);
@@ -1034,30 +1045,50 @@ RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV) {
 
     // Only offset by the field index if used, so that incoming values are not
     // required to be structures.
-    if (AI.FieldIndex)
-      Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    if (AI.FieldIndex) {
+      if (LV.isShared())
+        Ptr = EmitUPCFieldOffset(Ptr, LV.getBitFieldBaseType(), AI.FieldIndex);
+      else
+        Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    }
 
     // Offset by the byte offset, if used.
     if (!AI.FieldByteOffset.isZero()) {
-      Ptr = EmitCastToVoidPtr(Ptr);
-      Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
+      if (LV.isShared()) {
+        Ptr = EmitUPCPointerAdd(Ptr, AI.FieldByteOffset.getQuantity());
+      } else  {
+        Ptr = EmitCastToVoidPtr(Ptr);
+        Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
                                        "bf.field.offs");
+      }
     }
 
-    // Cast to the access type.
-    llvm::Type *PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), AI.AccessWidth,
-                       CGM.getContext().getTargetAddressSpace(LV.getType()));
-    Ptr = Builder.CreateBitCast(Ptr, PTy);
+    llvm::Value *Val;
+    if (LV.isShared()) {
+      llvm::Type *AccessTy = llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
+      uint64_t BitAlign = CGM.getTargetData().getABITypeAlignment(AccessTy);
+      CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
+      if (!AI.AccessAlignment.isZero())
+        Align = AI.AccessAlignment;
+      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Align, LV.getLoc());
+    } else {
 
-    // Perform the load.
-    llvm::LoadInst *Load = Builder.CreateLoad(Ptr, LV.isVolatileQualified());
-    if (!AI.AccessAlignment.isZero())
-      Load->setAlignment(AI.AccessAlignment.getQuantity());
+      // Cast to the access type.
+      llvm::Type *PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), AI.AccessWidth,
+                               CGM.getContext().getTargetAddressSpace(LV.getType()));
+      Ptr = Builder.CreateBitCast(Ptr, PTy);
+      
+      // Perform the load.
+      llvm::LoadInst *Load = Builder.CreateLoad(Ptr, LV.isVolatileQualified());
+      if (!AI.AccessAlignment.isZero())
+        Load->setAlignment(AI.AccessAlignment.getQuantity());
+      
+      Val = Load;
+    }
 
     // Shift out unused low bits and mask out unused high bits.
-    llvm::Value *Val = Load;
     if (AI.FieldBitStart)
-      Val = Builder.CreateLShr(Load, AI.FieldBitStart);
+      Val = Builder.CreateLShr(Val, AI.FieldBitStart);
     Val = Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(AI.AccessWidth,
                                                             AI.TargetBitWidth),
                             "bf.clear");
@@ -1254,27 +1285,37 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
 
     // Get the field pointer.
     llvm::Value *Ptr = Dst.getBitFieldBaseAddr();
-    unsigned addressSpace =
-      cast<llvm::PointerType>(Ptr->getType())->getAddressSpace();
 
     // Only offset by the field index if used, so that incoming values are not
     // required to be structures.
-    if (AI.FieldIndex)
-      Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    if (AI.FieldIndex) {
+      if (Dst.isShared())
+        Ptr = EmitUPCFieldOffset(Ptr, Dst.getBitFieldBaseType(), AI.FieldIndex);
+      else
+        Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
+    }
 
     // Offset by the byte offset, if used.
     if (!AI.FieldByteOffset.isZero()) {
-      Ptr = EmitCastToVoidPtr(Ptr);
-      Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
+      if (Dst.isShared()) {
+        Ptr = EmitUPCPointerAdd(Ptr, AI.FieldByteOffset.getQuantity());
+      } else  {
+        Ptr = EmitCastToVoidPtr(Ptr);
+        Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
                                        "bf.field.offs");
+      }
     }
 
     // Cast to the access type.
     llvm::Type *AccessLTy =
       llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
 
-    llvm::Type *PTy = AccessLTy->getPointerTo(addressSpace);
-    Ptr = Builder.CreateBitCast(Ptr, PTy);
+    if (!Dst.isShared()) {
+      unsigned addressSpace =
+        cast<llvm::PointerType>(Ptr->getType())->getAddressSpace();
+      llvm::Type *PTy = AccessLTy->getPointerTo(addressSpace);
+      Ptr = Builder.CreateBitCast(Ptr, PTy);
+    }
 
     // Extract the piece of the bit-field value to write in this access, limited
     // to the values that are part of this access.
@@ -1296,9 +1337,19 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
 
     // If necessary, load and OR in bits that are outside of the bit-field.
     if (AI.TargetBitWidth != AI.AccessWidth) {
-      llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
-      if (!AI.AccessAlignment.isZero())
-        Load->setAlignment(AI.AccessAlignment.getQuantity());
+      llvm::Value *LoadVal;
+      if (Dst.isShared()) {
+        uint64_t BitAlign = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+        CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
+        if (!AI.AccessAlignment.isZero())
+          Align = AI.AccessAlignment;
+        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Align, Dst.getLoc());
+      } else {
+        llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
+        if (!AI.AccessAlignment.isZero())
+          Load->setAlignment(AI.AccessAlignment.getQuantity());
+        LoadVal = Load;
+      }
 
       // Compute the mask for zeroing the bits that are part of the bit-field.
       llvm::APInt InvMask =
@@ -1306,14 +1357,22 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
                                  AI.FieldBitStart + AI.TargetBitWidth);
 
       // Apply the mask and OR in to the value to write.
-      Val = Builder.CreateOr(Builder.CreateAnd(Load, InvMask), Val);
+      Val = Builder.CreateOr(Builder.CreateAnd(LoadVal, InvMask), Val);
     }
 
     // Write the value.
-    llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
-                                                 Dst.isVolatileQualified());
-    if (!AI.AccessAlignment.isZero())
-      Store->setAlignment(AI.AccessAlignment.getQuantity());
+    if (Dst.isShared()) {
+      uint64_t BitAlign = CGM.getTargetData().getABITypeAlignment(AccessLTy);
+      CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
+      if (!AI.AccessAlignment.isZero())
+        Align = AI.AccessAlignment;
+      EmitUPCStore(Val, Ptr, Dst.isStrict(), Align, Dst.getLoc());
+    } else {
+      llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
+                                                   Dst.isVolatileQualified());
+      if (!AI.AccessAlignment.isZero())
+        Store->setAlignment(AI.AccessAlignment.getQuantity());
+    }
   }
 }
 
@@ -1489,8 +1548,37 @@ static llvm::Value *
 EmitBitCastOfLValueToProperType(CodeGenFunction &CGF,
                                 llvm::Value *V, llvm::Type *IRType,
                                 StringRef Name = StringRef()) {
+  if (!V->getType()->isPointerTy()) {
+    // We have a UPC pointer-to-shared.
+    // The LLVM type is fixed.
+    return V;
+  }
   unsigned AS = cast<llvm::PointerType>(V->getType())->getAddressSpace();
   return CGF.Builder.CreateBitCast(V, IRType->getPointerTo(AS), Name);
+}
+
+LValue CodeGenFunction::EmitSharedVarDeclLValue(llvm::Value *V, CharUnits Alignment, QualType T) {
+  const LangOptions& LangOpts = getContext().getLangOpts();
+  unsigned PhaseBits = LangOpts.UPCPhaseBits;
+  unsigned ThreadBits = LangOpts.UPCThreadBits;
+  unsigned AddrBits = LangOpts.UPCAddrBits;
+  if (PhaseBits + ThreadBits + AddrBits == 64) {
+    llvm::Value *SectionStart = CGM.getModule().getOrInsertGlobal("__upc_shared_start", Int8Ty);
+    llvm::Value *StartInt = Builder.CreatePtrToInt(SectionStart, PtrDiffTy, "sect.cast");
+    llvm::Value *VInt = Builder.CreatePtrToInt(V, PtrDiffTy, "addr.cast");
+    llvm::Value *Ofs = Builder.CreateSub(VInt, StartInt, "ofs.sub");
+    
+    llvm::Value *UPCPtr = EmitUPCPointer(llvm::ConstantInt::get(SizeTy, 0),
+                                         llvm::ConstantInt::get(SizeTy, 0),
+                                         Ofs);
+    return LValue::MakeAddr(UPCPtr, T, Alignment, getContext());
+  } else {
+    llvm::Value *VInt = Builder.CreatePtrToInt(V, PtrDiffTy, "addr.cast");
+    llvm::Value *UPCPtr = EmitUPCPointer(llvm::ConstantInt::get(SizeTy, 0),
+                                         llvm::ConstantInt::get(SizeTy, 0),
+                                         VInt);
+    return LValue::MakeAddr(UPCPtr, T, Alignment, getContext());
+  }
 }
 
 static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
@@ -1510,7 +1598,10 @@ static LValue EmitGlobalVarDeclLValue(CodeGenFunction &CGF,
     V = LI;
     LV = CGF.MakeNaturalAlignAddrLValue(V, T);
   } else {
-    LV = CGF.MakeAddrLValue(V, E->getType(), Alignment);
+    if(T.getQualifiers().hasShared())
+      LV = CGF.EmitSharedVarDeclLValue(V, Alignment, T);
+    else
+      LV = CGF.MakeAddrLValue(V, E->getType(), Alignment);
   }
   setObjCGCLValueClass(CGF.getContext(), E, LV);
   return LV;
@@ -1595,7 +1686,10 @@ LValue CodeGenFunction::EmitDeclRefLValue(const DeclRefExpr *E) {
       V = LI;
       LV = MakeNaturalAlignAddrLValue(V, T);
     } else {
-      LV = MakeAddrLValue(V, T, Alignment);
+      if(T.getQualifiers().hasShared())
+        LV = EmitSharedVarDeclLValue(V, getContext().getDeclAlign(VD), T);
+      else
+        LV = MakeAddrLValue(V, T, Alignment);
     }
 
     if (NonGCable) {
@@ -1624,7 +1718,8 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
     QualType T = E->getSubExpr()->getType()->getPointeeType();
     assert(!T.isNull() && "CodeGenFunction::EmitUnaryOpLValue: Illegal type");
 
-    LValue LV = MakeNaturalAlignAddrLValue(EmitScalarExpr(E->getSubExpr()), T);
+    LValue LV = MakeNaturalAlignAddrLValue(EmitScalarExpr(E->getSubExpr()), T,
+                                           E->getExprLoc());
     LV.getQuals().setAddressSpace(ExprTy.getAddressSpace());
 
     // We should not generate __weak write barrier on indirect reference
@@ -1642,6 +1737,21 @@ LValue CodeGenFunction::EmitUnaryOpLValue(const UnaryOperator *E) {
     LValue LV = EmitLValue(E->getSubExpr());
     assert(LV.isSimple() && "real/imag on non-ordinary l-value");
     llvm::Value *Addr = LV.getAddress();
+
+    if (LV.isShared()) {
+      if (!ExprTy->isAnyComplexType()) {
+        assert(ExprTy->isArithmeticType());
+        return LV;
+      }
+
+      unsigned Idx = E->getOpcode() == UO_Imag;
+      CharUnits Align = LV.getAlignment();
+      if (Idx) {
+        Align = std::min(Align, getContext().getTypeSizeInChars(E->getType()));
+      }
+      return MakeAddrLValue(EmitUPCFieldOffset(Addr, ConvertType(LV.getType()), Idx),
+                            E->getType(), Align, E->getExprLoc());
+    }
 
     // __real is valid on scalars.  This is a faster way of testing that.
     // __imag can only produce an rvalue on scalars.
@@ -1770,6 +1880,10 @@ static const Expr *isSimpleArrayDecayOperand(const Expr *E) {
   const Expr *SubExpr = CE->getSubExpr();
   if (SubExpr->getType()->isVariableArrayType())
     return 0;
+
+  // If this is a UPC shared array, bail out.
+  if (SubExpr->getType().getQualifiers().hasShared())
+    return 0;
   
   return SubExpr;
 }
@@ -1818,15 +1932,16 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E) {
   // size is a VLA or Objective-C interface.
   llvm::Value *Address = 0;
   CharUnits ArrayAlignment;
-  if (const VariableArrayType *vla =
-        getContext().getAsVariableArrayType(E->getType())) {
+  if ((E->getType()->isVariableArrayType() ||
+       E->getType()->isUPCThreadArrayType()) &&
+      !E->getType().getQualifiers().hasShared()) {
     // The base must be a pointer, which is not an aggregate.  Emit
     // it.  It needs to be emitted first in case it's what captures
     // the VLA bounds.
     Address = EmitScalarExpr(E->getBase());
 
     // The element count here is the total number of non-VLA elements.
-    llvm::Value *numElements = getVLASize(vla).first;
+    llvm::Value *numElements = getVLASize(E->getType()).first;
 
     // Effectively, the multiply by the VLA size is part of the GEP.
     // GEP indexes are signed, and scaling an index isn't permitted to
@@ -1874,7 +1989,10 @@ LValue CodeGenFunction::EmitArraySubscriptExpr(const ArraySubscriptExpr *E) {
   } else {
     // The base must be a pointer, which is not an aggregate.  Emit it.
     llvm::Value *Base = EmitScalarExpr(E->getBase());
-    if (getContext().getLangOpts().isSignedOverflowDefined())
+    if (E->getType().getQualifiers().hasShared()) {
+      Address = EmitUPCPointerArithmetic(Base, Idx, E->getBase()->getType(), IdxTy, false);
+    }
+    else if (getContext().getLangOpts().isSignedOverflowDefined())
       Address = Builder.CreateGEP(Base, Idx, "arrayidx");
     else
       Address = Builder.CreateInBoundsGEP(Base, Idx, "arrayidx");
@@ -1976,7 +2094,8 @@ LValue CodeGenFunction::EmitMemberExpr(const MemberExpr *E) {
   LValue BaseLV;
   if (E->isArrow())
     BaseLV = MakeNaturalAlignAddrLValue(EmitScalarExpr(BaseExpr),
-                                        BaseExpr->getType()->getPointeeType());
+                                        BaseExpr->getType()->getPointeeType(),
+                                        E->getExprLoc());
   else
     BaseLV = EmitLValue(BaseExpr);
 
@@ -1996,14 +2115,15 @@ LValue CodeGenFunction::EmitMemberExpr(const MemberExpr *E) {
   llvm_unreachable("Unhandled member declaration!");
 }
 
-LValue CodeGenFunction::EmitLValueForBitfield(llvm::Value *BaseValue,
-                                              const FieldDecl *Field,
-                                              unsigned CVRQualifiers) {
+LValue CodeGenFunction::EmitLValueForBitfield(LValue Base,
+                                              const FieldDecl *Field) {
   const CGRecordLayout &RL =
     CGM.getTypes().getCGRecordLayout(Field->getParent());
   const CGBitFieldInfo &Info = RL.getBitFieldInfo(Field);
-  return LValue::MakeBitfield(BaseValue, Info,
-                          Field->getType().withCVRQualifiers(CVRQualifiers));
+  return LValue::MakeBitfield(Base.getAddress(), Info,
+                              Field->getType().withCVRQualifiers(Base.getVRQualifiers()),
+                              ConvertType(Field->getParent()),
+                              Base.getLoc());
 }
 
 /// EmitLValueForAnonRecordField - Given that the field is a member of
@@ -2031,8 +2151,7 @@ LValue CodeGenFunction::EmitLValueForAnonRecordField(llvm::Value *BaseValue,
 LValue CodeGenFunction::EmitLValueForField(LValue base,
                                            const FieldDecl *field) {
   if (field->isBitField())
-    return EmitLValueForBitfield(base.getAddress(), field,
-                                 base.getVRQualifiers());
+    return EmitLValueForBitfield(base, field);
 
   const RecordDecl *rec = field->getParent();
   QualType type = field->getType();
@@ -2053,7 +2172,10 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
   } else {
     // For structs, we GEP to the field that the record layout suggests.
     unsigned idx = CGM.getTypes().getCGRecordLayout(rec).getLLVMFieldNo(field);
-    addr = Builder.CreateStructGEP(addr, idx, field->getName());
+    if (base.isShared())
+      addr = EmitUPCFieldOffset(addr, ConvertType(rec), idx);
+    else
+      addr = Builder.CreateStructGEP(addr, idx, field->getName());
 
     // If this is a reference field, load the reference right now.
     if (const ReferenceType *refType = type->getAs<ReferenceType>()) {
@@ -2094,6 +2216,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   LValue LV = MakeAddrLValue(addr, type, alignment);
   LV.getQuals().addCVRQualifiers(cvr);
+  if (base.isShared())
+    LV.getQuals().addShared();
+  if (base.getQuals().hasRelaxed())
+    LV.getQuals().addRelaxed();
+  if (base.getQuals().hasStrict())
+    LV.getQuals().addStrict();
 
   // __weak attribute on a field is ignored.
   if (LV.getQuals().getObjCGCAttr() == Qualifiers::Weak)
@@ -2334,19 +2462,40 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     return MakeAddrLValue(Derived, E->getType());
   }
   case CK_LValueBitCast: {
+    QualType Ty;
     // This must be a reinterpret_cast (or c-style equivalent).
-    const ExplicitCastExpr *CE = cast<ExplicitCastExpr>(E);
-    
+    if (const ExplicitCastExpr *CE = dyn_cast<ExplicitCastExpr>(E)) {
+      Ty = CE->getTypeAsWritten();
+    } else {
+      Ty = getContext().getPointerType(E->getType());
+    }
     LValue LV = EmitLValue(E->getSubExpr());
+    if (LV.isBitField()) {
+      // This can only be the qualifier conversion
+      // used to add strict/relaxed
+      return LValue::MakeBitfield(
+        LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
+        E->getType(), LV.getBitFieldBaseType(), LV.getLoc());
+    }
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(),
-                                           ConvertType(CE->getTypeAsWritten()));
-    return MakeAddrLValue(V, E->getType());
+                                           ConvertType(Ty));
+    return MakeAddrLValue(V, E->getType(), LV.getAlignment(), LV.getLoc());
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());
     QualType ToType = getContext().getLValueReferenceType(E->getType());
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(), 
                                            ConvertType(ToType));
+    return MakeAddrLValue(V, E->getType());
+  }
+  case CK_UPCSharedToLocal: {
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::Value *V = EmitUPCCastSharedToLocal(LV.getAddress(), E->getType(), E->getExprLoc());
+    return MakeAddrLValue(V, E->getType());
+  }
+  case CK_UPCBitCastZeroPhase: {
+    LValue LV = EmitLValue(E->getSubExpr());
+    llvm::Value *V = EmitUPCBitCastZeroPhase(LV.getAddress(), E->getType());
     return MakeAddrLValue(V, E->getType());
   }
   }

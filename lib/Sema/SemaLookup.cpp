@@ -1957,6 +1957,7 @@ addAssociatedClassesAndNamespaces(AssociatedLookup &Result, QualType Ty) {
       T = cast<PointerType>(T)->getPointeeType().getTypePtr();
       continue;
     case Type::ConstantArray:
+    case Type::UPCThreadArray:
     case Type::IncompleteArray:
     case Type::VariableArray:
       T = cast<ArrayType>(T)->getElementType().getTypePtr();

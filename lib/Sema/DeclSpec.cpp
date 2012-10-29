@@ -411,6 +411,11 @@ const char *DeclSpec::getSpecifierName(TQ T) {
   case DeclSpec::TQ_const:       return "const";
   case DeclSpec::TQ_restrict:    return "restrict";
   case DeclSpec::TQ_volatile:    return "volatile";
+  case DeclSpec::TQ_shared:      return "shared";
+  case DeclSpec::TQ_relaxed:     return "relaxed";
+  case DeclSpec::TQ_strict:      return "strict";
+  case DeclSpec::TQ_lqexpr:      return "expr";
+  case DeclSpec::TQ_lqstar:      return "star";
   }
   llvm_unreachable("Unknown typespec!");
 }
@@ -672,6 +677,57 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
   }
   return false;
 }
+
+bool DeclSpec::SetTypeQualShared(Sema &S, SourceLocation Loc, TQ T,
+                                 Expr * LayoutQualifier,
+                                 const char *&PrevSpec, unsigned &DiagID) {
+  if (T == TQ_lqexpr && TypeQualifiers & TQ_lqexpr) {
+    // FIXME: Don't evalute the ICE multiple times
+    if ((S.CheckLayoutQualifier(UPCLayoutQualifier) !=
+         S.CheckLayoutQualifier(LayoutQualifier))) {
+      PrevSpec = "shared";
+      DiagID = diag::err_invalid_decl_spec_combination;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  TypeQualifiers |= TQ_shared;
+  TypeQualifiers |= T;
+  UPC_sharedLoc = Loc;
+
+  if (T == TQ_lqexpr) {
+    UPCLayoutQualifier = LayoutQualifier;
+  }
+
+  return false;
+}
+
+bool DeclSpec::SetTypeQualRelaxed(SourceLocation Loc, const char *&PrevSpec,
+                                  unsigned &DiagID) {
+  if (TypeQualifiers & TQ_strict) {
+    PrevSpec = "strict";
+    DiagID = diag::err_invalid_decl_spec_combination;
+    return true;
+  }
+  TypeQualifiers |= TQ_relaxed;
+  UPC_relaxedLoc = Loc;
+  return false;
+}
+
+bool DeclSpec::SetTypeQualStrict(SourceLocation Loc, const char *&PrevSpec,
+                                 unsigned &DiagID) {
+  if (TypeQualifiers & TQ_relaxed) {
+    PrevSpec = "relaxed";
+    DiagID = diag::err_invalid_decl_spec_combination;
+    return true;
+  }
+  TypeQualifiers |= TQ_strict;
+  UPC_strictLoc = Loc;
+  return false;
+}
+
 
 bool DeclSpec::SetFunctionSpecInline(SourceLocation Loc, const char *&PrevSpec,
                                      unsigned &DiagID) {

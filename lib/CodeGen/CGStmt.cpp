@@ -85,6 +85,7 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::ContinueStmtClass:
   case Stmt::DefaultStmtClass:
   case Stmt::CaseStmtClass:
+  case Stmt::UPCPragmaStmtClass:
     llvm_unreachable("should have emitted these statements as simple");
 
 #define STMT(Type, Base)
@@ -164,6 +165,22 @@ void CodeGenFunction::EmitStmt(const Stmt *S) {
   case Stmt::SEHTryStmtClass:
     // FIXME Not yet implemented
     break;
+
+  case Stmt::UPCNotifyStmtClass:
+    EmitUPCNotifyStmt(cast<UPCNotifyStmt>(*S));
+    break;
+  case Stmt::UPCWaitStmtClass:
+    EmitUPCWaitStmt(cast<UPCWaitStmt>(*S));
+    break;
+  case Stmt::UPCBarrierStmtClass:
+    EmitUPCBarrierStmt(cast<UPCBarrierStmt>(*S));
+    break;
+  case Stmt::UPCFenceStmtClass:
+    EmitUPCFenceStmt(cast<UPCFenceStmt>(*S));
+    break;
+  case Stmt::UPCForAllStmtClass:
+    EmitUPCForAllStmt(cast<UPCForAllStmt>(*S));
+    break;
   }
 }
 
@@ -181,6 +198,7 @@ bool CodeGenFunction::EmitSimpleStmt(const Stmt *S) {
   case Stmt::ContinueStmtClass: EmitContinueStmt(cast<ContinueStmt>(*S)); break;
   case Stmt::DefaultStmtClass:  EmitDefaultStmt(cast<DefaultStmt>(*S));   break;
   case Stmt::CaseStmtClass:     EmitCaseStmt(cast<CaseStmt>(*S));         break;
+  case Stmt::UPCPragmaStmtClass: break;
   }
 
   return true;

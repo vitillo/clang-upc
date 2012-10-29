@@ -39,7 +39,13 @@ bool Qualifiers::isStrictSupersetOf(Qualifiers Other) const {
      (hasAddressSpace()&& !Other.hasAddressSpace())) &&
     // Lifetime qualifier superset.
     ((getObjCLifetime() == Other.getObjCLifetime()) ||
-     (hasObjCLifetime() && !Other.hasObjCLifetime()));
+     (hasObjCLifetime() && !Other.hasObjCLifetime())) &&
+    // UPC qualifier superset
+    (hasShared() || !Other.hasShared()) &&
+    (hasStrict() || !Other.hasRelaxed()) &&
+    (hasRelaxed() || !Other.hasRelaxed()) &&
+    ((getLayoutQualifier() == Other.getLayoutQualifier()) ||
+     (hasLayoutQualifier() && !Other.hasLayoutQualifier()));
 }
 
 const IdentifierInfo* QualType::getBaseTypeIdentifier() const {
@@ -788,7 +794,9 @@ Type::ScalarTypeKind Type::getScalarTypeKind() const {
     if (BT->isInteger()) return STK_Integral;
     if (BT->isFloatingPoint()) return STK_Floating;
     llvm_unreachable("unknown scalar builtin type");
-  } else if (isa<PointerType>(T)) {
+  } else if (const PointerType * PT = dyn_cast<PointerType>(T)) {
+    if (PT->getPointeeType().getQualifiers().hasShared())
+      return STK_UPCSharedPointer;
     return STK_CPointer;
   } else if (isa<BlockPointerType>(T)) {
     return STK_BlockPointer;
@@ -835,7 +843,7 @@ bool Type::isConstantSizeType() const {
   assert(!isIncompleteType() && "This doesn't make sense for incomplete types");
   assert(!isDependentType() && "This doesn't make sense for dependent types");
   // The VAT must have a size, as it is known to be complete.
-  return !isa<VariableArrayType>(CanonicalType);
+  return !isa<VariableArrayType>(CanonicalType) && !isa<UPCThreadArrayType>(CanonicalType);
 }
 
 /// isIncompleteType - Return true if this is an incomplete type (C99 6.2.5p1)
@@ -2054,6 +2062,7 @@ static CachedProperties computeCachedProperties(const Type *T) {
                  Cache::get(MPT->getPointeeType()));
   }
   case Type::ConstantArray:
+  case Type::UPCThreadArray:
   case Type::IncompleteArray:
   case Type::VariableArray:
     return Cache::get(cast<ArrayType>(T)->getElementType());

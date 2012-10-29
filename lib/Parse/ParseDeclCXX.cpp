@@ -1544,7 +1544,7 @@ void Parser::HandleMemberFunctionDeclDelays(Declarator& DeclaratorInfo,
   LateParsedMethodDeclaration *LateMethod = 0;
   DeclaratorChunk::FunctionTypeInfo &FTI
     = DeclaratorInfo.getFunctionTypeInfo();
-
+  
   for (unsigned ParamIdx = 0; ParamIdx < FTI.NumArgs; ++ParamIdx) {
     if (LateMethod || FTI.ArgInfo[ParamIdx].DefaultArgTokens) {
       if (!LateMethod) {
@@ -1828,7 +1828,7 @@ void Parser::ParseCXXClassMemberDeclaration(AccessSpecifier AS,
 
     // Parse the first declarator.
     ParseDeclarator(DeclaratorInfo);
-    // Error parsing the declarator?
+    // Error parsin g the declarator?
     if (!DeclaratorInfo.hasName()) {
       // If so, skip until the semi-colon or a }.
       SkipUntil(tok::r_brace, true, true);
@@ -2283,6 +2283,11 @@ void Parser::ParseCXXMemberSpecification(SourceLocation RecordLoc,
         continue;
       }
 
+      if (Tok.is(tok::annot_pragma_upc)) {
+        HandlePragmaUPC();
+        continue;
+      }
+
       AccessSpecifier AS = getAccessSpecifierIfPresent();
       if (AS != AS_none) {
         // Current token is a C++ access specifier.
@@ -2547,7 +2552,7 @@ Parser::tryParseExceptionSpecification(
                     SmallVectorImpl<SourceRange> &DynamicExceptionRanges,
                     ExprResult &NoexceptExpr) {
   ExceptionSpecificationType Result = EST_None;
-
+  
   // See if there's a dynamic specification.
   if (Tok.is(tok::kw_throw)) {
     Result = ParseDynamicExceptionSpecification(SpecificationRange,

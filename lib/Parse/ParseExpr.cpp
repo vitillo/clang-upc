@@ -857,6 +857,10 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::utf32_string_literal:
     Res = ParseStringLiteralExpression(true);
     break;
+  case tok::kw_THREADS:
+    Res = Actions.ActOnUPCThreadsExpr(Tok.getLocation());
+    ConsumeToken();
+    break;
   case tok::kw__Generic:   // primary-expression: generic-selection [C11 6.5.1]
     Res = ParseGenericSelectionExpression();
     break;
@@ -918,6 +922,12 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
   case tok::kw___alignof:  // unary-expression: '__alignof' unary-expression
                            // unary-expression: '__alignof' '(' type-name ')'
                            // unary-expression: 'alignof' '(' type-id ')'
+  case tok::kw_upc_localsizeof: // unary-expression: 'upc_localsizeof' unary-expression  [UPC]
+                                // unary-expression: 'upc_localsizeof' '(' type-name ')' [UPC]
+  case tok::kw_upc_blocksizeof: // unary-expression: 'upc_blocksizeof' unary-expression  [UPC]
+                                // unary-expression: 'upc_blocksizeof' '(' type-name ')' [UPC]
+  case tok::kw_upc_elemsizeof:  // unary-expression: 'upc_elemsizeof' unary-expression   [UPC]
+                                // unary-expression: 'upc_elemsizeof' '(' type-name ')'  [UPC]
   case tok::kw_vec_step:   // unary-expression: OpenCL 'vec_step' expression
     return ParseUnaryExprOrTypeTraitExpression();
   case tok::ampamp: {      // unary-expression: '&&' identifier
@@ -1522,6 +1532,8 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
 
   assert((OpTok.is(tok::kw_typeof)    || OpTok.is(tok::kw_sizeof) ||
           OpTok.is(tok::kw___alignof) || OpTok.is(tok::kw_alignof) ||
+          OpTok.is(tok::kw_upc_localsizeof) || OpTok.is(tok::kw_upc_blocksizeof) ||
+          OpTok.is(tok::kw_upc_elemsizeof) ||
           OpTok.is(tok::kw_vec_step)) &&
           "Not a typeof/sizeof/alignof/vec_step expression!");
 
@@ -1581,6 +1593,8 @@ Parser::ParseExprAfterUnaryExprOrTypeTrait(const Token &OpTok,
 /// [C++0x] 'alignof' '(' type-id ')'
 ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   assert((Tok.is(tok::kw_sizeof) || Tok.is(tok::kw___alignof)
+          || Tok.is(tok::kw_upc_localsizeof) || Tok.is(tok::kw_upc_blocksizeof)
+          || Tok.is(tok::kw_upc_elemsizeof)
           || Tok.is(tok::kw_alignof) || Tok.is(tok::kw_vec_step)) &&
          "Not a sizeof/alignof/vec_step expression!");
   Token OpTok = Tok;
@@ -1645,6 +1659,12 @@ ExprResult Parser::ParseUnaryExprOrTypeTraitExpression() {
   UnaryExprOrTypeTrait ExprKind = UETT_SizeOf;
   if (OpTok.is(tok::kw_alignof) || OpTok.is(tok::kw___alignof))
     ExprKind = UETT_AlignOf;
+  else if(OpTok.is(tok::kw_upc_localsizeof))
+    ExprKind = UETT_UPC_LocalSizeOf;
+  else if(OpTok.is(tok::kw_upc_blocksizeof))
+    ExprKind = UETT_UPC_BlockSizeOf;
+  else if(OpTok.is(tok::kw_upc_elemsizeof))
+    ExprKind = UETT_UPC_ElemSizeOf;
   else if (OpTok.is(tok::kw_vec_step))
     ExprKind = UETT_VecStep;
 

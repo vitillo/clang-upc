@@ -54,6 +54,14 @@ void Parser::HandlePragmaPack() {
                           Info->LParenLoc, Info->RParenLoc);
 }
 
+StmtResult Parser::HandlePragmaUPC() {
+  assert(Tok.is(tok::annot_pragma_upc));
+  const Sema::PragmaUPCKind *Kind =
+    static_cast<Sema::PragmaUPCKind *>(Tok.getAnnotationValue());
+  SourceLocation PragmaLoc = ConsumeToken();
+  return Actions.ActOnPragmaUPC(PragmaLoc, *Kind);
+}
+
 // #pragma GCC visibility comes in two variants:
 //   'push' '(' [visibility] ')'
 //   'pop'
@@ -233,6 +241,57 @@ void PragmaPackHandler::HandlePragma(Preprocessor &PP,
   Toks[0].setAnnotationValue(static_cast<void*>(Info));
   PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/true,
                       /*OwnsTokens=*/false);
+}
+
+// #pragma upc comes in two variants:
+//   'strict'
+//   'relaxed'
+void PragmaUPCHandler::HandlePragma(Preprocessor &PP, 
+                                    PragmaIntroducerKind Introducer,
+                                    Token &UPCTok) {
+  SourceLocation UPCLoc = UPCTok.getLocation();
+
+  Token Tok;
+  PP.LexUnexpandedToken(Tok);
+
+  const IdentifierInfo *StrictRelaxed = Tok.getIdentifierInfo();
+
+  Sema::PragmaUPCKind Kind;
+
+  if (Tok.is(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_expected_identifier)
+      << "upc";
+    return;
+  }
+
+  if (StrictRelaxed && StrictRelaxed->isStr("strict")) {
+    Kind = Sema::PUPCK_Strict;
+  } else if (StrictRelaxed && StrictRelaxed->isStr("relaxed")) {
+    Kind = Sema::PUPCK_Relaxed;
+  } else {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_upc_invalid);
+    return;
+  }
+  PP.LexUnexpandedToken(Tok);
+  if (Tok.isNot(tok::eod)) {
+    PP.Diag(Tok.getLocation(), diag::warn_pragma_extra_tokens_at_eol)
+      << "upc";
+    return;
+  }
+
+  Sema::PragmaUPCKind *Info = 
+    (Sema::PragmaUPCKind*) PP.getPreprocessorAllocator().Allocate(
+      sizeof(Sema::PragmaUPCKind), llvm::alignOf<Sema::PragmaUPCKind>());
+  new (Info) Sema::PragmaUPCKind(Kind);
+
+  Token *Toks = new Token[1];
+  Toks[0].startToken();
+  Toks[0].setKind(tok::annot_pragma_upc);
+  Toks[0].setLocation(UPCLoc);
+  Toks[0].setAnnotationValue(
+                          const_cast<void*>(static_cast<const void*>(Info)));
+  PP.EnterTokenStream(Toks, 1, /*DisableMacroExpansion=*/true,
+                      /*OwnsTokens=*/true);
 }
 
 // #pragma ms_struct on

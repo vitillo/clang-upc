@@ -540,6 +540,8 @@ private:
   /// \brief The floating point pragma option settings.
   SmallVector<uint64_t, 1> FPPragmaOptions;
 
+  SmallVector<uint64_t, 1> UPCPragmaOptions;
+
   /// \brief The OpenCL extension settings.
   SmallVector<uint64_t, 1> OpenCLExtensions;
 

@@ -133,6 +133,7 @@ void TypePrinter::print(const Type *T, Qualifiers Quals, std::string &buffer) {
       break;
       
     case Type::ConstantArray:
+    case Type::UPCThreadArray:
     case Type::IncompleteArray:
     case Type::VariableArray:
     case Type::DependentSizedArray:
@@ -283,6 +284,26 @@ void TypePrinter::printConstantArray(const ConstantArrayType *T,
                                      std::string &S) {
   S += '[';
   S += llvm::utostr(T->getSize().getZExtValue());
+  S += ']';
+  
+  IncludeStrongLifetimeRAII Strong(Policy);
+  print(T->getElementType(), S);
+}
+
+void TypePrinter::printUPCThreadArray(const UPCThreadArrayType *T, 
+                                     std::string &S) {
+  S += '[';
+  uint64_t val = T->getSize().getZExtValue();
+  if (T->getThread()) {
+    if (val == 1) {
+      S += "THREADS";
+    } else {
+      S += llvm::utostr(val);
+      S += "*THREADS";
+    }
+  } else {
+    S += llvm::utostr(val);
+  }
   S += ']';
   
   IncludeStrongLifetimeRAII Strong(Policy);
@@ -1215,6 +1236,32 @@ void Qualifiers::getAsStringInternal(std::string &S,
     case Qualifiers::OCL_Weak: S += "__weak"; break;
     case Qualifiers::OCL_Autoreleasing: S += "__autoreleasing"; break;
     }
+  }
+
+  if (hasShared()) {
+    if (!S.empty()) S += ' ';
+    S += "shared";
+    if (hasLayoutQualifier()) {
+      S += " [";
+      S += llvm::utostr_32(getLayoutQualifier());
+      S += "]";
+    }
+    if (hasLayoutQualifierStar()) {
+      if (hasLayoutQualifier()) {
+        S += " shared";
+      }
+      S += " [*]";
+    }
+  }
+
+  if (hasStrict()) {
+    if (!S.empty()) S += ' ';
+    S += "strict";
+  }
+
+  if (hasRelaxed()) {
+    if (!S.empty()) S += ' ';
+    S += "relaxed";
   }
 }
 

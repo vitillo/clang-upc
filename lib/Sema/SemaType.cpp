@@ -31,6 +31,8 @@
 #include "clang/Sema/DelayedDiagnostic.h"
 #include "clang/Sema/Lookup.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/APSInt.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/ErrorHandling.h"
 using namespace clang;
 
@@ -571,6 +573,44 @@ static void maybeSynthesizeBlockSignature(TypeProcessingState &state,
   state.setCurrentChunkIndex(declarator.getNumTypeObjects());
 }
 
+uint32_t Sema::CheckLayoutQualifier(Expr * LQExpr) {
+  if (LQExpr) {
+    llvm::APSInt Val(Context.getTypeSize(Context.getSizeType()));
+    if (VerifyIntegerConstantExpression(LQExpr, &Val).isInvalid()) {
+      // Diagnostic printed by VerifyIntegerConstantExpression
+      return 1;
+    } else {
+      if (Val.getActiveBits() > getLangOpts().UPCPhaseBits) {
+        llvm::SmallString<64> ValStr;
+        Val.toStringUnsigned(ValStr);
+        Diag(LQExpr->getLocStart(), diag::err_upc_layout_qualifier_too_big)
+          << ValStr << LQExpr->getSourceRange();
+        return 1;
+      } else {
+        return Val.getZExtValue();
+      }
+    }
+  } else {
+    return 0;
+  }
+}
+
+static Qualifiers computeQualifiers(Sema &S, unsigned TypeQuals, Expr *LayoutQualifier) {
+  Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals & Qualifiers::CVRMask);
+  if (TypeQuals & DeclSpec::TQ_shared) {
+    Quals.addShared();
+    if (TypeQuals & DeclSpec::TQ_lqexpr)
+      Quals.setLayoutQualifier(S.CheckLayoutQualifier(LayoutQualifier));
+    if (TypeQuals & DeclSpec::TQ_lqstar)
+      Quals.addLayoutQualifierStar();
+  }
+  if (TypeQuals & DeclSpec::TQ_relaxed)
+    Quals.addRelaxed();
+  if (TypeQuals & DeclSpec::TQ_strict)
+    Quals.addStrict();
+  return Quals;
+}
+
 /// \brief Convert the specified declspec to the appropriate type
 /// object.
 /// \param D  the declarator containing the declaration specifier.
@@ -959,13 +999,22 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
         Loc = DS.getConstSpecLoc();
       else if (TypeQuals & DeclSpec::TQ_volatile)
         Loc = DS.getVolatileSpecLoc();
-      else {
-        assert((TypeQuals & DeclSpec::TQ_restrict) &&
-               "Has CVR quals but not C, V, or R?");
+      else if (TypeQuals & DeclSpec::TQ_restrict)
         Loc = DS.getRestrictSpecLoc();
-      }
-      S.Diag(Loc, diag::warn_typecheck_function_qualifiers)
-        << Result << DS.getSourceRange();
+      else if (TypeQuals & DeclSpec::TQ_shared)
+        Loc = DS.getSharedSpecLoc();
+      else if (TypeQuals & DeclSpec::TQ_relaxed)
+        Loc = DS.getRelaxedSpecLoc();
+      else if (TypeQuals & DeclSpec::TQ_strict)
+        Loc = DS.getStrictSpecLoc();
+      else
+        assert(false && "Has CVR quals but not C, V, or R?");
+      if (TypeQuals & DeclSpec::TQ_shared)
+        S.Diag(DS.getSharedSpecLoc(), diag::err_upc_function_shared)
+          << Result << DS.getSourceRange();
+      else
+        S.Diag(Loc, diag::warn_typecheck_function_qualifiers)
+          << Result << DS.getSourceRange();
     }
 
     // C++ [dcl.ref]p1:
@@ -999,7 +1048,50 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
       // in this case.
     }
 
-    Qualifiers Quals = Qualifiers::fromCVRMask(TypeQuals);
+    Qualifiers Quals = computeQualifiers(S, TypeQuals, DS.getUPCLayoutQualifier());
+
+    if (S.getLangOpts().UPC) {
+      Qualifiers Existing = Result.getQualifiers();
+
+      // UPC1.2 6.5.2p7:
+      // No type qualifier list shall include both strict and
+      // relaxed either directly or indirectly through one
+      // or more typedefs.
+      if (Existing.hasRelaxed() && Quals.hasStrict()) {
+        S.Diag(DS.getStrictSpecLoc(), diag::err_invalid_decl_spec_combination) << "relaxed";
+        Quals.removeStrict();
+      }
+      if (Existing.hasStrict() && Quals.hasRelaxed()) {
+        S.Diag(DS.getRelaxedSpecLoc(), diag::err_invalid_decl_spec_combination) << "strict";
+        Quals.removeRelaxed();
+      }
+      // UPC1.2 6.5.2p6:
+      // No type qualifier list shall specify more than one
+      // block size, either directly or indirectly through
+      // one or more typedefs.
+      if (Existing.hasLayoutQualifier() && Quals.hasLayoutQualifier()) {
+        if (Existing.getLayoutQualifier() != Quals.getLayoutQualifier()) {
+          S.Diag(DS.getSharedSpecLoc(), diag::err_invalid_decl_spec_combination) << "shared";
+          Quals.removeLayoutQualifier();
+        }
+      }
+
+      // UPC 1.2 6.5.1p4
+      // A reference type qualifier shall appear in a qualifier list
+      // only when the list also contains a shared type qualifier.
+      if (!Quals.hasShared() && !Existing.hasShared()) {
+        if (Quals.hasRelaxed()) {
+          S.Diag(DS.getRelaxedSpecLoc(), diag::err_upc_reference_type_qualifier_requires_shared)
+            << Result << "relaxed";
+          Quals.removeRelaxed();
+        } else if (Quals.hasStrict()) {
+          S.Diag(DS.getStrictSpecLoc(), diag::err_upc_reference_type_qualifier_requires_shared)
+            << Result << "strict";
+          Quals.removeStrict();
+        }
+      }
+    }
+
     Result = Context.getQualifiedType(Result, Quals);
   }
 
@@ -1046,6 +1138,21 @@ QualType Sema::BuildQualifiedType(QualType T, SourceLocation Loc,
     if (DiagID) {
       Diag(Loc, DiagID) << ProblemTy;
       Qs.removeRestrict();
+    }
+  }
+
+  // UPC 1.2 6.5.1p4
+  // A reference type qualifier shall appear in a qualifier list
+  // only when the list also contains a shared type qualifier.
+  if (!Qs.hasShared() && !T.getQualifiers().hasShared()) {
+    if (Qs.hasRelaxed()) {
+      Diag(Loc, diag::err_upc_reference_type_qualifier_requires_shared)
+        << T << "relaxed";
+      Qs.removeRelaxed();
+    } else if (Qs.hasStrict()) {
+      Diag(Loc, diag::err_upc_reference_type_qualifier_requires_shared)
+        << T << "strict";
+      Qs.removeStrict();
     }
   }
 
@@ -1131,6 +1238,20 @@ QualType Sema::BuildPointerType(QualType T,
     return QualType();
   }
 
+  if (getLangOpts().UPC) {
+    // UPC 1.2 6.5.2p7
+    // A layout qualifier of '*' shall not appear in the
+    // declaration specifiers of a pointer type.
+    if(T.getQualifiers().hasLayoutQualifierStar()) {
+      Diag(Loc, diag::err_upc_shared_star_in_pointer);
+      return QualType();
+    }
+    if (T->isVoidType() && T.getQualifiers().hasLayoutQualifier()) {
+      Diag(Loc, diag::err_upc_layout_qualifier_on_void);
+      return QualType();
+    }
+  }
+
   assert(!T->isObjCObjectType() && "Should build ObjCObjectPointerType");
 
   // In ARC, it is forbidden to build pointers to unqualified pointers.
@@ -1198,6 +1319,37 @@ QualType Sema::BuildReferenceType(QualType T, bool SpelledAsLValue,
   if (LValueRef)
     return Context.getLValueReferenceType(T, SpelledAsLValue);
   return Context.getRValueReferenceType(T);
+}
+
+static bool isArraySizeTHREAD(Sema& S, Expr *ArraySize, llvm::APSInt &SizeVal)
+{
+  // UPC 1.2 6.5.2.1p2
+  // When a UPC program is translated in the dynamic THREADS environment
+  // and an array with shared-qualified elements is declared with
+  // definite blocksize, the THREADS expression shall occur exactly
+  // once in one dimension of the array declarator (including through
+  // typedefs).  Further, the THREADS expression shall only occur either
+  // alone or when multiplied by an integer constant expression.
+  ArraySize = ArraySize->IgnoreParenImpCasts();
+  if (isa<UPCThreadExpr>(ArraySize)) {
+    SizeVal = 1;
+    return true;
+  } else if(BinaryOperator *BO = dyn_cast<BinaryOperator>(ArraySize)) {
+    if (BO->getOpcode() == BO_Mul) {
+      if (BO->getRHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
+        llvm::APSInt tmp(SizeVal.getBitWidth(), SizeVal.isUnsigned());
+        bool result = isArraySizeTHREAD(S, BO->getLHS(), tmp);
+        SizeVal *= tmp;
+        return result;
+      } else if (BO->getLHS()->isIntegerConstantExpr(SizeVal, S.getASTContext())) {
+        llvm::APSInt tmp(SizeVal.getBitWidth(), SizeVal.isUnsigned());
+        bool result = isArraySizeTHREAD(S, BO->getRHS(), tmp);
+        SizeVal *= tmp;
+        return result;
+      }
+    }
+  }
+  return false;
 }
 
 /// Check whether the specified array size makes the array type a VLA.  If so,
@@ -1331,10 +1483,17 @@ QualType Sema::BuildArrayType(QualType T, ArrayType::ArraySizeModifier ASM,
       return QualType();
     }
 
-    // C99: an array with an element type that has a non-constant-size is a VLA.
-    // C99: an array with a non-ICE size is a VLA.  We accept any expression
-    // that we can fold to a non-zero positive value as an extension.
-    T = Context.getVariableArrayType(T, ArraySize, ASM, Quals, Brackets);
+    if (T->isUPCThreadArrayType() && !isArraySizeVLA(*this, ArraySize, ConstVal)) {
+      T = Context.getUPCThreadArrayType(T, ConstVal, false, ASM, Quals);
+    } else if (!T->isDependentType() && (T->isIncompleteType() || T->isConstantSizeType())
+               && isArraySizeTHREAD(*this, ArraySize, ConstVal)) {
+      T = Context.getUPCThreadArrayType(T, ConstVal, true, ASM, Quals);
+    } else {
+      // C99: an array with an element type that has a non-constant-size is a VLA.
+      // C99: an array with a non-ICE size is a VLA.  We accept any expression
+      // that we can fold to a non-zero positive value as an extension.
+      T = Context.getVariableArrayType(T, ArraySize, ASM, Quals, Brackets);
+    }
   } else {
     // C99 6.7.5.2p1: If the expression is a constant expression, it shall
     // have a value greater than zero.
@@ -1483,6 +1642,10 @@ QualType Sema::BuildFunctionType(QualType T,
     Diag(Loc, diag::err_func_returning_array_function) 
       << T->isFunctionType() << T;
     return QualType();
+  }
+
+  if (T.getQualifiers().hasShared()) {
+    Diag(Loc, diag::err_upc_func_returning_shared) << T;
   }
 
   // Functions cannot return half FP.
@@ -2029,6 +2192,104 @@ static void checkQualifiedFunction(Sema &S, QualType T,
     << getFunctionQualifiersAsString(T->castAs<FunctionProtoType>());
 }
 
+static QualType FixLayoutQualifierStar(QualType T, uint32_t BlockSize, ASTContext& Context) {
+  Qualifiers Quals = T.getLocalQualifiers();
+  const Type * TP = T.getTypePtr();
+  if (Quals.hasLayoutQualifierStar()) {
+    Quals.removeLayoutQualifierStar();
+    Quals.setLayoutQualifier(BlockSize);
+  }
+  if (const ArrayType * AT = dyn_cast<ArrayType>(TP)) {
+    if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
+      return Context.getQualifiedType(Context.getConstantArrayType(
+        FixLayoutQualifierStar(CAT->getElementType(), BlockSize, Context),
+        CAT->getSize(), CAT->getSizeModifier(), CAT->getIndexTypeCVRQualifiers()), Quals);
+    } else if (const UPCThreadArrayType * TAT = dyn_cast<UPCThreadArrayType>(AT)) {
+      return Context.getQualifiedType(Context.getUPCThreadArrayType(
+        FixLayoutQualifierStar(TAT->getElementType(), BlockSize, Context),
+        TAT->getSize(), TAT->getThread(), TAT->getSizeModifier(),
+        TAT->getIndexTypeCVRQualifiers()), Quals);
+    } else {
+      llvm_unreachable("Expected constant size array type");
+    }
+  } else {
+    return Context.getQualifiedType(TP, Quals);
+  }
+}
+
+static bool ComputeLayoutQualifierStar(QualType T, Sema& S, uint32_t& Out, SourceLocation Loc) {
+  int Size = S.getASTContext().getTypeSize(S.getASTContext().getSizeType());
+  llvm::APInt result(Size, 1);
+  bool hasTHREAD = false;
+  QualType CurType = T.getCanonicalType();
+  while (const ArrayType * AT = dyn_cast<ArrayType>(CurType.getTypePtr())) {
+    if (const ConstantArrayType * CAT = dyn_cast<ConstantArrayType>(AT)) {
+      result *= CAT->getSize();
+    } else if (const UPCThreadArrayType * TAT = dyn_cast<UPCThreadArrayType>(AT)) {
+      if (TAT->getThread())
+        hasTHREAD = true;
+      result *= TAT->getSize();
+    } else if (isa<IncompleteArrayType>(AT)) {
+      return false;
+    } else {
+      // Only constant size arrays can be declared shared.
+      return false;
+    }
+    CurType = AT->getElementType();
+  }
+  if (hasTHREAD) {
+    if (result.getActiveBits() > S.getLangOpts().UPCPhaseBits) {
+      llvm::SmallString<64> ValStr;
+      result.toStringUnsigned(ValStr);
+      S.Diag(Loc, diag::err_upc_layout_qualifier_too_big) << ValStr;
+      Out = 1;
+    } else {
+      Out = result.getZExtValue();
+    }
+    return true;
+  } else {
+    uint64_t threads = S.getASTContext().getLangOpts().UPCThreads;
+    if (threads == 0) {
+      if (T->isArrayType()) {
+        S.Diag(Loc, diag::err_upc_star_requires_threads);
+        return false;
+      } else {
+        Out = 1;
+        return true;
+      }
+    } else {
+      result = (result + threads - 1).udiv(llvm::APInt(Size, threads));
+      if (result.getActiveBits() > S.getLangOpts().UPCPhaseBits) {
+        llvm::SmallString<64> ValStr;
+        result.toStringUnsigned(ValStr);
+        S.Diag(Loc, diag::err_upc_layout_qualifier_too_big) << ValStr;
+        Out = 1;
+      } else {
+        Out = result.getZExtValue();
+      }
+      return true;
+    }
+  }
+}
+
+QualType Sema::ResolveLayoutQualifierStar(QualType T, SourceLocation Loc) {
+  QualType can = T.getCanonicalType();
+  Qualifiers Quals = can.getQualifiers();
+  if (Quals.hasLayoutQualifierStar()) {
+    uint32_t LayoutQualifier;
+    if (!ComputeLayoutQualifierStar(T, *this, LayoutQualifier, Loc)) {
+      return T;
+    }
+    if (Quals.hasLayoutQualifier() && Quals.getLayoutQualifier() != LayoutQualifier) {
+      LayoutQualifier = Quals.getLayoutQualifier();
+      Diag(Loc, diag::err_invalid_decl_spec_combination) << "shared";
+    }
+    return FixLayoutQualifierStar(T, LayoutQualifier, getASTContext());
+  } else {
+    return T;
+  }
+}
+
 static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                                 QualType declSpecType,
                                                 TypeSourceInfo *TInfo) {
@@ -2104,8 +2365,10 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
         break;
       }
       T = S.BuildPointerType(T, DeclType.Loc, Name);
-      if (DeclType.Ptr.TypeQuals)
-        T = S.BuildQualifiedType(T, DeclType.Loc, DeclType.Ptr.TypeQuals);
+      if (DeclType.Ptr.TypeQuals) {
+        Qualifiers Qs = computeQualifiers(S, DeclType.Ptr.TypeQuals, DeclType.Ptr.LQExpr);
+        T = S.BuildQualifiedType(T, DeclType.Loc, Qs);
+      }
 
       break;
     case DeclaratorChunk::Reference: {
@@ -2203,6 +2466,12 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
           diagID = diag::err_block_returning_array_function;
         S.Diag(DeclType.Loc, diagID) << T->isFunctionType() << T;
         T = Context.IntTy;
+        D.setInvalidType(true);
+      }
+
+      // The return type may not be shared qualified
+      if (T.getQualifiers().hasShared()) {
+        S.Diag(DeclType.Loc, diag::err_upc_func_returning_shared) << T;
         D.setInvalidType(true);
       }
 
@@ -2560,6 +2829,11 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
                                   FnTy->arg_type_begin(),
                                   FnTy->getNumArgs(), EPI);
     }
+  }
+
+  // Handle shared [*]
+  if (LangOpts.UPC) {
+    T = S.ResolveLayoutQualifierStar(T, D.getDeclSpec().getLocStart());
   }
 
   // Apply any undistributed attributes from the declarator.
@@ -3277,7 +3551,7 @@ static void HandleAddressSpaceTypeAttribute(QualType &Type,
   max = Qualifiers::MaxAddressSpace;
   if (addrSpace > max) {
     S.Diag(Attr.getLoc(), diag::err_attribute_address_space_too_high)
-      << Qualifiers::MaxAddressSpace << ASArgExpr->getSourceRange();
+      << uint32_t(Qualifiers::MaxAddressSpace) << ASArgExpr->getSourceRange();
     Attr.setInvalid();
     return;
   }

@@ -94,6 +94,7 @@ class ASTContext : public RefCountedBase<ASTContext> {
   mutable llvm::FoldingSet<RValueReferenceType> RValueReferenceTypes;
   mutable llvm::FoldingSet<MemberPointerType> MemberPointerTypes;
   mutable llvm::FoldingSet<ConstantArrayType> ConstantArrayTypes;
+  mutable llvm::FoldingSet<UPCThreadArrayType> UPCThreadArrayTypes;
   mutable llvm::FoldingSet<IncompleteArrayType> IncompleteArrayTypes;
   mutable std::vector<VariableArrayType*> VariableArrayTypes;
   mutable llvm::FoldingSet<DependentSizedArrayType> DependentSizedArrayTypes;
@@ -661,6 +662,12 @@ public:
   /// equivalent to calling T.withConst().
   QualType getConstType(QualType T) const { return T.withConst(); }
 
+  QualType getSharedType(QualType T) const {
+    Qualifiers Quals;
+    Quals.addShared();
+    return getQualifiedType(T, Quals);
+  }
+
   /// adjustFunctionType - Change the ExtInfo on a function type.
   const FunctionType *adjustFunctionType(const FunctionType *Fn,
                                          FunctionType::ExtInfo EInfo);
@@ -749,6 +756,12 @@ public:
   QualType getConstantArrayType(QualType EltTy, const llvm::APInt &ArySize,
                                 ArrayType::ArraySizeModifier ASM,
                                 unsigned IndexTypeQuals) const;
+
+  /// getUPCThreadArrayType - Return the unique reference to the type for a
+  /// UPC shared array of the specified element type.
+  QualType getUPCThreadArrayType(QualType EltTy, const llvm::APInt &ArySize,
+                                 bool hasThread, ArrayType::ArraySizeModifier ASM,
+                                 unsigned IndexTypeQuals) const;
   
   /// getVariableArrayDecayedType - Returns a vla type where known sizes
   /// are replaced with [*].
@@ -1495,6 +1508,9 @@ public:
   const ArrayType *getAsArrayType(QualType T) const;
   const ConstantArrayType *getAsConstantArrayType(QualType T) const {
     return dyn_cast_or_null<ConstantArrayType>(getAsArrayType(T));
+  }
+  const UPCThreadArrayType *getAsUPCThreadArrayType(QualType T) const {
+    return dyn_cast_or_null<UPCThreadArrayType>(getAsArrayType(T));
   }
   const VariableArrayType *getAsVariableArrayType(QualType T) const {
     return dyn_cast_or_null<VariableArrayType>(getAsArrayType(T));

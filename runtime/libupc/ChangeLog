@@ -1,0 +1,638 @@
+2012-08-15  Nenad Vukicevic  <nenad@intrepid.com>
+
+	Add tree based barrier implementation for SMP-based UPC run-time.
+	* configure.ac: Add configuration for the barrier tree fanout.
+	Add checking for __sync_fetch_and_add built-in function.
+	* configure: Re-generate.
+	* config.h.in: Re-generate.
+	* Makefile.am (AM_UPCFLAGS): Added -fno-strict-aliasing
+	to prevent alias warning when converting from pointer-to-shared
+	into its internal representation.
+	(UPC_RUNTIME_SRC): Remove upc_barrier.c.
+	(UPC_RUNTIME_SRC): Add upc_barrier.upc.
+	* Makefile.in: Re-generate.
+	* smp/gcc-upc-lib.in: Add inclusion of atomic/spin_until code when
+	compiling inside the target library.  Replace lib_atomic_cas name
+	to lib_atomic to cover more then CAS atomic.
+	* smp/upc_barrier.c: Delete.
+	* smp/upc_barrier.upc: Add. A new tree based barrier implementation.
+	* smp/upc_config.h (INT_MIN): Make it available for inlined code
+	under int_min_max.
+	* smp/upc_main.c (__upc_per_thread_init): Add call to initialize
+	barrier implementation.
+	* smp/upc_sync.h (__upc_atomic_cas): Move from upc_sysdep.h.
+	(__upc_sync_fetch_and_add): New.
+	(__upc_spin_until): Move from upc_sysdep.h.
+	(__upc_num_cpus): Move from upc_sysdep.h.
+	* smp/upc_sysdep.h (__upc_atomic_cas): Delete.
+	(__upc_spin_until): Delete.
+	(__upc_num_cpus): Delete.
+	* smp/upc_sup.h (__upc_barrier_init): Add external definition.
+	(__upc_map_to_local): New.  Map shared pointer into local address.
+
+2012-07-31  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* configure.ac: Added help description for --with-bfd,
+	--with-bfd-include, and --with-bfd-lib.
+	* configure: Re-generate.
+
+2012-07-31  Gary Funck  <gary@intrepid.com>
+
+	* configure.ac: Remove extra white space at end-of-line.
+	* Makefile.am: Ditto.
+	* Makefile.in: Re-generate.
+
+2012-07-31  Gary Funck  <gary@intrepid.com>
+
+	* configure.ac: Improve diagnostics for options
+	that control UPC stack backtrace support.
+	* configure: Re-generate.
+
+2012-07-31  Gary Funck  <gary@intrepid.com>
+
+	* configure.ac: Shorten long lines.  Improve the
+	consistency of first letter capitalization and
+	remove periods from all except AC_DEFINE's.
+	* acinclude.m4: Ditto.
+	* configure: Re-generate.
+	* config.h.in: Re-generate.
+
+2012-07-14  Gary Funck  <gary@intrepid.com>
+
+	* acinclude.m4 (LIBGUPC_CHECK_SYNC_BUILTINS): Remove
+	set-but-not-used variable in the check for builtin sync. ops.
+	* configure: Re-generate.
+
+2012-07-03  Gary Funck  <gary@intrepid.com>
+
+	* libgupc.texi: Include gpl_v3.texi instead of gpl.texi.
+
+2012-06-09  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* Makefile.am: Removed indented spaces on if/endif.
+
+2012-06-08  Nenad Vukicevic  <nenad@intrepid.com>
+	
+	Add backtrace support for UPC SMP run-time.
+	* configure.ac: Added UPC backtrace configuration
+	options (--enable-upc-backtrace, --enable-upc-backtrace-gdb,
+	--with-upc-backtrace-gdb, --enable-upc-backtrace-signal,
+	--with_upc-backtrace-signal). Fix the check for 'gettime' to
+	save/restore libraries on the check line.
+	* configure: Regenerate.
+	* config.h.in: Regenerate.
+	* Makefile.am (AM_CPPFLAGS): Add include path for bfd.h.
+	(UPC_RUNTIME_SRC): Add new source files for backtrace.
+	(UPC_BACKTRACE_SUP): New.
+	* Makefile.in: Regenerate.
+	* testsuite/Makefile.in: Regenerate.
+	* configure.tgt (LIBS): Added options for linking with libbfd,
+	libdl. Added -export-dynamic if -rdynamic option is supported.
+	* smp/upc_backtrace.h: New. Backtrace API.
+	* smp/upc_backtrace.c: New. Backtrace support functions.
+	* smp/upc_backtrace_sup.c: New.  Source file/line search support
+	functions.
+	* smp/upc_main.c (__upc_fatal): Added call to backtrace.
+	(__upc_monitor_threads): Added code to continue monitoring threads
+	if the wait() was interrupted by a signal (e.g. backtrace request
+	signal).
+	* smp/upc_sysdep.h (__upc_create_temp_file): Add prototype.
+	* smp/upc_sysdep.c (__upc_create_temp_file): Made public.
+
+2012-05-19  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_main.c (__upc_per_thread_init):
+	Change the declaration of GUPCR_INIT_ARRAY_START
+	and GUPCR_INIT_ARRAY_END so that the optimizer does
+	not conclude that the per-thread initialization procedure table
+	has only a single element.
+
+2012-05-04  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* configure.ac: Check for gupc driver only.
+	Use gupc driver instead of xgupc. Add -fno-upc-pre-include
+	on the command line to prevent inclusion of gcc-upc.h
+	* configure: Regenerate.
+	* Makefile.am (AM_CPPFLAGS): Add -isystem option to
+	allow compiler to find upc.h.
+	* Makefile.in: Regenerate.
+	* include/upc.h (upc_global_lock_alloc): Fix prototype.
+	(upc_all_lock_alloc): Fix prototype.
+	* include/upc_collective.h (upc_coll_init): Fix prototype.
+	* testsuite/lib/libgupc.exp: Added appropriate options to
+	compile the tests with gupc from the build tree.
+
+2012-05-02  Nenad Vukicevic  <nenad@intrepid.com>
+
+	Add memory fence to the low level lock support routines
+	that are called for multiple places in the run-time.
+	* smp/upc_sysdep.c (__upc_acquire_lock): Add a memory fence
+	once lock is acquired.
+	(__upc_try_acquire_lock): Add a memory fence is lock is
+	acquired.
+	(__upc_release_lock): Add a memory fence before releasing
+	the lock.
+	* smp/upc_lock.c (upc_lock): Remove memory fence.
+	(upc_lock_attempt): Ditto.
+	(upc_unlock): Ditto.
+
+2012-04-30  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* testsuite/libgupc.upc/upc.exp: Use '-fupc-threads'
+	option instead of '-n' as the new GUPC driver does not
+	support it.
+
+2012-04-16  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* smp/upc_lock.c (upc_lock): Adding a fence as per the
+	language specification.  This also forces the processor to
+	discard all speculaive memory fetches.
+	(upc_lock_attempt): Ditto.
+	(upc_ulock): Ditto.
+
+2012-04-13  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* smp/upc_sync.h (GUPCR_WRITE_FENCE): Change write fence
+	for PPC processors to use light weight sync instruction.
+	* smp/upc_sysdep.c (__upc_atomic_get_bit): Introduce a read barrier
+	to force processor to discard all speculative memory fetches.
+
+2012-03-26  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* testsuite/lib/libgupc.exp: Added fortran-modules.exp
+	for explicit load from the gcc testsuite directory. It is
+	a required file for gcc-dg.exp.
+
+2012-02-02  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* Makefile.am: Prevent install from adding suffix to the
+	link script (gupc.ld).
+	(toolexeclib_SCRIPTS) remove upc link script.
+	(nodist_toolexeclib_HEADERS) add upc link script.
+	* Makefile: Regenerate.
+	* configure: Regenerate.
+
+2012-01-24  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* smp/upc_pgm_info.c (__upc_validate_pgm_info): Fix the error
+	where the very first entry on the compiled thread info list is
+	not checked.
+
+2012-01-09  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_pgm_info.c (__upc_validate_pgm_info):  Ignore intervening
+	null bytes in the UPC program information section, to ensure that
+	all configuration information strings are processed.  Allow
+	static THREADS compilations to be mixed with dynamic THREADS
+	compilations as long as the static THREADS values all match.
+
+2011-12-19  Nenad Vukicevic  <nenad@intrepid.com>
+
+	Improve handling of shared pointer vaddr field. Make sure
+	that upc_addrfield() always returns an offset of the shared variable
+	from the beginning of the shared section.
+	* smp/upc_pts.h (GUPCR_PTS_VADDR): Macro definition returns the
+	offset of the shared variable in the shared section.
+	(GUPCR_PTS_SET_VADDR): Macro definition accepts the offset of the
+	shared variable in the shared section and sets the value of the
+	vaddr: offset for packed pts rep, address for struct pts rep.
+	* smp/upc_main.c (__upc_init): Adjust the argument for setting of
+	pointer-to-shared vaddr field.
+	* smp/upc_alloc.upc: Adjust the argument for building a
+	pointer-to-shared to the offset of the shared variable in the
+	shared section.
+
+2011-12-17  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* configure.ac: Remove erroneous check for enable_shared. Build
+	libgupc only as a static library as shared data sections from
+	all the UPC compilations must be combined into a single
+	contiguous section.
+	* configure.tgt: Always include the necessary libraries required by
+	libgupc on the command line. This is necessary as we don't build
+	libgupc as a dynamic link library.
+	* configure: Re-generate.
+
+2011-11-19  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_sync.h (GUPCR_WRITE_FENCE, GUPCR_READ_FENCE):
+	For powerpc, also check __PPC__ pre-processor definition,
+	as 'PPC' is apparently not defined on 64-bit PPC targets.
+	* smp/upc_sysdep.c (__upc_atomic_cas): Implement as external
+	procedure only if builtin compare-and-swap is unavailable.
+	* smp/upc_sysdep.h (__upc_atomic_cas): Ditto.
+
+2011-11-09  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* config/default/upc-crtstuff.mak (ALL_CRT_CFLAGS): Remove
+	$(INCLUDES) as it might contain relative include paths that
+	are not correct for current build directory.
+	(GCC_SRCDIR_INC): Rename from GCC_SRCDIR_CONF_INC.  Added necessary
+	include paths to build in the current libgupc build directory.
+
+2011-10-27  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* smp/upc_sup.h (__upc_sptr_to_addr): Fixed the warning where
+	  'void *' type was used in arithmetic.
+	* smp/upc_mem.h (__upc_memget): Ditto.
+	* (__upc_memput): Ditto.
+
+2011-10-27  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* upc-crtstuff.c: Remove unnecessary includes that caused
+	multiple defined warnings.
+
+2011-10-26  Gary Funck  <gary@intrepid.com>
+
+	Rename "GCC/UPC" to "GNU UPC", "UPC" to "GUPC", and
+	"libupc" to "libgupc".
+	* top-level/libgupc: rename from libupc.
+	* configure.ac: Change "GCC UPC" references to "GNU UPC".
+	Change "libupc" references to "libgupc".  Change "xupc" references
+	to "xgupc".  Change "upc-cmd" references to "gupc".
+	Change "gen-gccupc-ld-script.pl" references to "gen-upc-ld-script.pl".
+	Change "libupc.spec" references to "libgupc.spec".
+	* configure: Re-generate.
+	* Makefile.am: Change "libupc" references to "libgupc".
+	* Makefile.in: Re-generate.
+	* config.h.in: Adjust for rename of libupc to libgupc.
+	* configure.tgt: Ditto.
+	* acinclude.m4: Ditto.
+	* gen-inline-libgupc.pl: Re-name from gen-gccupc-inline-lib.pl
+	Change "GCC/UPC" to "GUPC".
+	* gen-upc-ld-script.pl: Re-name from gen-gccupc-ld-script.pl.
+	* libgupc.texi: Re-name from libupc.texi.
+	* libgupc.spec.in: Re-name from libupc.spec.in.
+	* smp/upc_pgm_info.c (__upc_validate_pgm_info): Change "GCC/UPC"
+	references to "GUPC".
+	* smp/upc_main.c (__upc_run_threads): Ditto.
+	* smp/upc_gasp.c: Ditto.
+	* smp/upc_sysdep.h: Ditto.
+        * testsuite/lib/libgupc-dg.exp: Re-name form libupc-dg.exp.
+	* testsuite/lib/libgupc.exp: Re-name from libupc.a.
+	* testsuite/libgupc.upc: Re-name from libupc.upc.
+
+2011-10-18  Nenad Vukicevic  <nenad@intrepid.com>
+
+	Fix support for large file support on 32-bit machines.
+
+	* smp/upc_config.h: Move inclusion of 'config.h' to the top
+	of the include list. This allows all system include files
+	to see definition of _FILE_OFFSET_BITS=64 that enables large
+	file support.
+
+2011-10-02  Gary Funck  <gary@intrepid.com>
+
+	Move the collectives library sources into their own directory
+	and add support for additional runtime implementation models.
+	* collectives/gen-upc-coll-reduce.pl: Moved from 'smp' directory.
+	* collectives/upc_coll_broadcast.upc: Ditto.
+	* collectives/upc_coll_err.upc: Ditto.
+	* collectives/upc_coll_exchange.upc: Ditto.
+	* collectives/upc_coll_gather_all.upc: Ditto.
+	* collectives/upc_coll_gather.upc: Ditto.
+	* collectives/upc_coll.h: Ditto.
+	* collectives/upc_coll_init.upc: Ditto.
+	* collectives/upc_coll_permute.upc: Ditto.
+	* collectives/upc_coll_prefix_reduce.in: Ditto.
+	* collectives/upc_coll_prefix_reduce.upc: Ditto.
+	* collectives/upc_coll_readme.txt: Ditto.
+	* collectives/upc_coll_reduce.in: Ditto.
+	* collectives/upc_coll_reduce.upc: Ditto.
+	* collectives/upc_coll_scatter.upc: Ditto.
+	* collectives/upc_coll_sort.upc: Ditto.
+	* smp/gcc-upc-lib.in: Moved from 'include' directory.
+	* gen-gccupc-inline-lib.pl: Moved from 'smp' directory.
+	* gen-gccupc-ld-script.pl: Ditto.
+	* configure.ac: Implement support for additional runtime
+	models. (Currently, only 'smp' is supported.)
+	Build the collectives library from sources in the
+	collectives directory.
+	* Makefile.am: Likewise.
+	* configure: Re-generate.
+	* config.h.in: Re-generate.
+	* Makefile.in: Re-generate.
+
+2011-09-30  Gary Funck  <gary@intrepid.com>
+
+	Generalize collectives library to support indefinite block sizes.
+	* smp/upc_coll_prefix_reduce.in: If 'blk_size' is zero, then set it
+	to 'nelems'.
+	* smp/upc_coll_reduce.in: Ditto.
+	* smp/upc_coll_prefix_reduce.upc: Re-generate.
+	* smp/upc_coll_reduce.upc: Re-generate.
+
+2011-09-19  Gary Funck  <gary@intrepid.com>
+
+	* libupc/smp/upc_access.c (__getstf2, __getsxf2):
+	Define temporary as "long double" rather than "double" to avoid
+	loss of precision.
+	* testsuite/libupc.upc/intrepid/test29.upc: Improve the test of
+	"long double" by adding checks that required accuracy
+	exceeds the accuracy of "double".
+
+2011-09-02  Gary Funck  <gary@intrepid.com>
+
+	Align UPC pointers-to-shared, only if the target enforces
+	strict alignment.
+	* configure.ac: Derive GUPCR_PTS_ALIGN from __UPC_PTS_ALIGN__,
+	  if present.  Define GUPCR_PTS_ALIGN as a config.h variable.
+	* smp/upc_pts.h (GUPCR_PTS_ALIGN): Use only if defined.
+	* config.h.in: Re-generate.
+	* configure: Re-generate.
+
+2011-08-23  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* configure.ac: Enable detection of large file support on
+	  32-bit machines.
+	* configure: Re-generate.
+	* config.h.in: Added define for large file support on 32-bit
+	  machines.
+	* smp/upc_config.h: Limit number of VM pages to the number
+	  of configured VADDR bits.
+	* smp/upc_sup.h: Prototype change.
+	* smp/upc_vm.c (__upc_vm_alloc): Return an error if no
+	  more virtual pages can be allocated.
+	  (__upc_vm_alloc): Abort if initial number of VM pages cannot
+	  be allocated.
+	  (__upc_vm_get_cur_page_alloc): Check for error before NUMA
+	  memory region mapping.
+	* smp/upc_alloc.upc (__upc_global_heap_alloc): Return NULL pointer
+	  if VM pages cannot be allocated.
+	  (__upc_local_alloc): Return NULL pointer if memory is not available.
+
+2011-08-16  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_barrier.c (__upc_notify, __upc_wait):
+	  Improve error messages.
+
+2011-08-10  Gary Funck  <gary@intrepid.com>
+
+	Define UPCFLAGS so that it is available in the Makefile,
+	and assign CFLAGS as its default value.
+
+	* configure.ac (UPCFLAGS): Default to CFLAGS if not set.
+	  (UPCFLAGS): Make it an AC_SUBST() so that it can
+	  be referenced in the Makefile.
+	* Makefile.am (AM_UPCFLAGS): Make sure that it is update
+	  the same as AM_CFLAGS.
+	* configure, Makefile.in: Re-generate.
+
+2011-06-06  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* smp/upc_config.h: Change default scheduling policy.
+	  Allow the kernel to schedule UPC threads on its own.
+
+2011-05-17  Gary Funck  <gary@intrepid.com>
+
+	* configure.ac (GUPCR_PTS_VADDR_FIELD,
+	  Delete unused definitions.
+	  configure: Regenerate.
+
+	* smp/upc_pts.h (GUPCR_PTS_THREAD_FIELD,
+	  GUPCR_PTS_PHASE_FIELD): Delete unused definitions
+	  and references.
+
+	* config.h.in (GUPCR_PTS_THREAD_FIELD,
+	  GUPCR_PTS_PHASE_FIELD): Delete unused definitions
+	  and references.
+
+	* upc-crtstuff.c: Delete include of "upc-conf.h".
+
+2011-05-03  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_alloc.upc (__upc_global_heap_alloc,
+	  upc_free): Remove extraneous FIXME/TODO comments.
+
+2011-05-01  Gary Funck  <gary@intrepid.com>
+
+	* configure.ac (upc_crtstuff_mak): New AC_SUBST variable.
+	* configure.tgt (upc_crtstuff_mak): Find upc-crtstuff.mak
+	  on $config_path.
+	* Makefile.am (upc_crtstuff_mak): Set make variable to value
+	  of configured AC_SUBST value.  This eliminates an automake
+	  error caused by a nested 'if' statement.
+	* configure, Makefile.in, testsuite/Makefile.in: Regenerate.
+
+2011-04-13  Gary Funck  <gary@intrepid.com>
+
+	* testsuite/lib/libupc.exp (ALWAYS_CFLAGS):
+	  Remove -lupc from required default switches.
+	  The appropriate library is selected by the
+	  libupc.spec file.
+
+2011-03-22  Gary Funck  <gary@intrepid.com>
+
+	* configure.tgt: Move linker switches into libupc.spec.
+
+2011-03-20  Gary Funck  <gary@intrepid.com>
+
+	Place error message strings directly into the calls to
+	__upc_fatal(), rather than listing them separately
+	as #define's.  The intent of this change is to make
+	it easier to internationalize the message text
+	using standard tools.
+
+	* include/gcc-upc-lib.in: Remove include of lib_config_msgs
+	  named code segment.
+
+	* smp/upc_config.h: Remove #define's used to provide named
+	  references to error messages.
+
+	* smp/upc_lock.c, smp/upc_numa.c, smp/upc_access.c,
+	  smp/upc_vm.c, smp/upc_main.c, smp/upc_alloc.upc,
+	  smp/upc_sysdep.c, smp/upc_affinity.c, smp/upc_addr.c,
+	  smp/upc_mem.h, smp/upc_barrier.c: Replace named references
+	  with actual error message text strings.
+
+2011-03-20  Gary Funck  <gary@intrepid.com>
+
+	Move UPC start files, end files, and linker specs.
+	into libupc.  This reduces the impact on common GCC
+	configuration files, and ensures that these UPC-specific
+	components are only built when the UPC language dialect is built.
+
+	* upc-crtstuff.c: New file. Moved from gcc/upc/upc-crtstuff.c.
+
+	* config/darwin/upc-crt-config.h: New file. Move defines for
+	  UPC-related section begins/ends from gcc/config/darwin.h to here.
+
+	* config/default/upc-crt-config.h: New file. Move defines for
+	  UPC-related section begins/ends from gcc/config/upc-conf.h to here.
+
+	* config/default/upc-crtstuff.mak: New file. Default makefile fragment for
+	  building the upc-crtbegin and upc-crtend object files.
+	  This logic was moved from libgcc/Makefile.in to here.
+
+	* config.h.in: Regenerate with autoheader.  Rename HAVE_GUM_DEBUG
+	  to GUPCR_HAVE_GUM_DEBUG.  Add define for HAVE_UPC_LINK_SCRIPT.
+
+	* configure.ac, configure: Include new configure.tgt script
+	  towards the end of the logic that configures the smp runtime.
+	  Define substitutions for 'config_path', 'XCFLAGS',
+	  'XLDFLAGS', 'link_upc_spec', 'upc_crtbegin_spec',
+	  'upc_crtend_spec', 'upc_crtstuff_objs'. Add LIBUPC_CRTSTUFF
+	  automake conditional.  Fix copyright date in AM_TOP() comment.
+	  Define upc-crtbegin.spec libupc.spec upc-crtend.spec as
+	  autoconf generated config. files.  Regenerate 'configure'.
+
+	* configure.tgt: New. Target-specific configuration logic.
+	  Defines 'config_path', 'upc_crtstuff', 'upc_crtbegin_spec',
+	  'upc_crtend_spec', 'upc_crtstuff_objs' variables; these are used
+	  to control the build of the UPC-related begin/end files
+	  and associated target-specific compiler specification files.
+
+	* libupc.spec.in, upc-crtbegin.spec.in, upc-crtend.spec.in: New.
+	  Define target-specific compiler specifications for linking
+	  and for inclusion of UPC-related start/end object files
+	  when a UPC program is linked.  These files are used
+	  to create resulting .spec files that are included via
+	  GCC's link spec. when a UPC program is linked.
+
+	* Makefile.am: Add rules to build and install upc-crtbegin.spec,
+	  libupc.spec, and upc-crtend.spec from there .in files.
+	  Add rules to build the UPC-specific start/end files if the
+	  automake conditional LIBUPC_CRTSTUFF is enabled.
+	  Fix references to make variables $(UPC_COLL_PREFIX_REDUCE_UPC)
+	  and $(UPC_COLL_REDUCE_UPC) in MAINTAINER_MODE block.
+
+        * Makefile.in, testsuite/Makefile.in: Regenerate with automake.
+
+	* smp/Make-defs, smp/Make-deps, smp/Make-rules: Remove.
+	  These Makefile fragments have not been used since libupc
+	  was re-worked to use automake (when the gupc branch
+	  was first checked in).
+
+	* smp/upc_config.h: Move the defintions of GUPCR_INIT_ARRAY_START
+	  and GUPCR_INIT_ARRAY_END from smp/upc_main.c to here.
+
+	* smp/upc_main.c: Rename HAVE_GUM_DEBUG to GUPCR_HAVE_GUM_DEBUG.
+	  Move the defintions of GUPCR_INIT_ARRAY_START and
+	  GUPCR_INIT_ARRAY_END to smp/upc_config.h.
+
+2011-02-22  Gary Funck  <gary@intrepid.com>
+
+	* include/gcc-upc.h (barrier, barrier_notify, barrier_wait,
+	  forall, fence): Remove #define's that renamed these deprecated
+	UPC keywords into their equivalents in the current UPC
+	language specification.
+
+2011-02-08  Gary Funck  <gary@intrepid.com>
+
+	* acinclude.m4, configure.ac, include/gasp.h,
+	  include/gasp_upc.h, include/gcc-upc.h, include/gcc-upc-lib.in,
+	  include/pupc.h, include/upc_collective.h, include/upc.h,
+	  include/upc_relaxed.h, include/upc_strict.h, libupc.texi,
+	  smp/upc_access.c, smp/upc_accessg.c, smp/upc_access.h,
+	  smp/upc_addr.c, smp/upc_affinity.c, smp/upc_affinity.h,
+	  smp/upc_affinity_stub.c, smp/upc_allocg.upc,
+	  smp/upc_alloc.upc, smp/upc_barrier.c, smp/upc_config.h,
+	  smp/upc_debug.h, smp/upc_defs.h, smp/upc_gasp.c, smp/upc_gum.c,
+	  smp/upc_libg.c, smp/upc_lib.h, smp/upc_lock.c, smp/upc_main.c,
+	  smp/upc_mem.c, smp/upc_mem.h, smp/upc_numa.c, smp/upc_numa.h,
+	  smp/upc_numa_stub.c, smp/upc_pgm_info.c, smp/upc_pts.h,
+	  smp/upc_pupc.c, smp/upc_pupc.h, smp/upc_sup.h, smp/upc_sync.h,
+	  smp/upc_sysdep.c, smp/upc_sysdep.h, smp/upc_vm.c:
+	Update copyright notices.
+
+2010-10-18  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_alloc.upc: upc_alloc.upc: remove pointer arithmetic on
+	  (shared void *) types.
+
+	  Now that GCC/UPC prohibits arithmetic on "(shared void *)" types,
+	  re-work the logic in upc_alloc.upc to avoid operating directly on
+	  "(shared void *)" type.
+
+2010-10-16  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_main.c: Fix comment format.
+
+2010-10-16  Gary Funck  <gary@intrepid.com>
+
+	* smp/: upc_access.c, upc_access.h, upc_accessg.c: Implement fixes
+	  for SGI/IRIX/MIPS port.
+
+	  The gcc/Makefile.in rules for install-plugin had to be re-written to
+	  break up a long list of header files that exceeded the command line
+	  limitation imposed by Irix.
+
+	  Access functions for TFmode types had to be implemented.
+	  Apparently, this is the mode used for the SGI/MIPS port to represent
+	  "long float".
+
+	  See also: gcc/Makefile.in libupc/smp/upc_access.c
+	  libupc/smp/upc_access.h libupc/smp/upc_accessg.c
+
+2010-10-16  Nenad Vukicevic  <nenad@intrepid.com>
+
+	* include/gcc-upc.h, smp/upc_main.c: Fix rand() implementation for
+	  pthreads run-time.
+
+	  For the pthreads implementation we keep a per-thread random seed
+	  number.  This way, calls to rand() function will return the same
+	  value on each thread.
+
+	  rand() and srand() functions are redefined as __upc_random and
+	  __upc_srandom.
+
+2010-10-10  Gary Funck  <gary@intrepid.com>
+
+	* include/upc_collective.h, smp/gen-upc-coll-reduce.pl,
+	  smp/upc_coll_prefix_reduce.upc, smp/upc_coll_reduce.upc:
+	  Implement collectives on "long double" objects.
+
+	  See also: libupc/include/upc_collective.h
+	  libupc/smp/gen-upc-coll-reduce.pl
+	  libupc/smp/upc_coll_prefix_reduce.upc libupc/smp/upc_coll_reduce.upc
+
+2010-10-09  Gary Funck  <gary@intrepid.com>
+
+	* smp/: upc_access.c, upc_access.h, upc_accessg.c: Implement shared
+	  access to "long float" data type.
+
+	  See also: libupc/smp/upc_access.c libupc/smp/upc_access.h
+	  libupc/smp/upc_accessg.c
+
+2010-09-24  Gary Funck  <gary@intrepid.com>
+
+	* smp/upc_main.c: Fix bug: Failure to initialize per-thread
+	  static variables that refer to shared addresses.
+
+	  The shared data initialization routine created by the compiler needs
+	  to be called on each threead, because in some cases it will
+	  initialize per thread data.  At the moment, the compiler does not
+	  generate code that will differentiate between initialization code
+	  that should only occur on thread 0, so some additional work may get
+	  done.  In the future, that aspect of initialization will be
+	  corrected.
+
+2010-09-22  Gary Funck  <gary@intrepid.com>
+
+	* include/gcc-upc-lib.in, include/upc.h, smp/upc_main.c:
+	  Fix bug: Nested upc_forall() semantics are not implemented
+
+	  The checkforall test in the Berkeley harness test suite indicated
+	  that GCC/UPC was not properly implementing nested upc_forall
+	  semantics.  Nested upc_forall statements (both statically or
+	  dynamically nested) must implement their affinity clause as if it
+	  were "continue"; thus all steps in the loop must execute without
+	  regard for affinity.  To implement these semantics a global depth
+	  counter, __upc_forall_depth, is maintained by the generated code
+	  that implements upc_forall.
+
+	  See also: gcc/c-parser.c gcc/c-tree.h gcc/stub-upc.c
+	  gcc/upc/upc-act.c gcc/upc/upc-act.h libupc/include/gcc-upc-lib.in
+	  libupc/include/upc.h libupc/smp/upc_main.c
+
+2010-09-18  Gary Funck  <gary@intrepid.com>
+
+	* Makefile.in, config.h.in, configure, configure.ac, include/upc.h,
+	  smp/Make-defs, smp/upc_accessg.c, smp/upc_allocg.upc,
+	  smp/upc_defs.h, smp/upc_libg.c, smp/upc_main.c, smp/upc_sup.h:
+	  Implement -fupc-debug switch.
+
+2010-02-28  Gary Funck  <gary@intrepid.com>
+
+	Initial implementation and checkin.
+

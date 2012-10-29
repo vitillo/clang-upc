@@ -87,7 +87,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
     Diags(PP.getDiagnostics()), SourceMgr(PP.getSourceManager()),
     CollectStats(false), ExternalSource(0), CodeCompleter(CodeCompleter),
     CurContext(0), OriginalLexicalContext(0),
-    PackContext(0), MSStructPragmaOn(false), VisContext(0),
+    PackContext(0), UPCIsStrict(false), MSStructPragmaOn(false), VisContext(0),
     ExprNeedsCleanups(false), LateTemplateParser(0), OpaqueParser(0),
     IdResolver(pp), StdInitializerList(0), CXXTypeInfoDecl(0), MSVCGuidDecl(0),
     NSNumberDecl(0), NSArrayDecl(0), ArrayWithObjectsMethod(0), 
@@ -298,6 +298,7 @@ CastKind Sema::ScalarTypeToBooleanCastKind(QualType ScalarTy) {
   switch (ScalarTy->getScalarTypeKind()) {
   case Type::STK_Bool: return CK_NoOp;
   case Type::STK_CPointer: return CK_PointerToBoolean;
+  case Type::STK_UPCSharedPointer: return CK_PointerToBoolean;
   case Type::STK_BlockPointer: return CK_PointerToBoolean;
   case Type::STK_ObjCObjectPointer: return CK_PointerToBoolean;
   case Type::STK_MemberPointer: return CK_MemberPointerToBoolean;
@@ -864,7 +865,7 @@ void Sema::PopFunctionScopeInfo(const AnalysisBasedWarnings::Policy *WP,
 }
 
 void Sema::PushCompoundScope() {
-  getCurFunction()->CompoundScopes.push_back(CompoundScopeInfo());
+  getCurFunction()->CompoundScopes.push_back(CompoundScopeInfo(IsUPCDefaultStrict()));
 }
 
 void Sema::PopCompoundScope() {
@@ -872,6 +873,14 @@ void Sema::PopCompoundScope() {
   assert(!CurFunction->CompoundScopes.empty() && "mismatched push/pop");
 
   CurFunction->CompoundScopes.pop_back();
+}
+
+bool Sema::IsUPCDefaultStrict() const {
+  FunctionScopeInfo *CurFunction = getCurFunction();
+  if (CurFunction->CompoundScopes.empty())
+    return UPCIsStrict;
+  else
+    return CurFunction->CompoundScopes.back().UPCIsStrict;
 }
 
 /// \brief Determine whether any errors occurred within this function/method/

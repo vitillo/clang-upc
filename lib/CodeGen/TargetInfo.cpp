@@ -38,7 +38,8 @@ static void AssignToArrayRange(CodeGen::CGBuilderTy &Builder,
 
 static bool isAggregateTypeForABI(QualType T) {
   return CodeGenFunction::hasAggregateLLVMType(T) ||
-         T->isMemberFunctionPointerType();
+         T->isMemberFunctionPointerType() ||
+         T->hasPointerToSharedRepresentation();
 }
 
 ABIInfo::~ABIInfo() {}
@@ -285,6 +286,9 @@ static bool is32Or64BitBasicType(QualType Ty, ASTContext &Context) {
 // should probably make this smarter, or better yet make the LLVM backend
 // capable of handling it.
 static bool canExpandIndirectArgument(QualType Ty, ASTContext &Context) {
+  // A UPC pointer-to-shared acts like a structure type
+  if (Ty->hasPointerToSharedRepresentation())
+    return true;
   // We can only expand structure types.
   const RecordType *RT = Ty->getAs<RecordType>();
   if (!RT)
@@ -1185,6 +1189,17 @@ void X86_64ABIInfo::classify(QualType Ty, uint64_t OffsetBase,
 
   if (Ty->isMemberPointerType()) {
     if (Ty->isMemberFunctionPointerType())
+      Lo = Hi = Integer;
+    else
+      Current = Integer;
+    return;
+  }
+
+  // A UPC pointer-to-shared is treated as either
+  // an integer or a pair of integers depending
+  // on the PTS representation
+  if (Ty->hasPointerToSharedRepresentation()) {
+    if (getContext().getLangOpts().UPCAddrBits == 64)
       Lo = Hi = Integer;
     else
       Current = Integer;

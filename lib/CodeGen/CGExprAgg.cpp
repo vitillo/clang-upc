@@ -276,6 +276,16 @@ void AggExprEmitter::EmitFinalDestCopy(const Expr *E, RValue Src, bool Ignore,
                                                       SizeVal);
     return;
   }
+
+  if (E->getType().getQualifiers().hasShared() || Dest.isShared()) {
+    QualType DestTy =
+      CGF.getContext().getQualifiedType(E->getType().getUnqualifiedType(),
+                                        Dest.getQualifiers());
+    CGF.EmitUPCAggregateCopy(Dest.getAddr(), Src.getAggregateAddr(),
+                             DestTy, E->getType(), E->getExprLoc());
+    return;
+  }
+
   // If the result of the assignment is used, copy the LHS there also.
   // FIXME: Pass VolatileDest as well.  I think we also need to merge volatile
   // from the source as well, as we can't eliminate it if either operand
@@ -595,7 +605,13 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
     break;
       
   case CK_LValueBitCast:
-    llvm_unreachable("should not be emitting lvalue bitcast as rvalue");
+    // This is only allowed for the implicit cast
+    // that applies the default reference type qualifier.
+    assert(CGF.getContext().getLangOpts().UPC &&
+           E->getType().getQualifiers().hasShared() &&
+           "should not be emitting lvalue bitcast as rvalue");
+    EmitAggLoadOfLValue(E);
+    break;
 
   case CK_Dependent:
   case CK_BitCast:
@@ -637,6 +653,8 @@ void AggExprEmitter::VisitCastExpr(CastExpr *E) {
   case CK_ARCReclaimReturnedObject:
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
+  case CK_UPCSharedToLocal:
+  case CK_UPCBitCastZeroPhase:
     llvm_unreachable("cast kind invalid for aggregate types");
   }
 }
@@ -917,13 +935,33 @@ void AggExprEmitter::VisitInitListExpr(InitListExpr *E) {
   }
 
   AggValueSlot Dest = EnsureSlot(E->getType());
-  LValue DestLV = CGF.MakeAddrLValue(Dest.getAddr(), E->getType(),
+  QualType DestType = E->getType();
+  Qualifiers DestQuals;
+  if (Dest.isShared()) {
+    DestQuals.addShared();
+    if (Dest.getQualifiers().hasStrict())
+      DestQuals.addStrict();
+    else if (!DestType.getQualifiers().hasRelaxed() &&
+             !DestType.getQualifiers().hasStrict())
+      DestQuals.addRelaxed();
+    if (Dest.getQualifiers().hasLayoutQualifier())
+      DestQuals.setLayoutQualifier(Dest.getQualifiers().getLayoutQualifier());
+    DestType = CGF.getContext().getQualifiedType(DestType, DestQuals);
+  }
+  LValue DestLV = CGF.MakeAddrLValue(Dest.getAddr(), DestType,
                                      Dest.getAlignment());
 
   // Handle initialization of an array.
   if (E->getType()->isArrayType()) {
     if (E->isStringLiteralInit())
       return Visit(E->getInit(0));
+
+    if (Dest.isShared()) {
+      // This shouldn't be reachable.  It's just here
+      // to catch any changes.
+      CGF.ErrorUnsupported(E, "initialization of shared array", true);
+      return;
+    }
 
     QualType elementType =
         CGF.getContext().getAsArrayType(E->getType())->getElementType();
@@ -1120,7 +1158,7 @@ static void CheckAggExprForMemSetUse(AggValueSlot &Slot, const Expr *E,
                                      CodeGenFunction &CGF) {
   // If the slot is already known to be zeroed, nothing to do.  Don't mess with
   // volatile stores.
-  if (Slot.isZeroed() || Slot.isVolatile() || Slot.getAddr() == 0) return;
+  if (Slot.isZeroed() || Slot.isVolatile() || Slot.isShared() || Slot.getAddr() == 0) return;
 
   // C++ objects with a user-declared constructor don't need zero'ing.
   if (CGF.getContext().getLangOpts().CPlusPlus)

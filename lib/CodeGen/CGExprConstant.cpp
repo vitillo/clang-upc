@@ -744,6 +744,8 @@ public:
     case CK_FloatingToIntegral:
     case CK_FloatingToBoolean:
     case CK_FloatingCast:
+    case CK_UPCSharedToLocal:
+    case CK_UPCBitCastZeroPhase:
       return 0;
     }
     llvm_unreachable("Invalid CastKind");
@@ -1090,6 +1092,8 @@ llvm::Constant *CodeGenModule::EmitConstantValue(const APValue &Value,
       if (isa<llvm::PointerType>(DestTy))
         return llvm::ConstantExpr::getBitCast(C, DestTy);
 
+      assert(!DestType->hasPointerToSharedRepresentation());
+
       return llvm::ConstantExpr::getPtrToInt(C, DestTy);
     } else {
       C = Offset;
@@ -1098,6 +1102,11 @@ llvm::Constant *CodeGenModule::EmitConstantValue(const APValue &Value,
       // an integer.
       if (isa<llvm::PointerType>(DestTy))
         return llvm::ConstantExpr::getIntToPtr(C, DestTy);
+
+      if (DestType->hasPointerToSharedRepresentation()) {
+        assert(Offset->isNullValue());
+        return llvm::ConstantAggregateZero::get(DestTy);
+      }
 
       // If the types don't match this should only be a truncate.
       if (C->getType() != DestTy)

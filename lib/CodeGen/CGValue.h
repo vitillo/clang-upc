@@ -148,11 +148,16 @@ class LValue {
 
   Expr *BaseIvarExp;
 
+  llvm::Type *BitFieldBaseType;
+
   /// TBAAInfo - TBAA information to attach to dereferences of this LValue.
   llvm::MDNode *TBAAInfo;
 
+  SourceLocation Loc;
+
 private:
   void Initialize(QualType Type, Qualifiers Quals,
+                  SourceLocation Loc = SourceLocation(),
                   CharUnits Alignment = CharUnits(),
                   llvm::MDNode *TBAAInfo = 0) {
     this->Type = Type;
@@ -166,6 +171,8 @@ private:
     this->ThreadLocalRef = false;
     this->BaseIvarExp = 0;
     this->TBAAInfo = TBAAInfo;
+    this->BitFieldBaseType = 0;
+    this->Loc = Loc;
   }
 
 public:
@@ -211,6 +218,18 @@ public:
   bool isVolatile() const {
     return Quals.hasVolatile();
   }
+
+  bool isShared() const {
+    return Quals.hasShared();
+  }
+
+  bool isRelaxed() const {
+    return Quals.hasRelaxed();
+  }
+
+  bool isStrict() const {
+    return Quals.hasStrict();
+  }
   
   Expr *getBaseIvarExp() const { return BaseIvarExp; }
   void setBaseIvarExp(Expr *V) { BaseIvarExp = V; }
@@ -225,6 +244,8 @@ public:
 
   CharUnits getAlignment() const { return CharUnits::fromQuantity(Alignment); }
   void setAlignment(CharUnits A) { Alignment = A.getQuantity(); }
+
+  SourceLocation getLoc() const { return Loc; }
 
   // simple lvalue
   llvm::Value *getAddress() const { assert(isSimple()); return V; }
@@ -253,37 +274,44 @@ public:
     assert(isBitField());
     return *BitFieldInfo;
   }
+  llvm::Type *getBitFieldBaseType() const {
+    assert(isBitField());
+    return BitFieldBaseType;
+  }
 
   static LValue MakeAddr(llvm::Value *address, QualType type,
                          CharUnits alignment, ASTContext &Context,
-                         llvm::MDNode *TBAAInfo = 0) {
+                         llvm::MDNode *TBAAInfo = 0,
+                         SourceLocation Loc = SourceLocation()) {
     Qualifiers qs = type.getQualifiers();
     qs.setObjCGCAttr(Context.getObjCGCAttrKind(type));
 
     LValue R;
     R.LVType = Simple;
     R.V = address;
-    R.Initialize(type, qs, alignment, TBAAInfo);
+    R.Initialize(type, qs, Loc, alignment, TBAAInfo);
     return R;
   }
 
   static LValue MakeVectorElt(llvm::Value *Vec, llvm::Value *Idx,
-                              QualType type, CharUnits Alignment) {
+                              QualType type, CharUnits Alignment,
+                              SourceLocation Loc = SourceLocation()) {
     LValue R;
     R.LVType = VectorElt;
     R.V = Vec;
     R.VectorIdx = Idx;
-    R.Initialize(type, type.getQualifiers(), Alignment);
+    R.Initialize(type, type.getQualifiers(), Loc, Alignment);
     return R;
   }
 
   static LValue MakeExtVectorElt(llvm::Value *Vec, llvm::Constant *Elts,
-                                 QualType type, CharUnits Alignment) {
+                                 QualType type, CharUnits Alignment,
+                                 SourceLocation Loc = SourceLocation()) {
     LValue R;
     R.LVType = ExtVectorElt;
     R.V = Vec;
     R.VectorElts = Elts;
-    R.Initialize(type, type.getQualifiers(), Alignment);
+    R.Initialize(type, type.getQualifiers(), Loc, Alignment);
     return R;
   }
 
@@ -295,12 +323,15 @@ public:
   /// access.
   static LValue MakeBitfield(llvm::Value *BaseValue,
                              const CGBitFieldInfo &Info,
-                             QualType type) {
+                             QualType type,
+                             llvm::Type *BaseType = 0,
+                             SourceLocation Loc = SourceLocation()) {
     LValue R;
     R.LVType = BitField;
     R.V = BaseValue;
     R.BitFieldInfo = &Info;
-    R.Initialize(type, type.getQualifiers());
+    R.Initialize(type, type.getQualifiers(), Loc);
+    R.BitFieldBaseType = BaseType;
     return R;
   }
 
@@ -408,6 +439,10 @@ public:
 
   bool isVolatile() const {
     return Quals.hasVolatile();
+  }
+
+  bool isShared() const {
+    return Quals.hasShared();
   }
 
   Qualifiers::ObjCLifetime getObjCLifetime() const {

@@ -2032,6 +2032,59 @@ void CastOperation::CheckCStyleCast() {
     }
   }
 
+  // If the destination is a pointer-to-shared, the
+  // source must be a pointer-to-shared or a null pointer constant.
+  if (const PointerType *CastPtr = DestType->getAs<PointerType>()) {
+    if (const PointerType *ExprPtr = SrcType->getAs<PointerType>()) {
+      Qualifiers CastQuals = CastPtr->getPointeeType().getQualifiers();
+      Qualifiers ExprQuals = ExprPtr->getPointeeType().getQualifiers();
+      if (CastQuals.hasShared() && !ExprQuals.hasShared() &&
+          !SrcExpr.get()->isNullPointerConstant(
+            Self.getASTContext(), Expr::NPC_NeverValueDependent)) {
+        Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_cast_local_to_shared)
+          << SrcType << DestType << Sema::AA_Casting
+          << SrcExpr.get()->getSourceRange();
+        return;
+      }
+      if (CastQuals.hasShared() && ExprQuals.hasShared() &&
+          (CastPtr->getPointeeType()->isIncompleteType() ||
+           ExprPtr->getPointeeType()->isIncompleteType()) &&
+          CastQuals.getLayoutQualifier() > 1 &&
+          CastQuals.getLayoutQualifier() == ExprQuals.getLayoutQualifier()) {
+        Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_pointer_cast_requires_complete_type)
+          << SrcType << DestType << Sema::AA_Casting
+          << SrcExpr.get()->getSourceRange();
+        return;
+      }
+    } else if (CastPtr->getPointeeType().getQualifiers().hasShared() &&
+               !SrcExpr.get()->isNullPointerConstant(
+                 Self.getASTContext(), Expr::NPC_NeverValueDependent)) {
+      Self.Diag(SrcExpr.get()->getLocStart(), diag::err_typecheck_convert_incompatible)
+        << SrcType << DestType << Sema::AA_Casting
+        << 0 << 0
+        << SrcExpr.get()->getSourceRange();
+      return;
+    }
+  }
+
+  // A pointer-to-shared type cannot be converted to a non-pointer type
+  if (const PointerType *ExprPtr = SrcType->getAs<PointerType>()) {
+    if (ExprPtr->getPointeeType().getQualifiers().hasShared() &&
+        !DestType->isPointerType()) {
+      Self.Diag(SrcExpr.get()->getLocStart(), diag::err_typecheck_convert_incompatible)
+        << SrcType << DestType << Sema::AA_Casting
+        << 0 << 0
+        << SrcExpr.get()->getSourceRange();
+      return;
+    }
+  }
+
+  if (DestType.getQualifiers().hasShared()) {
+    Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_cast_to_shared)
+      << DestType
+      << SrcExpr.get()->getSourceRange();
+  }
+
   // ARC imposes extra restrictions on casts.
   if (Self.getLangOpts().ObjCAutoRefCount) {
     checkObjCARCConversion(Sema::CCK_CStyleCast);

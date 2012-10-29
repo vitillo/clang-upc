@@ -1385,6 +1385,12 @@ static bool HandleLValueArrayAdjustment(EvalInfo &Info, const Expr *E,
   if (!HandleSizeof(Info, E->getExprLoc(), EltTy, SizeOfPointee))
     return false;
 
+  if (EltTy.getQualifiers().hasShared()) {
+    Qualifiers Qs = EltTy.getQualifiers();
+    if (!Qs.hasLayoutQualifier() || Qs.getLayoutQualifier() != 0)
+      return false;
+  }
+
   // Compute the new offset in the appropriate width.
   LVal.Offset += Adjustment * SizeOfPointee;
   LVal.adjustIndex(Info, E, Adjustment);
@@ -2926,6 +2932,9 @@ bool LValueExprEvaluator::VisitVarDecl(const Expr *E, const VarDecl *VD) {
       Result.set(VD, Info.CurrentCall->Index);
       return true;
     }
+    if (VD->getType().getQualifiers().hasShared()) {
+      return Error(E);
+    }
     return Success(VD);
   }
 
@@ -3095,7 +3104,8 @@ public:
 } // end anonymous namespace
 
 static bool EvaluatePointer(const Expr* E, LValue& Result, EvalInfo &Info) {
-  assert(E->isRValue() && E->getType()->hasPointerRepresentation());
+  assert(E->isRValue() && (E->getType()->hasPointerRepresentation() ||
+                           E->getType()->hasPointerToSharedRepresentation()));
   return PointerExprEvaluator(Info, Result).Visit(E);
 }
 
@@ -5246,6 +5256,99 @@ bool IntExprEvaluator::VisitUnaryExprOrTypeTraitExpr(
       return false;
     return Success(Sizeof, E);
   }
+
+  case UETT_UPC_LocalSizeOf: {
+    QualType SrcTy = E->getTypeOfArgument();
+    // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
+    //   the result is the size of the referenced type."
+    if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
+      SrcTy = Ref->getPointeeType();
+
+    Qualifiers Quals = SrcTy.getQualifiers();
+    CharUnits Sizeof;
+
+    QualType CurTy = SrcTy.getCanonicalType();
+
+    if ((Quals.hasLayoutQualifier() &&
+         Quals.getLayoutQualifier() == 0) ||
+        !isa<ArrayType>(CurTy)) {
+
+      // If the type has indefinite block size, upc_localsizeof
+      // is the same as sizeof.
+      if (!HandleSizeof(Info, E->getExprLoc(), CurTy, Sizeof))
+        return false;
+      return Success(Sizeof, E);
+    }
+
+    bool hasTHREADS = false;
+    uint64_t ArrayDim = 1;
+    while (isa<ArrayType>(CurTy.getTypePtr())) {
+      if (const ConstantArrayType *CAT = dyn_cast<ConstantArrayType>(CurTy.getTypePtr())) {
+        ArrayDim *= CAT->getSize().getZExtValue();
+      } else if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(CurTy.getTypePtr())) {
+        ArrayDim *= TAT->getSize().getZExtValue();
+        if (TAT->getThread())
+          hasTHREADS = true;
+      }
+      CurTy = cast<ArrayType>(CurTy.getTypePtr())->getElementType();
+    }
+
+    if (!HandleSizeof(Info, E->getExprLoc(), CurTy, Sizeof))
+      return false;
+
+    uint32_t BlockSize = Quals.hasLayoutQualifier()?
+      Quals.getLayoutQualifier() : uint32_t(1);
+
+    if (hasTHREADS) {
+      Sizeof = Sizeof * (ArrayDim + BlockSize - 1) / BlockSize * BlockSize;
+    } else {
+      uint32_t Threads = Info.Ctx.getLangOpts().UPCThreads;
+      if (Threads == 0) {
+        Threads = 1;
+      }
+      uint64_t Div = BlockSize * Threads;
+      Sizeof = Sizeof * ((ArrayDim + Div - 1) / Div * BlockSize);
+    }
+
+    return Success(Sizeof, E);
+  }
+
+  case UETT_UPC_BlockSizeOf: {
+    QualType SrcTy = E->getTypeOfArgument();
+    // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
+    //   the result is the size of the referenced type."
+    if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
+      SrcTy = Ref->getPointeeType();
+
+    Qualifiers Quals = SrcTy.getQualifiers();
+
+    if (Quals.hasLayoutQualifier()) {
+      return Success(Quals.getLayoutQualifier(), E);
+    } else {
+      return Success(1, E);
+    }
+
+  }
+
+  case UETT_UPC_ElemSizeOf: {
+    QualType SrcTy = E->getTypeOfArgument();
+    // C++ [expr.sizeof]p2: "When applied to a reference or a reference type,
+    //   the result is the size of the referenced type."
+    if (const ReferenceType *Ref = SrcTy->getAs<ReferenceType>())
+      SrcTy = Ref->getPointeeType();
+
+    Qualifiers Quals = SrcTy.getQualifiers();
+
+    SrcTy = SrcTy.getCanonicalType();
+    while(const ArrayType *AT = dyn_cast<ArrayType>(SrcTy.getTypePtr())) {
+      SrcTy = AT->getElementType();
+    }
+
+    CharUnits Sizeof;
+    if (!HandleSizeof(Info, E->getExprLoc(), SrcTy, Sizeof))
+      return false;
+    return Success(Sizeof, E);
+  }
   }
 
   llvm_unreachable("unknown expr/type trait");
@@ -5393,6 +5496,8 @@ bool IntExprEvaluator::VisitCastExpr(const CastExpr *E) {
   case CK_IntegralRealToComplex:
   case CK_IntegralComplexCast:
   case CK_IntegralComplexToFloatingComplex:
+  case CK_UPCSharedToLocal:
+  case CK_UPCBitCastZeroPhase:
     llvm_unreachable("invalid cast kind for integral value");
 
   case CK_BitCast:
@@ -5879,6 +5984,8 @@ bool ComplexExprEvaluator::VisitCastExpr(const CastExpr *E) {
   case CK_ARCReclaimReturnedObject:
   case CK_ARCExtendBlockObject:
   case CK_CopyAndAutoreleaseBlockObject:
+  case CK_UPCSharedToLocal:
+  case CK_UPCBitCastZeroPhase:
     llvm_unreachable("invalid cast kind for complex value");
 
   case CK_LValueToRValue:
@@ -6187,7 +6294,8 @@ static bool Evaluate(APValue &Result, EvalInfo &Info, const Expr *E) {
   } else if (E->getType()->isIntegralOrEnumerationType()) {
     if (!IntExprEvaluator(Info, Result).Visit(E))
       return false;
-  } else if (E->getType()->hasPointerRepresentation()) {
+  } else if (E->getType()->hasPointerRepresentation() ||
+             E->getType()->hasPointerToSharedRepresentation()) {
     LValue LV;
     if (!EvaluatePointer(E, LV, Info))
       return false;
@@ -6348,6 +6456,10 @@ bool Expr::EvaluateAsInitializer(APValue &Value, const ASTContext &Ctx,
       !Ctx.getLangOpts().CPlusPlus0x)
     return false;
 
+  // a shared pointer expression is never a compile-time constant
+  if (getType()->hasPointerToSharedRepresentation())
+    return false;
+
   Expr::EvalStatus EStatus;
   EStatus.Diag = &Notes;
 
@@ -6465,6 +6577,7 @@ static ICEDiag CheckICE(const Expr* E, ASTContext &Ctx) {
 #define EXPR(Node, Base)
 #include "clang/AST/StmtNodes.inc"
   case Expr::PredefinedExprClass:
+  case Expr::UPCThreadExprClass:
   case Expr::FloatingLiteralClass:
   case Expr::ImaginaryLiteralClass:
   case Expr::StringLiteralClass:
@@ -6629,7 +6742,8 @@ static ICEDiag CheckICE(const Expr* E, ASTContext &Ctx) {
   case Expr::UnaryExprOrTypeTraitExprClass: {
     const UnaryExprOrTypeTraitExpr *Exp = cast<UnaryExprOrTypeTraitExpr>(E);
     if ((Exp->getKind() ==  UETT_SizeOf) &&
-        Exp->getTypeOfArgument()->isVariableArrayType())
+        (Exp->getTypeOfArgument()->isVariableArrayType() ||
+         Exp->getTypeOfArgument()->isUPCThreadArrayType()))
       return ICEDiag(2, E->getLocStart());
     return NoDiag();
   }

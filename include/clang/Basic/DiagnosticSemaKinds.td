@@ -3486,15 +3486,20 @@ def err_atomic_specifier_bad_type : Error<
 
 // Expressions.
 def ext_sizeof_function_type : Extension<
-  "invalid application of 'sizeof' to a function type">, InGroup<PointerArith>;
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to a function type">,
+  InGroup<PointerArith>;
 def ext_sizeof_void_type : Extension<
-  "invalid application of '%select{sizeof|__alignof|vec_step}0' to a void "
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to a void "
   "type">, InGroup<PointerArith>;
 def err_sizeof_alignof_incomplete_type : Error<
-  "invalid application of '%select{sizeof|__alignof|vec_step}0' to an "
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to an "
   "incomplete type %1">;
 def err_sizeof_alignof_bitfield : Error<
-  "invalid application of '%select{sizeof|__alignof}0' to bit-field">;
+  "invalid application of '%select{sizeof|__alignof|vec_step|"
+  "upc_localsizeof|upc_blocksizeof|upc_elemsizeof}0' to bit-field">;
 def err_vecstep_non_scalar_vector_type : Error<
   "'vec_step' requires built-in scalar or vector type, %0 invalid">;
 def err_offsetof_incomplete_type : Error<
@@ -5457,6 +5462,73 @@ def err_filter_expression_integral : Error<
 // OpenCL warnings and errors.
 def err_invalid_astype_of_different_size : Error<
   "invalid reinterpretation: sizes of %0 and %1 must match">;
+
+// UPC warnings and errors
+def err_upc_layout_qualifier_too_big : Error<
+  "block size %0 exceeds UPC_MAX_BLOCK_SIZE">;
+def err_upc_star_requires_threads : Error<
+  "THREADS must appear exactly once in one dimension of a shared array">;
+def err_upc_dynamic_threads_requires_threads : Error<
+  "THREADS must appear exactly once in one dimension of a shared array"
+  >;
+def err_upc_shared_local : Error<
+  "shared qualifier on automatic variable">;
+def err_upc_shared_field : Error<
+  "shared qualifier on field">;
+def err_upc_shared_star_in_pointer : Error<
+  "a layout qualifier of '*' is illegal in a pointer type">;
+def err_upc_indefinite_blocksize_uses_threads : Error<
+  "THREADS may not be used in a shared array with indefinite block size">;
+def err_upc_shared_star_in_incomplete_array : Error<
+  "cannot resolve block size of '*' on an incomplete array type">;
+def err_upc_cast_local_to_shared : Error<
+  "cannot convert local pointer to pointer-to-shared "
+  "%select{assigning to|passing|returning|converting|initializing|sending|casting}2"
+  " %0 "
+  "%select{from incompatible type|to parameter of incompatible type|"
+  "from a function with incompatible result type|to incompatible type|"
+  "with an expression of incompatible type|to parameter of incompatible type|"
+  "to incompatible type}2 %1">;
+def err_upc_typecheck_discard_shared : Error<
+  "cannot convert pointer-to-shared to local pointer "
+  "%select{assigning to|passing|returning|converting|initializing|sending|casting}2"
+  " %0 "
+  "%select{from incompatible type|to parameter of incompatible type|"
+  "from a function with incompatible result type|to incompatible type|"
+  "with an expression of incompatible type|to parameter of incompatible type|"
+  "to incompatible type}2 %1">;
+def err_upc_pointer_cast_requires_complete_type : Error<
+  "converting a pointer-to-shared requires the pointee type to be complete "
+  "%select{assigning to|passing|returning|converting|initializing|sending|casting}2"
+  " %0 "
+  "%select{from incompatible type|to parameter of incompatible type|"
+  "from a function with incompatible result type|to incompatible type|"
+  "with an expression of incompatible type|to parameter of incompatible type|"
+  "to incompatible type}2 %1">;
+def err_upc_func_returning_shared : Error<
+  "function cannot return shared qualified type %0">;
+def err_upc_function_shared : Error<
+  "shared qualifier on function type %0">;
+def err_upc_arg_shared : Error<
+  "shared qualifier on function parameter">;
+def err_upc_forall_bad_affinity : Error<
+  "affinity type %0 is not an integer or pointer-to-shared type">;
+def warn_upc_exits_upc_forall : Warning<
+  "exiting upc_forall with '%0' has undefined behavior">,
+  InGroup<UPCControl>;
+def warn_upc_enter_upc_forall : Warning<
+  "entering upc_forall with '%0' has undefined behavior">,
+  InGroup<UPCControl>;
+def err_upc_cast_to_shared : Error<
+  "cast to shared-qualified type %0">;
+def err_upc_layout_qualifier_on_void : Error<
+  "layout qualifier on generic pointer-to-shared">;
+def err_upc_reference_type_qualifier_requires_shared : Error<
+  "'%1' illegal on shared-unqualified type %0">;
+def err_upc_xsizeof_applied_to_non_shared : Error<
+  "invalid application of 'upc_%select{|||local|block|elem}0sizeof' to a shared-unqualified type">;
+def err_upc_barrier_not_int : Error<
+  "argument of '%0' has non-integer type %1">;
 
 } // end of sema category
 

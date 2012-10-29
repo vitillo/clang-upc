@@ -811,6 +811,7 @@ protected:
   ///
   /// \returns true if a diagnostic was emitted, false if the
   /// diagnostic was suppressed.
+public:
   bool Emit() {
     // If this diagnostic is inactive, then its soul was stolen by the copy ctor
     // (or by a subclass, as in SemaDiagnosticBuilder).

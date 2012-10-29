@@ -2522,6 +2522,23 @@ void Clang::ConstructJob(Compilation &C, const JobAction &JA,
     D.Diag(diag::err_drv_clang_unsupported)
       << Args.getLastArg(options::OPT_fno_for_scope)->getAsString(Args);
 
+
+  if (Arg *A = Args.getLastArg(options::OPT_fupc_threads_)) {
+    CmdArgs.push_back("-fupc-threads");
+    CmdArgs.push_back(A->getValue(Args));
+  }
+
+  Args.AddLastArg(CmdArgs, options::OPT_fupc_packed_bits_EQ);
+  Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_EQ);
+  Args.AddLastArg(CmdArgs, options::OPT_fupc_pts_vaddr_order_EQ);
+
+  Args.AddAllArgs(CmdArgs, options::OPT_fupc_inline_lib,
+                  options::OPT_fno_upc_inline_lib);
+
+  if (Args.hasFlag(options::OPT_fupc_debug,
+                   options::OPT_fno_upc_debug, false))
+    CmdArgs.push_back("-fupc-debug");
+
   // -fcaret-diagnostics is default.
   if (!Args.hasFlag(options::OPT_fcaret_diagnostics,
                     options::OPT_fno_caret_diagnostics, true))
@@ -5255,6 +5272,17 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
     else
       crtbegin = "crtbegin.o";
     CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(crtbegin)));
+
+    if (D.CCCIsUPC) {
+      const char *upc_crtbegin;
+      if (Args.hasArg(options::OPT_static))
+        upc_crtbegin = "upc-crtbeginT.o";
+      else if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
+        upc_crtbegin = "upc-crtbeginS.o";
+      else
+        upc_crtbegin = "upc-crtbegin.o";
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(upc_crtbegin)));
+    }
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
@@ -5287,6 +5315,43 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-lm");
   }
 
+  if (D.CCCIsUPC && !Args.hasArg(options::OPT_nostdlib)) {
+    CmdArgs.push_back(Args.MakeArgString("-T" + ToolChain.GetFilePath("upc.ld")));
+    llvm::SmallString<32> Buf("-lupc");
+    if (Args.getLastArgValue(options::OPT_fupc_pts_EQ, "packed") == "struct") {
+      Buf += "-s";
+    }
+    if (Args.getLastArgValue(options::OPT_fupc_pts_vaddr_order_EQ, "first") == "last") {
+      Buf += "-l";
+    }
+    if (Arg * A = Args.getLastArg(options::OPT_fupc_packed_bits_EQ)) {
+      llvm::SmallVector<llvm::StringRef, 3> Bits;
+      StringRef(A->getValue(Args)).split(Bits, ",");
+      bool okay = true;
+      int Values[3];
+      if (Bits.size() == 3) {
+        for (int i = 0; i < 3; ++i)
+          if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
+            okay = false;
+        if (Values[0] + Values[1] + Values[2] != 64)
+          okay = false;
+      } else {
+        okay = false;
+      }
+      if (okay) {
+        if(Values[0] != 20 || Values[1] != 10 || Values[2] != 34) {
+          Buf += "-";
+          Buf += Bits[0];
+          Buf += "-";
+          Buf += Bits[1];
+          Buf += "-";
+          Buf += Bits[2];
+        }
+      }
+    }
+    CmdArgs.push_back(Args.MakeArgString(Buf));
+  }
+
   // Call this before we add the C run-time.
   addAsanRTLinux(getToolChain(), Args, CmdArgs);
 
@@ -5309,6 +5374,18 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
 
 
     if (!Args.hasArg(options::OPT_nostartfiles)) {
+
+      if (D.CCCIsUPC) {
+        const char *upc_crtend;
+        if (Args.hasArg(options::OPT_static))
+          upc_crtend = "upc-crtendT.o";
+        else if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
+          upc_crtend = "upc-crtendS.o";
+        else
+          upc_crtend = "upc-crtend.o";
+        CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(upc_crtend)));
+      }
+
       const char *crtend;
       if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
         crtend = "crtendS.o";

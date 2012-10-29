@@ -196,6 +196,10 @@ public:
     return Builder.CreateBitCast(V, ConvertType(E->getType()));
   }
 
+  Value *VisitUPCThreadExpr(UPCThreadExpr *E) {
+    return CGF.EmitUPCThreads();
+  }
+
   Value *VisitSizeOfPackExpr(SizeOfPackExpr *E) {
     return llvm::ConstantInt::get(ConvertType(E->getType()),E->getPackLength());
   }
@@ -526,6 +530,9 @@ Value *ScalarExprEmitter::EmitConversionToBool(Value *Src, QualType SrcType) {
 
   if (const MemberPointerType *MPT = dyn_cast<MemberPointerType>(SrcType))
     return CGF.CGM.getCXXABI().EmitMemberPointerIsNotNull(CGF, Src, MPT);
+
+  if (SrcType->hasPointerToSharedRepresentation())
+    return CGF.EmitUPCPointerToBoolConversion(Src);
 
   assert((SrcType->isIntegerType() || isa<llvm::PointerType>(Src->getType())) &&
          "Unknown scalar type to convert");
@@ -1034,10 +1041,20 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
       
   case CK_LValueBitCast: 
   case CK_ObjCObjectLValueCast: {
-    Value *V = EmitLValue(E).getAddress();
+    LValue LV = EmitLValue(E);
+    if (LV.isBitField()) {
+      // This can only be the qualifier conversion
+      // used to add strict/relaxed
+      assert(DestTy->getCanonicalTypeUnqualified() ==
+             E->getType()->getCanonicalTypeUnqualified());
+      return EmitLoadOfLValue(LValue::MakeBitfield(
+        LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
+        DestTy, LV.getBitFieldBaseType(), CE->getExprLoc()));
+    }
+    Value *V = LV.getAddress();
     V = Builder.CreateBitCast(V, 
                           ConvertType(CGF.getContext().getPointerType(DestTy)));
-    return EmitLoadOfLValue(CGF.MakeNaturalAlignAddrLValue(V, DestTy));
+    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy, LV.getAlignment(), CE->getExprLoc()));
   }
 
   case CK_CPointerToObjCPointerCast:
@@ -1086,7 +1103,7 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 
     // Note that VLA pointers are always decayed, so we don't need to do
     // anything here.
-    if (!E->getType()->isVariableArrayType()) {
+    if (!E->getType()->isVariableArrayType() && !E->getType().getQualifiers().hasShared()) {
       assert(isa<llvm::PointerType>(V->getType()) && "Expected pointer");
       assert(isa<llvm::ArrayType>(cast<llvm::PointerType>(V->getType())
                                  ->getElementType()) &&
@@ -1105,6 +1122,9 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     if (MustVisitNullValue(E))
       (void) Visit(E);
 
+    if (DestTy->hasPointerToSharedRepresentation()) {
+      return CGF.EmitUPCNullPointer(DestTy);
+    }
     return llvm::ConstantPointerNull::get(
                                cast<llvm::PointerType>(ConvertType(DestTy)));
 
@@ -1228,6 +1248,12 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
     return EmitComplexToScalarConversion(V, E->getType(), DestTy);
   }
 
+  case CK_UPCSharedToLocal:
+    return CGF.EmitUPCCastSharedToLocal(Visit(E), DestTy, E->getExprLoc());
+
+  case CK_UPCBitCastZeroPhase:
+    return CGF.EmitUPCBitCastZeroPhase(Visit(E), DestTy);
+
   }
 
   llvm_unreachable("unknown scalar cast");
@@ -1314,10 +1340,16 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   } else if (const PointerType *ptr = type->getAs<PointerType>()) {
     QualType type = ptr->getPointeeType();
 
-    // VLA types don't have constant size.
-    if (const VariableArrayType *vla
-          = CGF.getContext().getAsVariableArrayType(type)) {
-      llvm::Value *numElts = CGF.getVLASize(vla).first;
+    if (type.getQualifiers().hasShared()) {
+      llvm::Value *amt = llvm::ConstantInt::get(CGF.PtrDiffTy, amount);
+      value = CGF.EmitUPCPointerArithmetic(value, amt, E->getSubExpr()->getType(),
+                                           CGF.getContext().getPointerDiffType(),
+                                           false);
+      // VLA types don't have constant size.
+    } else if ((type->isVariableArrayType() ||
+                type->isUPCThreadArrayType()) &&
+               !type.getQualifiers().hasShared()) {
+      llvm::Value *numElts = CGF.getVLASize(type).first;
       if (!isInc) numElts = Builder.CreateNSWNeg(numElts, "vla.negsize");
       if (CGF.getContext().getLangOpts().isSignedOverflowDefined())
         value = Builder.CreateGEP(value, numElts, "vla.inc");
@@ -1409,8 +1441,14 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
   if (atomicPHI) {
     llvm::BasicBlock *opBB = Builder.GetInsertBlock();
     llvm::BasicBlock *contBB = CGF.createBasicBlock("atomic_cont", CGF.CurFn);
-    llvm::Value *old = Builder.CreateAtomicCmpXchg(LV.getAddress(), atomicPHI,
+    llvm::Value *old;
+    if (LV.isShared()) {
+      old = CGF.EmitUPCAtomicCmpXchg(LV.getAddress(), atomicPHI,
+                                     value, E->getExprLoc());
+    } else {
+      old = Builder.CreateAtomicCmpXchg(LV.getAddress(), atomicPHI,
         value, llvm::SequentiallyConsistent);
+    }
     atomicPHI->addIncoming(old, opBB);
     llvm::Value *success = Builder.CreateICmpEQ(old, atomicPHI);
     Builder.CreateCondBr(success, contBB, opBB);
@@ -1595,6 +1633,19 @@ ScalarExprEmitter::VisitUnaryExprOrTypeTraitExpr(
         size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
 
       return size;
+    } else if (TypeToSize->isUPCThreadArrayType()) {
+      QualType eltType;
+      llvm::Value *numElts;
+      llvm::tie(numElts, eltType) = CGF.getVLASize(TypeToSize);
+
+      llvm::Value *size = numElts;
+
+      // Scale the number of non-VLA elements by the non-VLA element size.
+      CharUnits eltSize = CGF.getContext().getTypeSizeInChars(eltType);
+      if (!eltSize.isOne())
+        size = CGF.Builder.CreateNUWMul(CGF.CGM.getSize(eltSize), numElts);
+
+      return size;
     }
   }
 
@@ -1708,8 +1759,14 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
   if (atomicPHI) {
     llvm::BasicBlock *opBB = Builder.GetInsertBlock();
     llvm::BasicBlock *contBB = CGF.createBasicBlock("atomic_cont", CGF.CurFn);
-    llvm::Value *old = Builder.CreateAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
+    llvm::Value *old;
+    if (LHSLV.isShared()) {
+      old = CGF.EmitUPCAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
+                                     Result, E->getExprLoc());
+    } else {
+      old = Builder.CreateAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
         Result, llvm::SequentiallyConsistent);
+    }
     atomicPHI->addIncoming(old, opBB);
     llvm::Value *success = Builder.CreateICmpEQ(old, atomicPHI);
     Builder.CreateCondBr(success, contBB, opBB);
@@ -1967,10 +2024,11 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   }
 
   QualType elementType = pointerType->getPointeeType();
-  if (const VariableArrayType *vla
-        = CGF.getContext().getAsVariableArrayType(elementType)) {
+  if ((elementType->isVariableArrayType() ||
+       elementType->isUPCThreadArrayType()) &&
+      !elementType.getQualifiers().hasShared()) {
     // The element count here is the total number of non-VLA elements.
-    llvm::Value *numElements = CGF.getVLASize(vla).first;
+    llvm::Value *numElements = CGF.getVLASize(elementType).first;
 
     // Effectively, the multiply by the VLA size is part of the GEP.
     // GEP indexes are signed, and scaling an index isn't permitted to
@@ -2001,10 +2059,21 @@ static Value *emitPointerArithmetic(CodeGenFunction &CGF,
   return CGF.Builder.CreateInBoundsGEP(pointer, index, "add.ptr");
 }
 
+static bool isUPCPointerToSharedTy(llvm::Type * Ty) {
+  if (llvm::StructType *ST = dyn_cast<llvm::StructType>(Ty)) {
+    return ST->hasName() && ST->getName() == "__upc_shared_pointer_type";
+  }
+  return false;
+}
+
 Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
   if (op.LHS->getType()->isPointerTy() ||
       op.RHS->getType()->isPointerTy())
     return emitPointerArithmetic(CGF, op, /*subtraction*/ false);
+
+  if (isUPCPointerToSharedTy(op.LHS->getType()) ||
+      isUPCPointerToSharedTy(op.RHS->getType()))
+    return CGF.EmitUPCPointerArithmetic(op.LHS, op.RHS, op.Ty, op.E, /*subtraction*/ false);
 
   if (op.Ty->isSignedIntegerOrEnumerationType()) {
     switch (CGF.getContext().getLangOpts().getSignedOverflowBehavior()) {
@@ -2024,6 +2093,13 @@ Value *ScalarExprEmitter::EmitAdd(const BinOpInfo &op) {
 }
 
 Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
+  if (isUPCPointerToSharedTy(op.LHS->getType())) {
+    if (isUPCPointerToSharedTy(op.RHS->getType()))
+      return CGF.EmitUPCPointerDiff(op.LHS, op.RHS, op.E);
+    else
+      return CGF.EmitUPCPointerArithmetic(op.LHS, op.RHS, op.Ty, op.E, /*subtraction*/ true);
+  }
+
   // The LHS is always a pointer if either side is.
   if (!op.LHS->getType()->isPointerTy()) {
     if (op.Ty->isSignedIntegerOrEnumerationType()) {
@@ -2064,10 +2140,11 @@ Value *ScalarExprEmitter::EmitSub(const BinOpInfo &op) {
   llvm::Value *divisor = 0;
 
   // For a variable-length array, this is going to be non-constant.
-  if (const VariableArrayType *vla
-        = CGF.getContext().getAsVariableArrayType(elementType)) {
+  if ((elementType->isVariableArrayType() ||
+       elementType->isUPCThreadArrayType()) &&
+      !elementType.getQualifiers().hasShared()) {
     llvm::Value *numElements;
-    llvm::tie(numElements, elementType) = CGF.getVLASize(vla);
+    llvm::tie(numElements, elementType) = CGF.getVLASize(elementType);
 
     divisor = numElements;
 
@@ -2264,6 +2341,9 @@ Value *ScalarExprEmitter::EmitCompare(const BinaryOperator *E,unsigned UICmpOpc,
     } else if (LHSTy->hasSignedIntegerRepresentation()) {
       Result = Builder.CreateICmp((llvm::ICmpInst::Predicate)SICmpOpc,
                                   LHS, RHS, "cmp");
+    } else if (LHSTy->hasPointerToSharedRepresentation()) {
+      // UPC shared pointers
+      Result = CGF.EmitUPCPointerCompare(LHS, RHS, E);
     } else {
       // Unsigned integers and pointers.
       Result = Builder.CreateICmp((llvm::ICmpInst::Predicate)UICmpOpc,
@@ -2735,6 +2815,7 @@ Value *ScalarExprEmitter::VisitAtomicExpr(AtomicExpr *E) {
 //===----------------------------------------------------------------------===//
 //                         Entry Point into this File
 //===----------------------------------------------------------------------===//
+
 
 /// EmitScalarExpr - Emit the computation of the specified expression of scalar
 /// type, ignoring the result.

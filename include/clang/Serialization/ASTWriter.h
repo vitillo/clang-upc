@@ -424,6 +424,7 @@ private:
   void WriteDeclReplacementsBlock();
   void WriteDeclContextVisibleUpdate(const DeclContext *DC);
   void WriteFPPragmaOptions(const FPOptions &Opts);
+  void WritePragmaUPC(bool IsStrict);
   void WriteOpenCLExtensions(Sema &SemaRef);
   void WriteObjCCategories();
   void WriteRedeclarations();

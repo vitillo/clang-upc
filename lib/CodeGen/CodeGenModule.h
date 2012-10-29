@@ -130,6 +130,9 @@ namespace CodeGen {
       llvm::PointerType *Int8PtrPtrTy;
     };
 
+    /// shared void*
+    llvm::Type * GenericPtsTy;
+
     /// The width of a pointer into the generic address space.
     unsigned char PointerWidthInBits;
 
@@ -334,6 +337,15 @@ class CodeGenModule : public CodeGenTypeCache {
   bool isTriviallyRecursive(const FunctionDecl *F);
   bool shouldEmitFunction(const FunctionDecl *F);
   llvm::LLVMContext &VMContext;
+
+  /// @name Cache for UPC Globals
+  /// @{
+
+  llvm::Constant *UPCThreads;
+  llvm::Constant *UPCMyThread;
+  llvm::Constant *UPCFenceVar;
+
+  /// @}
 
   /// @name Cache for Blocks Runtime Globals
   /// @{
@@ -694,6 +706,10 @@ public:
   llvm::Constant *CreateRuntimeVariable(llvm::Type *Ty,
                                         StringRef Name);
 
+  llvm::Constant *getUPCThreads();
+  llvm::Constant *getUPCMyThread();
+  llvm::Constant *getUPCFenceVar();
+
   ///@name Custom Blocks Runtime Interfaces
   ///@{
 
@@ -859,6 +875,15 @@ public:
   /// annotations are emitted during finalization of the LLVM code.
   void AddGlobalAnnotations(const ValueDecl *D, llvm::GlobalValue *GV);
 
+  // Emit the initializer for a shared array, if it needs special treatment
+  llvm::Constant *MaybeEmitUPCSharedArrayInits(const VarDecl *VD);
+
+  /// EmitCXXGlobalVarDeclInitFunc - Emit the function that initializes the
+  /// specified global (if PerformInit is true) and registers its destructor.
+  void EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
+                                    llvm::GlobalVariable *Addr,
+                                    bool PerformInit);
+
 private:
   llvm::GlobalValue *GetGlobalValue(StringRef Ref);
 
@@ -900,6 +925,7 @@ private:
   void EmitGlobalVarDefinition(const VarDecl *D);
   llvm::Constant *MaybeEmitGlobalStdInitializerListInitializer(const VarDecl *D,
                                                               const Expr *init);
+  void EmitUPCSharedGlobalVarDefinition(const VarDecl *VD);
   void EmitAliasDefinition(GlobalDecl GD);
   void EmitObjCPropertyImplementations(const ObjCImplementationDecl *D);
   void EmitObjCIvarInitializations(ObjCImplementationDecl *D);
@@ -934,11 +960,6 @@ private:
   /// EmitCXXGlobalDtorFunc - Emit the function that destroys C++ globals.
   void EmitCXXGlobalDtorFunc();
 
-  /// EmitCXXGlobalVarDeclInitFunc - Emit the function that initializes the
-  /// specified global (if PerformInit is true) and registers its destructor.
-  void EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
-                                    llvm::GlobalVariable *Addr,
-                                    bool PerformInit);
 
   // FIXME: Hardcoding priority here is gross.
   void AddGlobalCtor(llvm::Function *Ctor, int Priority=65535);
@@ -948,6 +969,10 @@ private:
   /// the given list and name. This array will have appending linkage and is
   /// suitable for use as a LLVM constructor or destructor array.
   void EmitCtorList(const CtorList &Fns, const char *GlobalName);
+
+  /// EmitUPCInits - Generates a global array of upc initialization functions,
+  /// with appending linkage
+  void EmitUPCInits(const CtorList &Fns, const char *GlobalName);
 
   /// EmitFundamentalRTTIDescriptor - Emit the RTTI descriptors for the
   /// given type.

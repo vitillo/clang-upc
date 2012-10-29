@@ -96,6 +96,7 @@ public:
   unsigned SoftFloat         : 1; /// -soft-float.
   unsigned StrictEnums       : 1; /// Optimize based on strict enum definition.
   unsigned TimePasses        : 1; /// Set when -ftime-report is enabled.
+  unsigned UPCDebug          : 1; /// Generate debug calls to the UPC runtime
   unsigned UnitAtATime       : 1; /// Unused. For mirroring GCC optimization
                                   /// selection.
   unsigned UnrollLoops       : 1; /// Control whether loops are unrolled.
@@ -208,6 +209,7 @@ public:
     SoftFloat = 0;
     StrictEnums = 0;
     TimePasses = 0;
+    UPCDebug = 0;
     UnitAtATime = 1;
     UnrollLoops = 0;
     UnsafeFPMath = 0;

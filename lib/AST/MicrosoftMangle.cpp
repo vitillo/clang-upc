@@ -939,6 +939,9 @@ void MicrosoftCXXNameMangler::mangleType(const ArrayType *T, bool IsGlobal) {
 void MicrosoftCXXNameMangler::mangleType(const ConstantArrayType *T) {
   mangleType(static_cast<const ArrayType *>(T), false);
 }
+void MicrosoftCXXNameMangler::mangleType(const UPCThreadArrayType *T) {
+  mangleType(static_cast<const ArrayType *>(T), false);
+}
 void MicrosoftCXXNameMangler::mangleType(const VariableArrayType *T) {
   mangleType(static_cast<const ArrayType *>(T), false);
 }

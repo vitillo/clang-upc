@@ -28,5 +28,7 @@ InputKind FrontendOptions::getInputKindForExtension(StringRef Extension) {
     .Case("cl", IK_OpenCL)
     .Case("cu", IK_CUDA)
     .Cases("ll", "bc", IK_LLVM_IR)
+    .Case("upc", IK_UPC)
+    .Case("upci", IK_PreprocessedUPC)
     .Default(IK_C);
 }

@@ -138,6 +138,13 @@ void ASTTypeWriter::VisitConstantArrayType(const ConstantArrayType *T) {
   Code = TYPE_CONSTANT_ARRAY;
 }
 
+void ASTTypeWriter::VisitUPCThreadArrayType(const UPCThreadArrayType *T) {
+  VisitArrayType(T);
+  Writer.AddAPInt(T->getSize(), Record);
+  Record.push_back(T->getThread()? 1 : 0);
+  Code = TYPE_UPC_THREAD_ARRAY;
+}
+
 void ASTTypeWriter::VisitIncompleteArrayType(const IncompleteArrayType *T) {
   VisitArrayType(T);
   Code = TYPE_INCOMPLETE_ARRAY;
@@ -461,6 +468,9 @@ void TypeLocWriter::VisitArrayTypeLoc(ArrayTypeLoc TL) {
 void TypeLocWriter::VisitConstantArrayTypeLoc(ConstantArrayTypeLoc TL) {
   VisitArrayTypeLoc(TL);
 }
+void TypeLocWriter::VisitUPCThreadArrayTypeLoc(UPCThreadArrayTypeLoc TL) {
+  VisitArrayTypeLoc(TL);
+}
 void TypeLocWriter::VisitIncompleteArrayTypeLoc(IncompleteArrayTypeLoc TL) {
   VisitArrayTypeLoc(TL);
 }
@@ -665,6 +675,12 @@ static void AddStmtsExprs(llvm::BitstreamWriter &Stream,
   RECORD(STMT_CONTINUE);
   RECORD(STMT_BREAK);
   RECORD(STMT_RETURN);
+  RECORD(STMT_UPC_NOTIFY);
+  RECORD(STMT_UPC_WAIT);
+  RECORD(STMT_UPC_BARRIER);
+  RECORD(STMT_UPC_FENCE);
+  RECORD(STMT_UPC_PRAGMA);
+  RECORD(STMT_UPC_FORALL);
   RECORD(STMT_DECL);
   RECORD(STMT_ASM);
   RECORD(EXPR_PREDEFINED);
@@ -674,6 +690,7 @@ static void AddStmtsExprs(llvm::BitstreamWriter &Stream,
   RECORD(EXPR_IMAGINARY_LITERAL);
   RECORD(EXPR_STRING_LITERAL);
   RECORD(EXPR_CHARACTER_LITERAL);
+  RECORD(EXPR_UPC_THREAD);
   RECORD(EXPR_PAREN);
   RECORD(EXPR_UNARY_OPERATOR);
   RECORD(EXPR_SIZEOF_ALIGN_OF);
@@ -804,6 +821,7 @@ void ASTWriter::WriteBlockInfoBlock() {
   RECORD(HEADER_SEARCH_TABLE);
   RECORD(ORIGINAL_PCH_DIR);
   RECORD(FP_PRAGMA_OPTIONS);
+  RECORD(UPC_PRAGMA_OPTIONS);
   RECORD(OPENCL_EXTENSIONS);
   RECORD(DELEGATING_CTORS);
   RECORD(FILE_SOURCE_LOCATION_OFFSETS);
@@ -2140,7 +2158,7 @@ void ASTWriter::WriteType(QualType T) {
   if (T.hasLocalNonFastQualifiers()) {
     Qualifiers Qs = T.getLocalQualifiers();
     AddTypeRef(T.getLocalUnqualifiedType(), Record);
-    Record.push_back(Qs.getAsOpaqueValue());
+    Qs.toOpaqueSequence(Record);
     W.Code = TYPE_EXT_QUAL;
   } else {
     switch (T->getTypeClass()) {
@@ -2913,6 +2931,12 @@ void ASTWriter::WriteFPPragmaOptions(const FPOptions &Opts) {
   Stream.EmitRecord(FP_PRAGMA_OPTIONS, Record);
 }
 
+void ASTWriter::WritePragmaUPC(bool IsStrict) {
+  RecordData Record;
+  Record.push_back(IsStrict ? 1 : 0);
+  Stream.EmitRecord(UPC_PRAGMA_OPTIONS, Record);
+}
+
 /// \brief Write an OPENCL_EXTENSIONS block for the given OpenCLOptions.
 void ASTWriter::WriteOpenCLExtensions(Sema &SemaRef) {
   if (!SemaRef.Context.getLangOpts().OpenCL)
@@ -3465,6 +3489,7 @@ void ASTWriter::WriteASTCore(Sema &SemaRef, MemorizeStatCalls *StatCalls,
   WriteReferencedSelectorsPool(SemaRef);
   WriteIdentifierTable(PP, SemaRef.IdResolver, WritingModule != 0);
   WriteFPPragmaOptions(SemaRef.getFPOptions());
+  WritePragmaUPC(SemaRef.UPCIsStrict);
   WriteOpenCLExtensions(SemaRef);
 
   WriteTypeDeclOffsets();

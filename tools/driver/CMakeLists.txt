@@ -56,6 +56,14 @@ add_custom_command(TARGET clang POST_BUILD
 set_property(DIRECTORY APPEND
   PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${clang_pp})
 
+# Create the clangupc symlink in the build directory.
+set(clang_upc "${LLVM_BINARY_DIR}/bin/${CMAKE_CFG_INTDIR}/clangupc${CMAKE_EXECUTABLE_SUFFIX}")
+add_custom_command(TARGET clang POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E ${CLANGXX_LINK_OR_COPY} "${clang_binary}" "${clang_upc}")
+
+set_property(DIRECTORY APPEND
+  PROPERTY ADDITIONAL_MAKE_CLEAN_FILES ${clang_pp})
+
 install(TARGETS clang
   RUNTIME DESTINATION bin)
 

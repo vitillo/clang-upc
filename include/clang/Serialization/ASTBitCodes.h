@@ -469,7 +469,10 @@ namespace clang {
       ///
       /// This array can only be interpreted properly using the Objective-C
       /// categories map.
-      OBJC_CATEGORIES
+      OBJC_CATEGORIES,
+
+      /// \brief Record code for tracking #pragma upc
+      UPC_PRAGMA_OPTIONS
     };
 
     /// \brief Record types used within a source manager block.
@@ -729,7 +732,9 @@ namespace clang {
       /// \brief A UnaryTransformType record.
       TYPE_UNARY_TRANSFORM       = 39,
       /// \brief An AtomicType record.
-      TYPE_ATOMIC                = 40
+      TYPE_ATOMIC                = 40,
+      // \brief A UPC Thread array type
+      TYPE_UPC_THREAD_ARRAY      = 41
     };
 
     /// \brief The type IDs for special types constructed by semantic
@@ -1004,6 +1009,8 @@ namespace clang {
       EXPR_STRING_LITERAL,
       /// \brief A CharacterLiteral record.
       EXPR_CHARACTER_LITERAL,
+      /// \brief A THREAD record.
+      EXPR_UPC_THREAD,
       /// \brief A ParenExpr record.
       EXPR_PAREN,
       /// \brief A ParenListExpr record.
@@ -1194,7 +1201,15 @@ namespace clang {
       EXPR_OBJC_BRIDGED_CAST,     // ObjCBridgedCastExpr
       
       STMT_MS_DEPENDENT_EXISTS,   // MSDependentExistsStmt
-      EXPR_LAMBDA                 // LambdaExpr
+      EXPR_LAMBDA,                // LambdaExpr
+
+      // UPC
+      STMT_UPC_NOTIFY,            // UPCNotifyStmt
+      STMT_UPC_WAIT,              // UPCWaitStmt
+      STMT_UPC_BARRIER,           // UPCBarrierStmt
+      STMT_UPC_FENCE,             // UPCFenceStmt
+      STMT_UPC_PRAGMA,            // UPCPragmaStmt
+      STMT_UPC_FORALL             // UPCForAllStmt
     };
 
     /// \brief The kinds of designators that can occur in a

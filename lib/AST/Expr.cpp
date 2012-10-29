@@ -1181,6 +1181,20 @@ void CastExpr::CheckCastConsistency() const {
     assert(getType()->isBlockPointerType());
     assert(getSubExpr()->getType()->isBlockPointerType());
     goto CheckNoBasePath;
+
+  case CK_UPCSharedToLocal:
+    assert(getType()->isPointerType());
+    assert(getSubExpr()->getType()->isPointerType());
+    assert(!getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
+    assert(getSubExpr()->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
+    goto CheckNoBasePath;
+
+  case CK_UPCBitCastZeroPhase:
+    assert(getType()->isPointerType());
+    assert(getSubExpr()->getType()->isPointerType());
+    assert(getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
+    assert(getSubExpr()->getType()->getAs<PointerType>()->getPointeeType().getQualifiers().hasShared());
+    goto CheckNoBasePath;
       
   // These should not have an inheritance path.
   case CK_Dynamic:
@@ -1339,6 +1353,10 @@ const char *CastExpr::getCastKindName() const {
     return "NonAtomicToAtomic";
   case CK_CopyAndAutoreleaseBlockObject:
     return "CopyAndAutoreleaseBlockObject";
+  case CK_UPCSharedToLocal:
+    return "UPCSharedToLocal";
+  case CK_UPCBitCastZeroPhase:
+    return "UPCBitCastZeroPhase";
   }
 
   llvm_unreachable("Unhandled cast kind!");

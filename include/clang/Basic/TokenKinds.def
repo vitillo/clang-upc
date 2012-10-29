@@ -262,6 +262,21 @@ KEYWORD(__objc_yes                  , KEYALL)
 KEYWORD(__objc_no                   , KEYALL)
 
 
+// UPC Keywords
+KEYWORD(shared                      , KEYUPC)
+KEYWORD(relaxed                     , KEYUPC)
+KEYWORD(strict                      , KEYUPC)
+KEYWORD(upc_barrier                 , KEYUPC)
+KEYWORD(upc_blocksizeof             , KEYUPC)
+KEYWORD(upc_elemsizeof              , KEYUPC)
+KEYWORD(upc_fence                   , KEYUPC)
+KEYWORD(upc_forall                  , KEYUPC)
+KEYWORD(upc_localsizeof             , KEYUPC)
+KEYWORD(upc_notify                  , KEYUPC)
+KEYWORD(upc_wait                    , KEYUPC)
+KEYWORD(THREADS                     , KEYUPC)
+
+
 // C++ 2.11p1: Keywords.
 KEYWORD(asm                         , KEYCXX|KEYGNU)
 KEYWORD(bool                        , BOOLSUPPORT|KEYALTIVEC)
@@ -583,6 +598,11 @@ ANNOTATION(pragma_vis)
 // The lexer produces these so that they only take effect when the parser
 // handles them.
 ANNOTATION(pragma_pack)
+
+// Annotation for #pragma upc [relaxed|strict]
+// The lexer produces these so that they only take effect when the parser
+// handles them.
+ANNOTATION(pragma_upc)
 
 #undef ANNOTATION
 #undef TESTING_KEYWORD

@@ -524,6 +524,18 @@ def ftemplate_depth_ : Joined<"-ftemplate-depth-">, Group<f_Group>;
 def ftemplate_backtrace_limit_EQ : Joined<"-ftemplate-backtrace-limit=">,
                                    Group<f_Group>;
 def ftest_coverage : Flag<"-ftest-coverage">, Group<f_Group>;
+def fupc_threads_ : Joined<"-fupc-threads-">,
+                      Group<f_Group>;
+def fupc_pts_EQ : Joined<"-fupc-pts=">,
+                  Group<f_Group>;
+def fupc_packed_bits_EQ : Joined<"-fupc-packed-bits=">,
+                          Group<f_Group>;
+def fupc_pts_vaddr_order_EQ : Joined<"-fupc-pts-vaddr-order=">,
+                              Group<f_Group>;
+def fupc_inline_lib : Flag<"-fupc-inline-lib">, Group<f_Group>;
+def fno_upc_inline_lib : Flag<"-fno-upc-inline-lib">, Group<f_Group>;
+def fupc_debug : Flag<"-fupc-debug">, Group<f_Group>;
+def fno_upc_debug : Flag<"-fno-upc-debug">, Group<f_Group>;
 def Wlarge_by_value_copy_def : Flag<"-Wlarge-by-value-copy">;
 def Wlarge_by_value_copy_EQ : Joined<"-Wlarge-by-value-copy=">;
 

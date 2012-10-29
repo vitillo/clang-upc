@@ -851,6 +851,7 @@ ASTContext::getTypeInfoImpl(const Type *T) const {
     Align = 32;
     break;
 
+  case Type::UPCThreadArray:
   case Type::IncompleteArray:
   case Type::VariableArray:
     Width = 0;
@@ -992,9 +993,14 @@ ASTContext::getTypeInfoImpl(const Type *T) const {
     break;
   }
   case Type::Pointer: {
-    unsigned AS = getTargetAddressSpace(cast<PointerType>(T)->getPointeeType());
-    Width = Target->getPointerWidth(AS);
-    Align = Target->getPointerAlign(AS);
+    if (cast<PointerType>(T)->getPointeeType().getQualifiers().hasShared()) {
+      Width = (LangOpts.UPCPhaseBits + LangOpts.UPCThreadBits + LangOpts.UPCAddrBits);
+      Align = Target->getTypeAlign(Target->getInt64Type());
+    } else {
+      unsigned AS = getTargetAddressSpace(cast<PointerType>(T)->getPointeeType());
+      Width = Target->getPointerWidth(AS);
+      Align = Target->getPointerAlign(AS);
+    }
     break;
   }
   case Type::MemberPointer: {
@@ -1719,6 +1725,52 @@ QualType ASTContext::getConstantArrayType(QualType EltTy,
   return QualType(New, 0);
 }
 
+/// getUPCThreadArrayType - Return the unique reference to the type for an
+/// array of the specified element type.
+QualType ASTContext::getUPCThreadArrayType(QualType EltTy,
+                                           const llvm::APInt &ArySizeIn,
+                                           bool hasThread,
+                                           ArrayType::ArraySizeModifier ASM,
+                                           unsigned IndexTypeQuals) const {
+  assert((!EltTy->isVariableArrayType()) &&
+         "Constant array of VLAs is illegal!");
+
+  // Convert the array size into a canonical width matching the pointer size for
+  // the target.
+  llvm::APInt ArySize(ArySizeIn);
+  ArySize =
+    ArySize.zextOrTrunc(Target->getPointerWidth(getTargetAddressSpace(EltTy)));
+
+  llvm::FoldingSetNodeID ID;
+  UPCThreadArrayType::Profile(ID, EltTy, ArySize, hasThread, ASM, IndexTypeQuals);
+
+  void *InsertPos = 0;
+  if (UPCThreadArrayType *ATP =
+      UPCThreadArrayTypes.FindNodeOrInsertPos(ID, InsertPos))
+    return QualType(ATP, 0);
+
+  // If the element type isn't canonical or has qualifiers, this won't
+  // be a canonical type either, so fill in the canonical type field.
+  QualType Canon;
+  if (!EltTy.isCanonical() || EltTy.hasLocalQualifiers()) {
+    SplitQualType canonSplit = getCanonicalType(EltTy).split();
+    Canon = getUPCThreadArrayType(QualType(canonSplit.Ty, 0), ArySize,
+                                  hasThread, ASM, IndexTypeQuals);
+    Canon = getQualifiedType(Canon, canonSplit.Quals);
+
+    // Get the new insert position for the node we care about.
+    UPCThreadArrayType *NewIP =
+      UPCThreadArrayTypes.FindNodeOrInsertPos(ID, InsertPos);
+    assert(NewIP == 0 && "Shouldn't be in the map!"); (void)NewIP;
+  }
+
+  UPCThreadArrayType *New = new(*this,TypeAlignment)
+    UPCThreadArrayType(EltTy, Canon, ArySize, hasThread, ASM, IndexTypeQuals);
+  UPCThreadArrayTypes.InsertNode(New, InsertPos);
+  Types.push_back(New);
+  return QualType(New, 0);
+}
+
 /// getVariableArrayDecayedType - Turns the given type, which may be
 /// variably-modified, into the corresponding type with all the known
 /// sizes replaced with [*].
@@ -1808,6 +1860,17 @@ QualType ASTContext::getVariableArrayDecayedType(QualType type) const {
                                   cat->getSize(),
                                   cat->getSizeModifier(),
                                   cat->getIndexTypeCVRQualifiers());
+    break;
+  }
+
+  case Type::UPCThreadArray: {
+    const UPCThreadArrayType *tat = cast<UPCThreadArrayType>(ty);
+    result = getUPCThreadArrayType(
+                 getVariableArrayDecayedType(tat->getElementType()),
+                                  tat->getSize(),
+                                  tat->getThread(),
+                                  tat->getSizeModifier(),
+                                  tat->getIndexTypeCVRQualifiers());
     break;
   }
 
@@ -3449,6 +3512,11 @@ const ArrayType *ASTContext::getAsArrayType(QualType T) const {
     return cast<ArrayType>(getConstantArrayType(NewEltTy, CAT->getSize(),
                                                 CAT->getSizeModifier(),
                                            CAT->getIndexTypeCVRQualifiers()));
+  if (const UPCThreadArrayType *TAT = dyn_cast<UPCThreadArrayType>(ATy))
+    return cast<ArrayType>(getUPCThreadArrayType(NewEltTy, TAT->getSize(),
+                                                 TAT->getThread(),
+                                                TAT->getSizeModifier(),
+                                           TAT->getIndexTypeCVRQualifiers()));
   if (const IncompleteArrayType *IAT = dyn_cast<IncompleteArrayType>(ATy))
     return cast<ArrayType>(getIncompleteArrayType(NewEltTy,
                                                   IAT->getSizeModifier(),
@@ -5874,8 +5942,18 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     // mismatch.
     if (LQuals.getCVRQualifiers() != RQuals.getCVRQualifiers() ||
         LQuals.getAddressSpace() != RQuals.getAddressSpace() ||
-        LQuals.getObjCLifetime() != RQuals.getObjCLifetime())
+        LQuals.getObjCLifetime() != RQuals.getObjCLifetime() ||
+        LQuals.hasShared() != RQuals.hasShared() ||
+        LQuals.getLayoutQualifier() != RQuals.getLayoutQualifier())
       return QualType();
+
+    Qualifiers LayoutQual;
+    LayoutQual.setLayoutQualifier(1);
+
+    if (LQuals.hasLayoutQualifier() && !RQuals.hasLayoutQualifier())
+      return mergeTypes(LHS, getQualifiedType(RHS, LayoutQual));
+    if (!LQuals.hasLayoutQualifier() && RQuals.hasLayoutQualifier())
+      return mergeTypes(getQualifiedType(LHS, LayoutQual), RHS);
 
     // Exactly one GC qualifier difference is allowed: __strong is
     // okay if the other type has no GC qualifier but is an Objective
@@ -5909,9 +5987,11 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
   if (RHSClass == Type::FunctionProto) RHSClass = Type::FunctionNoProto;
 
   // Same as above for arrays
-  if (LHSClass == Type::VariableArray || LHSClass == Type::IncompleteArray)
+  if (LHSClass == Type::UPCThreadArray ||
+      LHSClass == Type::VariableArray || LHSClass == Type::IncompleteArray)
     LHSClass = Type::ConstantArray;
-  if (RHSClass == Type::VariableArray || RHSClass == Type::IncompleteArray)
+  if (RHSClass == Type::UPCThreadArray ||
+      RHSClass == Type::VariableArray || RHSClass == Type::IncompleteArray)
     RHSClass = Type::ConstantArray;
 
   // ObjCInterfaces are just specialized ObjCObjects.
@@ -5965,6 +6045,7 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     llvm_unreachable("C++ should never be in mergeTypes");
 
   case Type::ObjCInterface:
+  case Type::UPCThreadArray:
   case Type::IncompleteArray:
   case Type::VariableArray:
   case Type::FunctionProto:
@@ -6032,6 +6113,15 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     if (LCAT && RCAT && RCAT->getSize() != LCAT->getSize())
       return QualType();
 
+    const UPCThreadArrayType* LTAT = getAsUPCThreadArrayType(LHS);
+    const UPCThreadArrayType* RTAT = getAsUPCThreadArrayType(RHS);
+    if (LTAT && RTAT && (RTAT->getSize() != LTAT->getSize() ||
+                         RTAT->getThread() != LTAT->getThread()))
+      return QualType();
+
+    if ((LCAT && RTAT) || (RCAT && LTAT))
+      return QualType();
+
     QualType LHSElem = getAsArrayType(LHS)->getElementType();
     QualType RHSElem = getAsArrayType(RHS)->getElementType();
     if (Unqualified) {
@@ -6041,14 +6131,18 @@ QualType ASTContext::mergeTypes(QualType LHS, QualType RHS,
     
     QualType ResultType = mergeTypes(LHSElem, RHSElem, false, Unqualified);
     if (ResultType.isNull()) return QualType();
-    if (LCAT && getCanonicalType(LHSElem) == getCanonicalType(ResultType))
+    if ((LCAT || LTAT) && getCanonicalType(LHSElem) == getCanonicalType(ResultType))
       return LHS;
-    if (RCAT && getCanonicalType(RHSElem) == getCanonicalType(ResultType))
+    if ((RCAT || RTAT) && getCanonicalType(RHSElem) == getCanonicalType(ResultType))
       return RHS;
     if (LCAT) return getConstantArrayType(ResultType, LCAT->getSize(),
                                           ArrayType::ArraySizeModifier(), 0);
     if (RCAT) return getConstantArrayType(ResultType, RCAT->getSize(),
                                           ArrayType::ArraySizeModifier(), 0);
+    if (LTAT) return getUPCThreadArrayType(ResultType, LTAT->getSize(), LTAT->getThread(),
+                                           ArrayType::ArraySizeModifier(), 0);
+    if (RTAT) return getUPCThreadArrayType(ResultType, RTAT->getSize(), RTAT->getThread(),
+                                           ArrayType::ArraySizeModifier(), 0);
     const VariableArrayType* LVAT = getAsVariableArrayType(LHS);
     const VariableArrayType* RVAT = getAsVariableArrayType(RHS);
     if (LVAT && getCanonicalType(LHSElem) == getCanonicalType(ResultType))

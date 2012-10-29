@@ -28,6 +28,14 @@ def SwitchCase : Stmt<1>;
 def CaseStmt : DStmt<SwitchCase>;
 def DefaultStmt : DStmt<SwitchCase>;
 
+// UPC Statements
+def UPCNotifyStmt : Stmt;
+def UPCWaitStmt : Stmt;
+def UPCBarrierStmt : Stmt;
+def UPCFenceStmt : Stmt;
+def UPCPragmaStmt : Stmt;
+def UPCForAllStmt : Stmt;
+
 // GNU Extensions
 def AsmStmt : Stmt;
 
@@ -153,6 +161,9 @@ def ObjCBridgedCastExpr : DStmt<ExplicitCastExpr>;
 
 // CUDA Expressions.
 def CUDAKernelCallExpr : DStmt<CallExpr>;
+
+// UPC Expressions
+def UPCThreadExpr : DStmt<Expr>;
 
 // Clang Extensions.
 def ShuffleVectorExpr : DStmt<Expr>;

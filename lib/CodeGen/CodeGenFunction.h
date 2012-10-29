@@ -1556,16 +1556,23 @@ public:
   //===--------------------------------------------------------------------===//
 
   LValue MakeAddrLValue(llvm::Value *V, QualType T,
-                        CharUnits Alignment = CharUnits()) {
+                        CharUnits Alignment = CharUnits(),
+                        SourceLocation Loc = SourceLocation()) {
     return LValue::MakeAddr(V, T, Alignment, getContext(),
-                            CGM.getTBAAInfo(T));
+                            CGM.getTBAAInfo(T), Loc);
   }
-  LValue MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T) {
+  LValue MakeAddrLValue(llvm::Value *V, QualType T,
+                        SourceLocation Loc) {
+    return LValue::MakeAddr(V, T, CharUnits(), getContext(),
+                            CGM.getTBAAInfo(T), Loc);
+  }
+  LValue MakeNaturalAlignAddrLValue(llvm::Value *V, QualType T,
+                                    SourceLocation Loc = SourceLocation()) {
     CharUnits Alignment;
     if (!T->isIncompleteType())
       Alignment = getContext().getTypeAlignInChars(T);
     return LValue::MakeAddr(V, T, Alignment, getContext(),
-                            CGM.getTBAAInfo(T));
+                            CGM.getTBAAInfo(T), Loc);
   }
 
   /// CreateTempAlloca - This creates a alloca and inserts it into the entry
@@ -1823,6 +1830,54 @@ public:
                                        bool isInc, bool isPre);
   ComplexPairTy EmitComplexPrePostIncDec(const UnaryOperator *E, LValue LV,
                                          bool isInc, bool isPre);
+
+  
+  llvm::Value *EmitUPCCastSharedToLocal(llvm::Value *Value, QualType DestTy,
+                                        SourceLocation Loc);
+  llvm::Value *EmitUPCBitCastZeroPhase(llvm::Value *Value, QualType DestTy);
+  llvm::Value *EmitUPCPointerToBoolConversion(llvm::Value *Pointer);
+  llvm::Value *EmitUPCNullPointer(QualType DestTy);
+  llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, QualType Ty,
+                           CharUnits Align, SourceLocation Loc);
+  llvm::Value *EmitUPCLoad(llvm::Value *Addr, bool isStrict, llvm::Type *LTy,
+                           CharUnits Align, SourceLocation Loc);
+  void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
+                    QualType Ty, CharUnits Align, SourceLocation Loc);
+  void EmitUPCStore(llvm::Value *Value, llvm::Value *Addr, bool isStrict,
+                    CharUnits Align, SourceLocation Loc);
+  void EmitUPCAggregateCopy(llvm::Value *Dest, llvm::Value *Src,
+                            QualType SrcTy, QualType DestTy,
+                            SourceLocation Loc);
+  llvm::Value *EmitUPCAtomicCmpXchg(llvm::Value *Addr,
+                                    llvm::PHINode *AtomicPhi,
+                                    llvm::Value *Value,
+                                    SourceLocation Loc);
+  llvm::Value *EmitUPCPointerGetPhase(llvm::Value *Pointer);
+  llvm::Value *EmitUPCPointerGetThread(llvm::Value *Pointer);
+  llvm::Value *EmitUPCPointerGetAddr(llvm::Value *Pointer);
+  llvm::Value *EmitUPCPointer(llvm::Value *Phase, llvm::Value *Thread,
+                              llvm::Value *Addr);
+  llvm::Value *EmitUPCThreads();
+  llvm::Value *EmitUPCMyThread();
+  llvm::Value *EmitUPCPointerArithmetic(llvm::Value *LHS, llvm::Value *RHS,
+                                        QualType PtrTy, QualType IndexTy,
+                                        bool isSubtraction);
+  llvm::Value *EmitUPCPointerArithmetic(llvm::Value *LHS, llvm::Value *RHS,
+                                        QualType PtrTy, const Expr *E,
+                                        bool isSubtraction);
+  llvm::Value *EmitUPCPointerDiff(llvm::Value *LHS, llvm::Value *RHS,
+                                  const Expr *E);
+  llvm::Value *EmitUPCPointerCompare(llvm::Value *LHS, llvm::Value *RHS,
+                                     const BinaryOperator *E);
+  llvm::Value *EmitUPCFieldOffset(llvm::Value *Addr, llvm::Type * StructTy,
+                                  int Idx);
+  llvm::Value *EmitUPCPointerAdd(llvm::Value *Addr, int Idx);
+  void EmitUPCNotifyStmt(const UPCNotifyStmt &S);
+  void EmitUPCWaitStmt(const UPCWaitStmt &S);
+  void EmitUPCBarrierStmt(const UPCBarrierStmt &S);
+  void EmitUPCFenceStmt(const UPCFenceStmt &S);
+  void EmitUPCForAllStmt(const UPCForAllStmt &S);
+
   //===--------------------------------------------------------------------===//
   //                            Declaration Emission
   //===--------------------------------------------------------------------===//
@@ -2089,6 +2144,7 @@ public:
   LValue EmitCallExprLValue(const CallExpr *E);
   // Note: only available for agg return types
   LValue EmitVAArgExprLValue(const VAArgExpr *E);
+  LValue EmitSharedVarDeclLValue(llvm::Value *V, CharUnits Alignment, QualType T);
   LValue EmitDeclRefLValue(const DeclRefExpr *E);
   LValue EmitStringLiteralLValue(const StringLiteral *E);
   LValue EmitObjCEncodeExprLValue(const ObjCEncodeExpr *E);
@@ -2158,8 +2214,7 @@ public:
                            llvm::Value* Base, const ObjCIvarDecl *Ivar,
                            unsigned CVRQualifiers);
 
-  LValue EmitLValueForBitfield(llvm::Value* Base, const FieldDecl* Field,
-                                unsigned CVRQualifiers);
+  LValue EmitLValueForBitfield(LValue Base, const FieldDecl* Field);
 
   LValue EmitCXXConstructLValue(const CXXConstructExpr *E);
   LValue EmitCXXBindTemporaryLValue(const CXXBindTemporaryExpr *E);
@@ -2390,6 +2445,8 @@ public:
                           bool DestIsVolatile);
   /// LoadComplexFromAddr - Load a complex number from the specified address.
   ComplexPairTy LoadComplexFromAddr(llvm::Value *SrcAddr, bool SrcIsVolatile);
+  void EmitStoreOfComplex(ComplexPairTy V, LValue LV);
+  ComplexPairTy EmitLoadOfComplex(LValue LV);
 
   /// CreateStaticVarDecl - Create a zero-initialized LLVM global for
   /// a static local variable.

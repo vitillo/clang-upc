@@ -840,3 +840,30 @@ def cl_std_EQ : Joined<"-cl-std=">,
 
 def fcuda_is_device : Flag<"-fcuda-is-device">,
   HelpText<"Generate code for CUDA device">;
+
+//===----------------------------------------------------------------------===//
+// UPC Options
+//===----------------------------------------------------------------------===//
+
+def fupc_threads : Separate<"-fupc-threads">,
+  HelpText<"Set the number of threads">;
+
+def fupc_pts_EQ : Joined<"-fupc-pts=">,
+  HelpText<"Sets the pointer-to-shared representation">;
+
+def fupc_packed_bits_EQ : Joined<"-fupc-packed-bits=">,
+  HelpText<"Allows the user to specify the number of bits allocated "
+           "for each field of the shared pointer">;
+
+def fupc_pts_vaddr_order_EQ : Joined<"-fupc-pts-vaddr-order=">,
+  HelpText<"Controls the order of the members in the "
+           "pointer-to-shared representation">;
+
+def fupc_debug : Flag<"-fupc-debug">,
+  HelpText<"Enables debug calls to the UPC runtime">;
+
+def fupc_inline_lib : Flag<"-fupc-inline-lib">,
+  HelpText<"Enables inlining of the UPC runtime">;
+
+def fno_upc_inline_lib : Flag<"-fno-upc-inline-lib">,
+  HelpText<"Disables inlining of the UPC runtime">;

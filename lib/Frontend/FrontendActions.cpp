@@ -473,6 +473,7 @@ void PrintPreambleAction::ExecuteAction() {
   case IK_CXX:
   case IK_ObjC:
   case IK_ObjCXX:
+  case IK_UPC:
   case IK_OpenCL:
   case IK_CUDA:
     break;
@@ -483,6 +484,7 @@ void PrintPreambleAction::ExecuteAction() {
   case IK_PreprocessedCXX:
   case IK_PreprocessedObjC:
   case IK_PreprocessedObjCXX:
+  case IK_PreprocessedUPC:
   case IK_AST:
   case IK_LLVM_IR:
     // We can't do anything with these.

@@ -283,6 +283,25 @@ Retry:
     SemiError = "return";
     break;
 
+  case tok::kw_upc_notify:
+    Res = ParseUPCNotifyStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_wait:
+    Res = ParseUPCWaitStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_barrier:
+    Res = ParseUPCBarrierStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_fence:
+    Res = ParseUPCFenceStatement();
+    SemiError = "upc_notify";
+    break;
+  case tok::kw_upc_forall:             // UPC 6.6.2 upc_forall statement
+    return ParseUPCForAllStatement(TrailingElseLoc);
+
   case tok::kw_asm: {
     ProhibitAttributes(Attrs);
     bool msAsm = false;
@@ -309,6 +328,11 @@ Retry:
     ProhibitAttributes(Attrs);
     HandlePragmaPack();
     return StmtEmpty();
+
+  case tok::annot_pragma_upc:
+    ProhibitAttributes(Attrs);
+    Diag(Tok.getLocation(), diag::warn_pragma_upc_must_precede_statements);
+    return HandlePragmaUPC();
   }
 
   // If we reached this code, the statement must end in a semicolon.
@@ -743,6 +767,14 @@ StmtResult Parser::ParseCompoundStatementBody(bool isStmtExpr) {
   Sema::CompoundScopeRAII CompoundScope(Actions);
 
   StmtVector Stmts(Actions);
+
+  // #pragma upc [relaxed|strict] is only allowed at the
+  // start of a compound statement
+  while(Tok.is(tok::annot_pragma_upc)) {
+    StmtResult R = HandlePragmaUPC();
+    if (R.isUsable())
+      Stmts.push_back(R.release());
+  }
 
   // "__label__ X, Y, Z;" is the GNU "Local Label" extension.  These are
   // only allowed at the start of a compound stmt regardless of the language.
@@ -1526,6 +1558,205 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
                               T.getCloseLocation(), Body.take());
 }
 
+/// ParseUPCForAllStatement
+///       upc_forall-statement: [C99 6.8.5.3]
+///         'upc_forall' '(' expr[opt] ';' expr[opt] ';' expr[opt] ; affinity[opt] ')' statement
+///         'upc_forall' '(' declaration expr[opt] ';' expr[opt] ';' affinity[opt] ')' statement
+StmtResult Parser::ParseUPCForAllStatement(SourceLocation *TrailingElseLoc) {
+  assert(Tok.is(tok::kw_upc_forall) && "Not a upc_forall stmt!");
+  SourceLocation ForLoc = ConsumeToken();  // eat the 'upc_forall'.
+
+  if (Tok.isNot(tok::l_paren)) {
+    Diag(Tok, diag::err_expected_lparen_after) << "upc_forall";
+    SkipUntil(tok::semi);
+    return StmtError();
+  }
+
+  bool C99orCXXorObjC = getLangOpts().C99 || getLangOpts().CPlusPlus || getLangOpts().ObjC1;
+
+  // C99 6.8.5p5 - In C99, the for statement is a block.  This is not
+  // the case for C90.  Start the loop scope.
+  //
+  // C++ 6.4p3:
+  // A name introduced by a declaration in a condition is in scope from its
+  // point of declaration until the end of the substatements controlled by the
+  // condition.
+  // C++ 3.3.2p4:
+  // Names declared in the for-init-statement, and in the condition of if,
+  // while, for, and switch statements are local to the if, while, for, or
+  // switch statement (including the controlled statement).
+  // C++ 6.5.3p1:
+  // Names declared in the for-init-statement are in the same declarative-region
+  // as those declared in the condition.
+  //
+  unsigned ScopeFlags;
+  if (C99orCXXorObjC)
+    ScopeFlags = Scope::BreakScope | Scope::ContinueScope |
+                 Scope::DeclScope  | Scope::ControlScope |
+                 Scope::UPCForAllScope;
+  else
+    ScopeFlags = Scope::BreakScope | Scope::ContinueScope |
+                 Scope::UPCForAllScope;
+
+  ParseScope ForScope(this, ScopeFlags);
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  T.consumeOpen();
+
+  ExprResult Value;
+
+  StmtResult FirstPart;
+  bool SecondPartIsInvalid = false;
+  FullExprArg SecondPart(Actions);
+  ExprResult Collection;
+  ForRangeInit ForRangeInit;
+  FullExprArg ThirdPart(Actions);
+  FullExprArg FourthPart(Actions);
+  Decl *SecondVar = 0;
+
+  if (Tok.is(tok::code_completion)) {
+    Actions.CodeCompleteOrdinaryName(getCurScope(),
+                                     C99orCXXorObjC? Sema::PCC_ForInit
+                                                   : Sema::PCC_Expression);
+    cutOffParsing();
+    return StmtError();
+  }
+
+  // Parse the first part of the for specifier.
+  if (Tok.is(tok::semi)) {  // for (;
+    // no first part, eat the ';'.
+    ConsumeToken();
+  } else if (isForInitDeclaration()) {  // for (int X = 4;
+    // Parse declaration, which eats the ';'.
+    if (!C99orCXXorObjC)   // Use of C99-style for loops in C90 mode?
+      Diag(Tok, diag::ext_c99_variable_decl_in_for_loop);
+
+    ParsedAttributesWithRange attrs(AttrFactory);
+    MaybeParseCXX0XAttributes(attrs);
+
+    SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
+    StmtVector Stmts(Actions);
+    DeclGroupPtrTy DG = ParseSimpleDeclaration(Stmts, Declarator::ForContext,
+                                               DeclEnd, attrs, false);
+    FirstPart = Actions.ActOnDeclStmt(DG, DeclStart, Tok.getLocation());
+
+    if (Tok.is(tok::semi)) {  // for (int x = 4;
+      ConsumeToken();
+    } else {
+      Diag(Tok, diag::err_expected_semi_for);
+    }
+  } else {
+    Value = ParseExpression();
+
+    // Turn the expression into a stmt.
+    if (!Value.isInvalid()) {
+      FirstPart = Actions.ActOnExprStmt(Actions.MakeFullExpr(Value.get()));
+    }
+
+    if (Tok.is(tok::semi)) {
+      ConsumeToken();
+    } else {
+      if (!Value.isInvalid()) {
+        Diag(Tok, diag::err_expected_semi_for);
+      } else {
+        // Skip until semicolon or rparen, don't consume it.
+        SkipUntil(tok::r_paren, true, true);
+        if (Tok.is(tok::semi))
+          ConsumeToken();
+      }
+    }
+  }
+
+  assert(!SecondPart.get() && "Shouldn't have a second expression yet.");
+  // Parse the second part of the for specifier.
+  if (Tok.is(tok::semi)) {  // for (...;;
+    // no second part.
+  } else if (Tok.is(tok::r_paren)) {
+    // missing both semicolons.
+  } else {
+    ExprResult Second;
+    if (getLangOpts().CPlusPlus)
+      ParseCXXCondition(Second, SecondVar, ForLoc, true);
+    else {
+      Second = ParseExpression();
+      if (!Second.isInvalid())
+        Second = Actions.ActOnBooleanCondition(getCurScope(), ForLoc,
+                                               Second.get());
+    }
+    SecondPartIsInvalid = Second.isInvalid();
+    SecondPart = Actions.MakeFullExpr(Second.get());
+  }
+
+  if (Tok.isNot(tok::semi)) {
+    if (!SecondPartIsInvalid || SecondVar)
+      Diag(Tok, diag::err_expected_semi_for);
+    else
+      // Skip until semicolon or rparen, don't consume it.
+      SkipUntil(tok::r_paren, true, true);
+  }
+
+  if (Tok.is(tok::semi)) {
+    ConsumeToken();
+  }
+
+  // Parse the third part of the for specifier.
+  if (Tok.is(tok::semi)) {
+    // no third part
+  } else if (Tok.is(tok::r_paren)) {
+    // missing both semicolons
+  } else {
+    ExprResult Third = ParseExpression();
+    ThirdPart = Actions.MakeFullExpr(Third.take());
+  }
+
+  if (Tok.is(tok::semi)) {
+    ConsumeToken();
+  }
+
+  // Parse the fourth part of the upc_forall specifier
+  if (Tok.is(tok::kw_continue)) {
+    ConsumeToken();
+  } else if (Tok.is(tok::r_paren)) {
+    // missing semicolon
+  } else {
+    ExprResult Fourth = ParseExpression();
+    FourthPart = Actions.MakeFullExpr(Fourth.take());
+  }
+
+  // Match the ')'.
+  T.consumeClose();
+
+  // C99 6.8.5p5 - In C99, the body of the if statement is a scope, even if
+  // there is no compound stmt.  C90 does not have this clause.  We only do this
+  // if the body isn't a compound statement to avoid push/pop in common cases.
+  //
+  // C++ 6.5p2:
+  // The substatement in an iteration-statement implicitly defines a local scope
+  // which is entered and exited each time through the loop.
+  //
+  // See comments in ParseIfStatement for why we create a scope for
+  // for-init-statement/condition and a new scope for substatement in C++.
+  //
+  ParseScope InnerScope(this, Scope::DeclScope,
+                        C99orCXXorObjC && Tok.isNot(tok::l_brace));
+
+  // Read the body statement.
+  StmtResult Body(ParseStatement(TrailingElseLoc));
+
+  // Pop the body scope if needed.
+  InnerScope.Exit();
+
+  // Leave the for-scope.
+  ForScope.Exit();
+
+  if (Body.isInvalid())
+    return StmtError();
+
+  return Actions.ActOnUPCForAllStmt(ForLoc, T.getOpenLocation(), FirstPart.take(),
+                                    SecondPart, SecondVar, ThirdPart, FourthPart,
+                                    T.getCloseLocation(), Body.take());
+}
+
 /// ParseGotoStatement
 ///       jump-statement:
 ///         'goto' identifier ';'
@@ -1613,6 +1844,69 @@ StmtResult Parser::ParseReturnStatement() {
     }
   }
   return Actions.ActOnReturnStmt(ReturnLoc, R.take());
+}
+
+/// ParseUPCNotifyStatement
+///       synchronization-statement:
+///         'upc_notify' expression[opt] ';'
+StmtResult Parser::ParseUPCNotifyStatement() {
+  assert(Tok.is(tok::kw_upc_notify) && "Not a upc_notify stmt!");
+  SourceLocation NotifyLoc = ConsumeToken();  // eat the 'upc_barrier'.
+
+  ExprResult R;
+  if (Tok.isNot(tok::semi)) {
+    R = ParseExpression();
+    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
+      SkipUntil(tok::semi, false, true);
+      return StmtError();
+    }
+  }
+  return Actions.ActOnUPCNotifyStmt(NotifyLoc, R.take());
+}
+
+/// ParseUPCWaitStatement
+///       synchronization-statement:
+///         'upc_wait' expression[opt] ';'
+StmtResult Parser::ParseUPCWaitStatement() {
+  assert(Tok.is(tok::kw_upc_wait) && "Not a upc_wait stmt!");
+  SourceLocation WaitLoc = ConsumeToken();  // eat the 'upc_wait'.
+
+  ExprResult R;
+  if (Tok.isNot(tok::semi)) {
+    R = ParseExpression();
+    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
+      SkipUntil(tok::semi, false, true);
+      return StmtError();
+    }
+  }
+  return Actions.ActOnUPCWaitStmt(WaitLoc, R.take());
+}
+
+/// ParseUPCBarrierStatement
+///       synchronization-statement:
+///         'upc_barrier' expression[opt] ';'
+StmtResult Parser::ParseUPCBarrierStatement() {
+  assert(Tok.is(tok::kw_upc_barrier) && "Not a upc_barrier stmt!");
+  SourceLocation BarrierLoc = ConsumeToken();  // eat the 'upc_barrier'.
+
+  ExprResult R;
+  if (Tok.isNot(tok::semi)) {
+    R = ParseExpression();
+    if (R.isInvalid()) {  // Skip to the semicolon, but don't consume it.
+      SkipUntil(tok::semi, false, true);
+      return StmtError();
+    }
+  }
+  return Actions.ActOnUPCBarrierStmt(BarrierLoc, R.take());
+}
+
+/// ParseUPCFenceStatement
+///       synchronization-statement:
+///         'upc_fence' expression[opt] ';'
+StmtResult Parser::ParseUPCFenceStatement() {
+  assert(Tok.is(tok::kw_upc_fence) && "Not a upc_fence stmt!");
+  SourceLocation FenceLoc = ConsumeToken();  // eat the 'return'.
+  return Actions.ActOnUPCFenceStmt(FenceLoc);
 }
 
 /// ParseMicrosoftAsmStatement. When -fms-extensions/-fasm-blocks is enabled,

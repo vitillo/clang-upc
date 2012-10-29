@@ -100,6 +100,9 @@ def err_arc_unsupported : Error<
 def err_drv_mg_requires_m_or_mm : Error<
   "option '-MG' requires '-M' or '-MM'">;
 
+def err_drv_invalid_upc_threads : Error<
+  "THREADS value '%0' exceeds UPC implementation limit of '%1'">;
+
 def warn_c_kext : Warning<
   "ignoring -fapple-kext which is valid for c++ and objective-c++ only">;
 def warn_drv_input_file_unused : Warning<
@@ -126,6 +129,9 @@ def warn_ignoring_ftabstop_value : Warning<
   "ignoring invalid -ftabstop value '%0', using default value %1">;
 def warn_drv_treating_input_as_cxx : Warning<
   "treating '%0' input as '%1' when in C++ mode, this behavior is deprecated">,
+  InGroup<Deprecated>;
+def warn_drv_treating_input_as_upc : Warning<
+  "treating '%0' input as '%1' when in UPC mode, this behavior is deprecated">,
   InGroup<Deprecated>;
 def warn_drv_objc_gc_unsupported : Warning<
   "Objective-C garbage collection is not supported on this platform, ignoring '%0'">;

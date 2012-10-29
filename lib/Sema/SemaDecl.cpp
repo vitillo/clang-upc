@@ -4062,6 +4062,9 @@ Sema::ActOnVariableDeclarator(Scope *S, Declarator &D, DeclContext *DC,
 
     if (D.getDeclSpec().isConstexprSpecified())
       NewVD->setConstexpr(true);
+
+    if (getLangOpts().UPC)
+      NewVD->setUPCInitStrict(IsUPCDefaultStrict());
   }
 
   // Set the lexical context. If the declarator has a C++ scope specifier, the
@@ -4332,6 +4335,42 @@ bool Sema::CheckVariableDeclaration(VarDecl *NewVD,
     Diag(NewVD->getLocation(), diag::err_as_qualified_auto_decl);
     NewVD->setInvalidDecl();
     return false;
+  }
+
+  if (getLangOpts().UPC) {
+    QualType type = T.getCanonicalType();
+    if (type.getQualifiers().hasShared()) {
+      if (NewVD->hasLocalStorage()) {
+        Diag(NewVD->getLocation(), diag::err_upc_shared_local);
+        NewVD->setInvalidDecl();
+        return false;
+      } else if (type.getQualifiers().hasLayoutQualifier() &&
+            type.getQualifiers().getLayoutQualifier() == 0) {
+        if (isa<UPCThreadArrayType>(type.getTypePtr())) {
+          Diag(NewVD->getLocation(), diag::err_upc_indefinite_blocksize_uses_threads);
+          NewVD->setInvalidDecl();
+          return false;
+        }
+      } else if (const IncompleteArrayType *IAT = dyn_cast<IncompleteArrayType>(type.getTypePtr())) {
+        if (!NewVD->hasExternalStorage()) {
+          QualType Elem = IAT->getElementType();
+          if (getLangOpts().UPCThreads == 0 &&
+              !isa<UPCThreadArrayType>(Elem.getTypePtr())) {
+            Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
+            NewVD->setInvalidDecl();
+            return false;
+          }
+        } else if (type.getQualifiers().hasLayoutQualifierStar()) {
+          Diag(NewVD->getLocation(), diag::err_upc_shared_star_in_incomplete_array);
+        }
+      } else if (getLangOpts().UPCThreads == 0 &&
+                 isa<ArrayType>(type.getTypePtr()) &&
+                 !isa<UPCThreadArrayType>(type.getTypePtr())) {
+        Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
+        NewVD->setInvalidDecl();
+        return false;
+      }
+    }
   }
 
   if (NewVD->hasLocalStorage() && T.isObjCGCWeak()
@@ -6340,7 +6379,8 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
     // C99 6.7.8p4: All the expressions in an initializer for an object that has
     // static storage duration shall be constant expressions or string literals.
     // C++ does not have this restriction.
-    if (!getLangOpts().CPlusPlus && !VDecl->isInvalidDecl() &&
+    if (!getLangOpts().CPlusPlus && !getLangOpts().UPC &&
+        !VDecl->isInvalidDecl() &&
         VDecl->getStorageClass() == SC_Static)
       CheckForConstantInitializer(Init, DclT);
   } else if (VDecl->isStaticDataMember() &&
@@ -6439,7 +6479,7 @@ void Sema::AddInitializerToDecl(Decl *RealDecl, Expr *Init,
       Diag(VDecl->getLocation(), diag::warn_extern_init);
 
     // C99 6.7.8p4. All file scoped initializers need to be constant.
-    if (!getLangOpts().CPlusPlus && !VDecl->isInvalidDecl())
+    if (!getLangOpts().CPlusPlus && !getLangOpts().UPC && !VDecl->isInvalidDecl())
       CheckForConstantInitializer(Init, DclT);
   }
 
@@ -7147,6 +7187,11 @@ ParmVarDecl *Sema::CheckParameter(DeclContext *DC, SourceLocation StartLoc,
     Diag(NameLoc, diag::err_arg_with_address_space);
     New->setInvalidDecl();
   }   
+
+  if (Context.getAdjustedParameterType(T).getQualifiers().hasShared()) {
+    Diag(NameLoc, diag::err_upc_arg_shared);
+    New->setInvalidDecl();
+  }
 
   return New;
 }
@@ -8883,6 +8928,8 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
   if (D.getDeclSpec().isConstexprSpecified())
     Diag(D.getDeclSpec().getConstexprSpecLoc(), diag::err_invalid_constexpr)
       << 2;
+  if (T.getCanonicalType().getQualifiers().hasShared())
+    Diag(Loc, diag::err_upc_shared_field);
   
   // Check to see if this name was declared as a member previously
   NamedDecl *PrevDecl = 0;
@@ -9004,6 +9051,11 @@ FieldDecl *Sema::CheckFieldDecl(DeclarationName Name, QualType T,
         Diag(Loc, diag::err_typecheck_field_variable_size);
       InvalidDecl = true;
     }
+  }
+
+  if (!InvalidDecl && T->isUPCThreadArrayType()) {
+    Diag(Loc, diag::err_typecheck_field_variable_size);
+    InvalidDecl = true;
   }
 
   // Fields can not have abstract class types

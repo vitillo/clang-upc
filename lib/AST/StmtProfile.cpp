@@ -158,6 +158,31 @@ void StmtProfiler::VisitReturnStmt(const ReturnStmt *S) {
   VisitStmt(S);
 }
 
+void StmtProfiler::VisitUPCNotifyStmt(const UPCNotifyStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCWaitStmt(const UPCWaitStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCBarrierStmt(const UPCBarrierStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCFenceStmt(const UPCFenceStmt *S) {
+  VisitStmt(S);
+}
+
+void StmtProfiler::VisitUPCPragmaStmt(const UPCPragmaStmt *S) {
+  VisitStmt(S);
+  ID.AddBoolean(S->getStrict());
+}
+
+void StmtProfiler::VisitUPCForAllStmt(const UPCForAllStmt *S) {
+  VisitStmt(S);
+}
+
 void StmtProfiler::VisitAsmStmt(const AsmStmt *S) {
   VisitStmt(S);
   ID.AddBoolean(S->isVolatile());
@@ -286,6 +311,10 @@ void StmtProfiler::VisitStringLiteral(const StringLiteral *S) {
   VisitExpr(S);
   ID.AddString(S->getBytes());
   ID.AddInteger(S->getKind());
+}
+
+void StmtProfiler::VisitUPCThreadExpr(const UPCThreadExpr *S) {
+  VisitExpr(S);
 }
 
 void StmtProfiler::VisitParenExpr(const ParenExpr *S) {

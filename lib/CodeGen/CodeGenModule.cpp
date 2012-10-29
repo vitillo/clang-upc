@@ -74,6 +74,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
     RRData(0), CFConstantStringClassRef(0),
     ConstantStringClassRef(0), NSConstantStringType(0),
     VMContext(M.getContext()),
+    UPCThreads(0), UPCMyThread(0), UPCFenceVar(0),
     NSConcreteGlobalBlock(0), NSConcreteStackBlock(0),
     BlockObjectAssign(0), BlockObjectDispose(0),
     BlockDescriptorType(0), GenericBlockLiteralType(0) {
@@ -94,6 +95,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
   IntPtrTy = llvm::IntegerType::get(LLVMContext, PointerWidthInBits);
   Int8PtrTy = Int8Ty->getPointerTo(0);
   Int8PtrPtrTy = Int8PtrTy->getPointerTo(0);
+  GenericPtsTy = Types.ConvertType(Context.getPointerType(Context.getSharedType(Context.VoidTy)));
 
   if (LangOpts.ObjC1)
     createObjCRuntime();
@@ -148,13 +150,37 @@ void CodeGenModule::createCUDARuntime() {
 }
 
 void CodeGenModule::Release() {
+  if (getContext().getLangOpts().UPC) {
+    llvm::SmallString<64> str;
+    str += "$GCCUPCConfig: (";
+    str += getModule().getModuleIdentifier();
+    str += ") ";
+    unsigned Threads = getContext().getLangOpts().UPCThreads;
+    if (Threads == 0) {
+      str += "dynamicthreads";
+    } else {
+      str += "staticthreads=";
+      llvm::APInt(32, Threads).toStringUnsigned(str);
+    }
+    str += " process$";
+    llvm::GlobalVariable * conf =
+      new llvm::GlobalVariable(getModule(), llvm::ArrayType::get(Int8Ty, str.size() + 1),
+                               true, llvm::GlobalValue::InternalLinkage,
+                               llvm::ConstantDataArray::getString(getLLVMContext(), str),
+                               "GCCUPCConfig");
+    conf->setSection("upc_pgm_info");
+    AddUsedGlobal(conf);
+  }
   EmitDeferred();
   EmitCXXGlobalInitFunc();
   EmitCXXGlobalDtorFunc();
   if (ObjCRuntime)
     if (llvm::Function *ObjCInitFunction = ObjCRuntime->ModuleInitFunction())
       AddGlobalCtor(ObjCInitFunction);
-  EmitCtorList(GlobalCtors, "llvm.global_ctors");
+  if (getContext().getLangOpts().UPC)
+    EmitUPCInits(GlobalCtors, "__upc_init_array");
+  else
+    EmitCtorList(GlobalCtors, "llvm.global_ctors");
   EmitCtorList(GlobalDtors, "llvm.global_dtors");
   EmitGlobalAnnotations();
   EmitLLVMUsed();
@@ -409,6 +435,31 @@ void CodeGenModule::EmitCtorList(const CtorList &Fns, const char *GlobalName) {
                              GlobalName);
   }
 }
+
+// Just like EmitCtorList except without priorities
+void CodeGenModule::EmitUPCInits(const CtorList &Fns, const char *GlobalName) {
+  // init function type is void()*.
+  llvm::FunctionType* CtorFTy = llvm::FunctionType::get(VoidTy, false);
+  llvm::Type *CtorPFTy = llvm::PointerType::getUnqual(CtorFTy);
+
+  // Construct the constructor and destructor arrays.
+  SmallVector<llvm::Constant*, 8> Ctors;
+  for (CtorList::const_iterator I = Fns.begin(), E = Fns.end(); I != E; ++I) {
+    Ctors.push_back(llvm::ConstantExpr::getBitCast(I->first, CtorPFTy));
+  }
+
+  if (!Ctors.empty()) {
+    llvm::ArrayType *AT = llvm::ArrayType::get(CtorPFTy, Ctors.size());
+    llvm::GlobalVariable *GV =
+      new llvm::GlobalVariable(TheModule, AT, false,
+                             llvm::GlobalValue::AppendingLinkage,
+                             llvm::ConstantArray::get(AT, Ctors),
+                             GlobalName);
+    GV->setSection("upc_init_array");
+  }
+}
+
+
 
 llvm::GlobalValue::LinkageTypes
 CodeGenModule::getFunctionLinkage(const FunctionDecl *D) {
@@ -1488,49 +1539,55 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
   bool NeedsGlobalCtor = false;
   bool NeedsGlobalDtor = RD && !RD->hasTrivialDestructor();
 
-  const VarDecl *InitDecl;
-  const Expr *InitExpr = D->getAnyInitializer(InitDecl);
-
-  if (!InitExpr) {
-    // This is a tentative definition; tentative definitions are
-    // implicitly initialized with { 0 }.
-    //
-    // Note that tentative definitions are only emitted at the end of
-    // a translation unit, so they should never have incomplete
-    // type. In addition, EmitTentativeDefinition makes sure that we
-    // never attempt to emit a tentative definition if a real one
-    // exists. A use may still exists, however, so we still may need
-    // to do a RAUW.
-    assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
-    Init = EmitNullConstant(D->getType());
-  } else {
-    // If this is a std::initializer_list, emit the special initializer.
-    Init = MaybeEmitGlobalStdInitializerListInitializer(D, InitExpr);
-    // An empty init list will perform zero-initialization, which happens
-    // to be exactly what we want.
-    // FIXME: It does so in a global constructor, which is *not* what we
-    // want.
-
-    if (!Init)
-      Init = EmitConstantInit(*InitDecl);
-    if (!Init) {
-      QualType T = InitExpr->getType();
-      if (D->getType()->isReferenceType())
-        T = D->getType();
-
-      if (getLangOpts().CPlusPlus) {
-        Init = EmitNullConstant(T);
-        NeedsGlobalCtor = true;
-      } else {
-        ErrorUnsupported(D, "static initializer");
-        Init = llvm::UndefValue::get(getTypes().ConvertType(T));
-      }
+  if (ASTTy->isArrayType() && ASTTy.getQualifiers().hasShared())
+    Init = MaybeEmitUPCSharedArrayInits(D);
+  
+  if (!Init) {
+    const VarDecl *InitDecl;
+    const Expr *InitExpr = D->getAnyInitializer(InitDecl);
+  
+    if (!InitExpr) {
+      // This is a tentative definition; tentative definitions are
+      // implicitly initialized with { 0 }.
+      //
+      // Note that tentative definitions are only emitted at the end of
+      // a translation unit, so they should never have incomplete
+      // type. In addition, EmitTentativeDefinition makes sure that we
+      // never attempt to emit a tentative definition if a real one
+      // exists. A use may still exists, however, so we still may need
+      // to do a RAUW.
+      assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
+      Init = EmitNullConstant(D->getType());
     } else {
-      // We don't need an initializer, so remove the entry for the delayed
-      // initializer position (just in case this entry was delayed) if we
-      // also don't need to register a destructor.
-      if (getLangOpts().CPlusPlus && !NeedsGlobalDtor)
-        DelayedCXXInitPosition.erase(D);
+      // If this is a std::initializer_list, emit the special initializer.
+      Init = MaybeEmitGlobalStdInitializerListInitializer(D, InitExpr);
+      // An empty init list will perform zero-initialization, which happens
+      // to be exactly what we want.
+      // FIXME: It does so in a global constructor, which is *not* what we
+      // want.
+
+      // upc shared variables can never be static initialized
+      if (!Init && !ASTTy.getQualifiers().hasShared())
+        Init = EmitConstantInit(*InitDecl);
+      if (!Init) {
+        QualType T = InitExpr->getType();
+        if (D->getType()->isReferenceType())
+          T = D->getType();
+
+        if (getLangOpts().CPlusPlus || getLangOpts().UPC) {
+          Init = EmitNullConstant(T);
+          NeedsGlobalCtor = true;
+        } else {
+          ErrorUnsupported(D, "static initializer");
+          Init = llvm::UndefValue::get(getTypes().ConvertType(T));
+        }
+      } else {
+        // We don't need an initializer, so remove the entry for the delayed
+        // initializer position (just in case this entry was delayed) if we
+        // also don't need to register a destructor.
+        if (getLangOpts().CPlusPlus && !NeedsGlobalDtor)
+          DelayedCXXInitPosition.erase(D);
+      }
     }
   }
 
@@ -1597,6 +1654,8 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     GV->setConstant(false);
 
   SetCommonAttributes(D, GV);
+  if(ASTTy.getQualifiers().hasShared())
+    GV->setSection("upc_shared");
 
   // Emit the initializer function if necessary.
   if (NeedsGlobalCtor || NeedsGlobalDtor)
@@ -1630,7 +1689,8 @@ CodeGenModule::GetLLVMLinkageVarDefinition(const VarDecl *D,
              D->getAttr<CommonAttr>()) &&
            !D->hasExternalStorage() && !D->getInit() &&
            !D->getAttr<SectionAttr>() && !D->isThreadSpecified() &&
-           !D->getAttr<WeakImportAttr>()) {
+           !D->getAttr<WeakImportAttr>() &&
+           !D->getType().getQualifiers().hasShared()) {
     // Thread local vars aren't considered common linkage.
     return llvm::GlobalVariable::CommonLinkage;
   }

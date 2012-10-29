@@ -307,6 +307,47 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
   if (LangOpts.ObjC1)
     Builder.defineMacro("__OBJC__");
 
+  if (LangOpts.UPC) {
+    Builder.defineMacro("__UPC__", "1");
+    Builder.defineMacro("__UPC_VERSION__", "200505L");
+
+    Builder.defineMacro("UPC_MAX_BLOCK_SIZE", Twine((uint64_t(2) << (LangOpts.UPCPhaseBits - 1)) - 1));
+
+    if (LangOpts.UPCThreads) {
+      Builder.defineMacro("__UPC_STATIC_THREADS__", "1");
+      Builder.defineMacro("THREADS", Twine(LangOpts.UPCThreads));
+    } else {
+      Builder.defineMacro("__UPC_DYNAMIC_THREADS__", "1");
+    }
+    Builder.append("extern const int MYTHREAD;\n");
+    Builder.append("typedef shared struct upc_lock_struct upc_lock_t;\n");
+    Builder.append("extern int main() __asm__(\"upc_main\");\n");
+    Builder.defineMacro("exit", "__upc_exit");
+
+    // implementation specific macros
+    Builder.defineMacro("__UPC_PHASE_SIZE__", Twine(LangOpts.UPCPhaseBits));
+    Builder.defineMacro("__UPC_THREAD_SIZE__", Twine(LangOpts.UPCThreadBits));
+    Builder.defineMacro("__UPC_VADDR_SIZE__", Twine(LangOpts.UPCAddrBits));
+    if (LangOpts.UPCVaddrFirst) {
+      Builder.defineMacro("__UPC_VADDR_FIRST__", "1");
+    }
+    if(LangOpts.UPCPhaseBits + LangOpts.UPCThreadBits + LangOpts.UPCAddrBits == 64) {
+      Builder.defineMacro("__UPC_PTS_PACKED_REP__", "1");
+    } else {
+      Builder.defineMacro("__UPC_PTS_STRUCT_REP__", "1");
+      Builder.defineMacro("__UPC_PHASE_TYPE__", "__INT32_TYPE__");
+      Builder.defineMacro("__UPC_THREAD_TYPE__", "__INT32_TYPE__");
+      Builder.defineMacro("__UPC_VADDR_TYPE__", "char *");
+    }
+    Builder.defineMacro("__UPC_COLLECTIVE__", "1");
+    Builder.defineMacro("__UPC_TICK__", "1");
+    Builder.defineMacro("__GCC_UPC__", "1");
+
+    if (LangOpts.UPCInlineLib) {
+      Builder.defineMacro("__UPC_INLINE_LIB__", "1");
+    }
+  }
+
   // Not "standard" per se, but available even with the -undef flag.
   if (LangOpts.AsmPreprocessor)
     Builder.defineMacro("__ASSEMBLER__");
@@ -735,6 +776,10 @@ void clang::InitializePreprocessor(Preprocessor &PP,
   for (unsigned i = 0, e = InitOpts.MacroIncludes.size(); i != e; ++i)
     AddImplicitIncludeMacros(Builder, InitOpts.MacroIncludes[i],
                              PP.getFileManager());
+
+  if (PP.getLangOpts().UPCInlineLib) {
+    AddImplicitInclude(Builder, "upc-lib.h", PP.getFileManager());
+  }
 
   // Process -include directives.
   for (unsigned i = 0, e = InitOpts.Includes.size(); i != e; ++i) {

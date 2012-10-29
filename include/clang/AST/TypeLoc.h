@@ -1196,6 +1196,12 @@ class ConstantArrayTypeLoc :
                                      ConstantArrayType> {
 };
 
+class UPCThreadArrayTypeLoc :
+    public InheritingConcreteTypeLoc<ArrayTypeLoc,
+                                     UPCThreadArrayTypeLoc,
+                                     UPCThreadArrayType> {
+};
+
 class IncompleteArrayTypeLoc :
     public InheritingConcreteTypeLoc<ArrayTypeLoc,
                                      IncompleteArrayTypeLoc,

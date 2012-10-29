@@ -56,6 +56,7 @@ BENIGN_LANGOPT(ObjCDefaultSynthProperties , 1, 0,
                "Objective-C auto-synthesized properties")
 BENIGN_LANGOPT(ObjCInferRelatedResultType , 1, 1, 
                "Objective-C related result type inference")
+LANGOPT(UPC               , 1, 0, "UPC")
 LANGOPT(Trigraphs         , 1, 0,"trigraphs")
 LANGOPT(BCPLComment       , 1, 0, "BCPL-style '//' comments")
 LANGOPT(Bool              , 1, 0, "bool, true, and false keywords")
@@ -138,6 +139,13 @@ LANGOPT(HexagonQdsp6Compat , 1, 0, "hexagon-qdsp6 backward compatibility")
 LANGOPT(ObjCAutoRefCount , 1, 0, "Objective-C automated reference counting")
 LANGOPT(ObjCRuntimeHasWeak , 1, 0, "__weak support in the ARC runtime")
 LANGOPT(FakeAddressSpaceMap , 1, 0, "OpenCL fake address space map")
+
+LANGOPT(UPCThreads, 32, 0, "number of threads")
+LANGOPT(UPCPhaseBits, 8, 20, "number of phase bits")
+LANGOPT(UPCThreadBits, 8, 10, "number of thread bits")
+LANGOPT(UPCAddrBits, 8, 34, "number of addr bits")
+LANGOPT(UPCVaddrFirst, 1, 0, "UPC pointer field order")
+LANGOPT(UPCInlineLib, 1, 0, "inline the UPC runtime")
 
 LANGOPT(MRTD , 1, 0, "-mrtd calling convention")
 BENIGN_LANGOPT(DelayedTemplateParsing , 1, 0, "delayed template parsing")

@@ -532,6 +532,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::DefaultStmtClass:
     case Stmt::DoStmtClass:
     case Stmt::ForStmtClass:
+    case Stmt::UPCForAllStmtClass:
     case Stmt::GotoStmtClass:
     case Stmt::IfStmtClass:
     case Stmt::IndirectGotoStmtClass:
@@ -601,6 +602,12 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::OpaqueValueExprClass:
     case Stmt::AsTypeExprClass:
     case Stmt::AtomicExprClass:
+    case Stmt::UPCThreadExprClass:
+    case Stmt::UPCNotifyStmtClass:
+    case Stmt::UPCWaitStmtClass:
+    case Stmt::UPCBarrierStmtClass:
+    case Stmt::UPCFenceStmtClass:
+    case Stmt::UPCPragmaStmtClass:
       // Fall through.
 
     // Currently all handling of 'throw' just falls to the CFG.  We

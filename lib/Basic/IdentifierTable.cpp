@@ -103,7 +103,8 @@ namespace {
     KEYOPENCL = 0x200,
     KEYC11 = 0x400,
     KEYARC = 0x800,
-    KEYALL = 0x0fff
+    KEYUPC = 0x1000,
+    KEYALL = 0x1fff
   };
 }
 
@@ -131,6 +132,7 @@ static void AddKeyword(StringRef Keyword,
   else if (LangOpts.OpenCL && (Flags & KEYOPENCL)) AddResult = 2;
   else if (!LangOpts.CPlusPlus && (Flags & KEYNOCXX)) AddResult = 2;
   else if (LangOpts.C11 && (Flags & KEYC11)) AddResult = 2;
+  else if (LangOpts.UPC && (Flags & KEYUPC)) AddResult = 2;
   // We treat bridge casts as objective-C keywords so we can warn on them
   // in non-arc mode.
   else if (LangOpts.ObjC2 && (Flags & KEYARC)) AddResult = 2;

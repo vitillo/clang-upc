@@ -2373,6 +2373,10 @@ ASTReader::ReadASTBlock(ModuleFile &F) {
       FPPragmaOptions.swap(Record);
       break;
 
+    case UPC_PRAGMA_OPTIONS:
+      UPCPragmaOptions.swap(Record);
+      break;
+
     case OPENCL_EXTENSIONS:
       // Later tables overwrite earlier ones.
       OpenCLExtensions.swap(Record);
@@ -3710,7 +3714,7 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
       return QualType();
     }
     QualType Base = readType(*Loc.F, Record, Idx);
-    Qualifiers Quals = Qualifiers::fromOpaqueValue(Record[Idx++]);
+    Qualifiers Quals = Qualifiers::fromOpaqueSequence(Record, Idx);
     return Context.getQualifiedType(Base, Quals);
   }
 
@@ -4117,6 +4121,17 @@ QualType ASTReader::readTypeRecord(unsigned Index) {
     QualType ValueType = readType(*Loc.F, Record, Idx);
     return Context.getAtomicType(ValueType);
   }
+
+  case TYPE_UPC_THREAD_ARRAY: {
+    QualType ElementType = readType(*Loc.F, Record, Idx);
+    ArrayType::ArraySizeModifier ASM = (ArrayType::ArraySizeModifier)Record[1];
+    unsigned IndexTypeQuals = Record[2];
+    unsigned Idx = 3;
+    llvm::APInt Size = ReadAPInt(Record, Idx);
+    bool HasThread = Record[Idx] != 0;
+    return Context.getUPCThreadArrayType(ElementType, Size, HasThread,
+                                         ASM, IndexTypeQuals);
+  }
   }
   llvm_unreachable("Invalid TypeCode!");
 }
@@ -4196,6 +4211,9 @@ void TypeLocReader::VisitArrayTypeLoc(ArrayTypeLoc TL) {
     TL.setSizeExpr(0);
 }
 void TypeLocReader::VisitConstantArrayTypeLoc(ConstantArrayTypeLoc TL) {
+  VisitArrayTypeLoc(TL);
+}
+void TypeLocReader::VisitUPCThreadArrayTypeLoc(UPCThreadArrayTypeLoc TL) {
   VisitArrayTypeLoc(TL);
 }
 void TypeLocReader::VisitIncompleteArrayTypeLoc(IncompleteArrayTypeLoc TL) {
@@ -5225,6 +5243,11 @@ void ASTReader::InitializeSema(Sema &S) {
   if (!FPPragmaOptions.empty()) {
     assert(FPPragmaOptions.size() == 1 && "Wrong number of FP_PRAGMA_OPTIONS");
     SemaObj->FPFeatures.fp_contract = FPPragmaOptions[0];
+  }
+
+  if (!UPCPragmaOptions.empty()) {
+    assert(UPCPragmaOptions.size() == 1 && "Wrong number of UPC_PRAGMA_OPTIONS");
+    SemaObj->UPCIsStrict = UPCPragmaOptions[0] != 0;
   }
 
   if (!OpenCLExtensions.empty()) {

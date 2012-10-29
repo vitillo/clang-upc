@@ -182,7 +182,7 @@ protected:
     friend class UnaryExprOrTypeTraitExpr;
     unsigned : NumExprBits;
 
-    unsigned Kind : 2;
+    unsigned Kind : 3;
     unsigned IsType : 1; // true if operand is a type, false if an expression.
   };
 
@@ -1355,6 +1355,223 @@ public:
   child_range children() {
     if (RetExpr) return child_range(&RetExpr, &RetExpr+1);
     return child_range();
+  }
+};
+
+class UPCNotifyStmt : public Stmt {
+  Stmt *IdExpr;
+  SourceLocation NotifyLoc;
+
+public:
+  UPCNotifyStmt(SourceLocation RL, Expr *E = 0)
+    : Stmt(UPCNotifyStmtClass), IdExpr(reinterpret_cast<Stmt*>(E)), NotifyLoc(RL) { }
+
+  /// \brief Build an empty upc_notify expression.
+  explicit UPCNotifyStmt(EmptyShell Empty) : Stmt(UPCNotifyStmtClass, Empty) { }
+
+  const Expr *getIdValue() const { return reinterpret_cast<Expr*>(IdExpr); }
+  Expr *getIdValue() { return reinterpret_cast<Expr*>(IdExpr); }
+  void setIdValue(Expr *E) { IdExpr = reinterpret_cast<Stmt*>(E); }
+
+  SourceLocation getNotifyLoc() const { return NotifyLoc; }
+  void setNotifyLoc(SourceLocation L) { NotifyLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCNotifyStmtClass;
+  }
+  static bool classof(const UPCNotifyStmt *) { return true; }
+
+  SourceRange getSourceRange() const LLVM_READONLY;
+
+  // Iterators
+  child_range children() {
+    if (IdExpr) return child_range(&IdExpr, &IdExpr+1);
+    return child_range();
+  }
+};
+
+class UPCWaitStmt : public Stmt {
+  Stmt *IdExpr;
+  SourceLocation WaitLoc;
+
+public:
+  UPCWaitStmt(SourceLocation RL, Expr *E = 0)
+    : Stmt(UPCWaitStmtClass), IdExpr(reinterpret_cast<Stmt*>(E)), WaitLoc(RL) { }
+
+  /// \brief Build an empty upc_wait expression.
+  explicit UPCWaitStmt(EmptyShell Empty) : Stmt(UPCWaitStmtClass, Empty) { }
+
+  const Expr *getIdValue() const { return reinterpret_cast<Expr*>(IdExpr); }
+  Expr *getIdValue() { return reinterpret_cast<Expr*>(IdExpr); }
+  void setIdValue(Expr *E) { IdExpr = reinterpret_cast<Stmt*>(E); }
+
+  SourceLocation getWaitLoc() const { return WaitLoc; }
+  void setWaitLoc(SourceLocation L) { WaitLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCWaitStmtClass;
+  }
+  static bool classof(const UPCWaitStmt *) { return true; }
+
+  SourceRange getSourceRange() const LLVM_READONLY;
+
+  // Iterators
+  child_range children() {
+    if (IdExpr) return child_range(&IdExpr, &IdExpr+1);
+    return child_range();
+  }
+};
+
+class UPCBarrierStmt : public Stmt {
+  Stmt *IdExpr;
+  SourceLocation BarrierLoc;
+
+public:
+  UPCBarrierStmt(SourceLocation RL, Expr *E = 0)
+    : Stmt(UPCBarrierStmtClass), IdExpr(reinterpret_cast<Stmt*>(E)), BarrierLoc(RL) { }
+
+  /// \brief Build an empty upc_barrier expression.
+  explicit UPCBarrierStmt(EmptyShell Empty) : Stmt(UPCBarrierStmtClass, Empty) { }
+
+  const Expr *getIdValue() const { return reinterpret_cast<Expr*>(IdExpr); }
+  Expr *getIdValue() { return reinterpret_cast<Expr*>(IdExpr); }
+  void setIdValue(Expr *E) { IdExpr = reinterpret_cast<Stmt*>(E); }
+
+  SourceLocation getBarrierLoc() const { return BarrierLoc; }
+  void setBarrierLoc(SourceLocation L) { BarrierLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCBarrierStmtClass;
+  }
+  static bool classof(const UPCBarrierStmt *) { return true; }
+
+  SourceRange getSourceRange() const LLVM_READONLY;
+
+  // Iterators
+  child_range children() {
+    if (IdExpr) return child_range(&IdExpr, &IdExpr+1);
+    return child_range();
+  }
+};
+
+class UPCFenceStmt : public Stmt {
+  SourceLocation FenceLoc;
+public:
+  UPCFenceStmt(SourceLocation RL)
+    : Stmt(UPCFenceStmtClass), FenceLoc(RL) { }
+
+  /// \brief Build an empty upc_fence expression.
+  explicit UPCFenceStmt(EmptyShell Empty) : Stmt(UPCFenceStmtClass, Empty) { }
+
+  SourceLocation getFenceLoc() const { return FenceLoc; }
+  void setFenceLoc(SourceLocation L) { FenceLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCFenceStmtClass;
+  }
+  static bool classof(const UPCFenceStmt *) { return true; }
+
+  SourceRange getSourceRange() const {
+    return SourceRange(FenceLoc);
+  }
+
+  // Iterators
+  child_range children() { return child_range(); }
+};
+
+class UPCPragmaStmt : public Stmt {
+  SourceLocation PragmaLoc;
+  bool IsStrict;
+public:
+  UPCPragmaStmt(SourceLocation RL, bool Strict)
+    : Stmt(UPCPragmaStmtClass), PragmaLoc(RL), IsStrict(Strict) { }
+
+  /// \brief Build an empty upc_fence expression.
+  explicit UPCPragmaStmt(EmptyShell Empty) : Stmt(UPCPragmaStmtClass, Empty) { }
+
+  bool getStrict() const { return IsStrict; }
+  void setStrict(bool Strict) { IsStrict = Strict; }
+
+  SourceLocation getPragmaLoc() const { return PragmaLoc; }
+  void setPragmaLoc(SourceLocation L) { PragmaLoc = L; }
+
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCPragmaStmtClass;
+  }
+  static bool classof(const UPCPragmaStmt *) { return true; }
+
+  SourceRange getSourceRange() const {
+    return SourceRange(PragmaLoc);
+  }
+
+  // Iterators
+  child_range children() { return child_range(); }
+};
+
+
+/// UPCForAllStmt - This represents a 'upc_forall (init;cond;inc;afnty)' stmt.  Note that any of
+/// the init/cond/inc/afnty parts of the UPCForAllStmt will be null if they were not
+/// specified in the source.
+///
+class UPCForAllStmt : public Stmt {
+  enum { INIT, CONDVAR, COND, INC, AFNTY, BODY, END_EXPR };
+  Stmt* SubExprs[END_EXPR]; // SubExprs[INIT] is an expression or declstmt.
+  SourceLocation ForLoc;
+  SourceLocation LParenLoc, RParenLoc;
+
+public:
+  UPCForAllStmt(ASTContext &C, Stmt *Init, Expr *Cond, VarDecl *condVar, Expr *Inc,
+                Expr *Afnty, Stmt *Body, SourceLocation FL, SourceLocation LP, SourceLocation RP);
+
+  /// \brief Build an empty upc_forall statement.
+  explicit UPCForAllStmt(EmptyShell Empty) : Stmt(UPCForAllStmtClass, Empty) { }
+
+  Stmt *getInit() { return SubExprs[INIT]; }
+
+  VarDecl *getConditionVariable() const;
+  void setConditionVariable(ASTContext &C, VarDecl *V);
+
+  /// If this ForStmt has a condition variable, return the faux DeclStmt
+  /// associated with the creation of that condition variable.
+  const DeclStmt *getConditionVariableDeclStmt() const {
+    return reinterpret_cast<DeclStmt*>(SubExprs[CONDVAR]);
+  }
+
+  Expr *getCond() { return reinterpret_cast<Expr*>(SubExprs[COND]); }
+  Expr *getInc()  { return reinterpret_cast<Expr*>(SubExprs[INC]); }
+  Expr *getAfnty()  { return reinterpret_cast<Expr*>(SubExprs[AFNTY]); }
+  Stmt *getBody() { return SubExprs[BODY]; }
+
+  const Stmt *getInit() const { return SubExprs[INIT]; }
+  const Expr *getCond() const { return reinterpret_cast<Expr*>(SubExprs[COND]);}
+  const Expr *getInc()  const { return reinterpret_cast<Expr*>(SubExprs[INC]); }
+  const Expr *getAfnty() const { return reinterpret_cast<Expr*>(SubExprs[AFNTY]); }
+  const Stmt *getBody() const { return SubExprs[BODY]; }
+
+  void setInit(Stmt *S) { SubExprs[INIT] = S; }
+  void setCond(Expr *E) { SubExprs[COND] = reinterpret_cast<Stmt*>(E); }
+  void setInc(Expr *E) { SubExprs[INC] = reinterpret_cast<Stmt*>(E); }
+  void setAfnty(Expr *E) { SubExprs[AFNTY] = reinterpret_cast<Stmt*>(E); }
+  void setBody(Stmt *S) { SubExprs[BODY] = S; }
+
+  SourceLocation getForLoc() const { return ForLoc; }
+  void setForLoc(SourceLocation L) { ForLoc = L; }
+  SourceLocation getLParenLoc() const { return LParenLoc; }
+  void setLParenLoc(SourceLocation L) { LParenLoc = L; }
+  SourceLocation getRParenLoc() const { return RParenLoc; }
+  void setRParenLoc(SourceLocation L) { RParenLoc = L; }
+
+  SourceRange getSourceRange() const LLVM_READONLY {
+    return SourceRange(ForLoc, SubExprs[BODY]->getLocEnd());
+  }
+  static bool classof(const Stmt *T) {
+    return T->getStmtClass() == UPCForAllStmtClass;
+  }
+  static bool classof(const UPCForAllStmt *) { return true; }
+
+  // Iterators
+  child_range children() {
+    return child_range(&SubExprs[0], &SubExprs[0]+END_EXPR);
   }
 };
 

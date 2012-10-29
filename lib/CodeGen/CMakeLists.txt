@@ -24,6 +24,7 @@ add_clang_library(clangCodeGen
   CGDebugInfo.cpp
   CGDecl.cpp
   CGDeclCXX.cpp
+  CGDeclUPC.cpp
   CGException.cpp
   CGExpr.cpp
   CGExprAgg.cpp
@@ -31,6 +32,7 @@ add_clang_library(clangCodeGen
   CGExprConstant.cpp
   CGExprCXX.cpp
   CGExprScalar.cpp
+  CGExprUPC.cpp
   CGObjC.cpp
   CGObjCGNU.cpp
   CGObjCMac.cpp
@@ -39,6 +41,7 @@ add_clang_library(clangCodeGen
   CGRecordLayoutBuilder.cpp
   CGRTTI.cpp
   CGStmt.cpp
+  CGStmtUPC.cpp
   CGVTables.cpp
   CGVTT.cpp
   CodeGenAction.cpp

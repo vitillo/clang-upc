@@ -366,6 +366,79 @@ void StmtPrinter::VisitReturnStmt(ReturnStmt *Node) {
   OS << ";\n";
 }
 
+void StmtPrinter::VisitUPCNotifyStmt(UPCNotifyStmt *Node) {
+  Indent() << "upc_notify";
+  if (Node->getIdValue()) {
+    OS << " ";
+    PrintExpr(Node->getIdValue());
+  }
+  OS << ";\n";
+}
+
+void StmtPrinter::VisitUPCWaitStmt(UPCWaitStmt *Node) {
+  Indent() << "upc_wait";
+  if (Node->getIdValue()) {
+    OS << " ";
+    PrintExpr(Node->getIdValue());
+  }
+  OS << ";\n";
+}
+
+void StmtPrinter::VisitUPCBarrierStmt(UPCBarrierStmt *Node) {
+  Indent() << "upc_barrier";
+  if (Node->getIdValue()) {
+    OS << " ";
+    PrintExpr(Node->getIdValue());
+  }
+  OS << ";\n";
+}
+
+void StmtPrinter::VisitUPCFenceStmt(UPCFenceStmt *Node) {
+  Indent() << "upc_fence;\n";
+}
+
+void StmtPrinter::VisitUPCPragmaStmt(UPCPragmaStmt *Node) {
+  if (Node->getStrict())
+    Indent() << "#pragma upc strict\n";
+  else
+    Indent() << "#pragma upc relaxed\n";
+}
+
+void StmtPrinter::VisitUPCForAllStmt(UPCForAllStmt *Node) {
+  Indent() << "upc_forall (";
+  if (Node->getInit()) {
+    if (DeclStmt *DS = dyn_cast<DeclStmt>(Node->getInit()))
+      PrintRawDeclStmt(DS);
+    else
+      PrintExpr(cast<Expr>(Node->getInit()));
+  }
+  OS << ";";
+  if (Node->getCond()) {
+    OS << " ";
+    PrintExpr(Node->getCond());
+  }
+  OS << ";";
+  if (Node->getInc()) {
+    OS << " ";
+    PrintExpr(Node->getInc());
+  }
+  OS << ";";
+  if (Node->getAfnty()) {
+    OS << " ";
+    PrintExpr(Node->getAfnty());
+  } else {
+    OS << " continue";
+  }
+  OS << ") ";
+
+  if (CompoundStmt *CS = dyn_cast<CompoundStmt>(Node->getBody())) {
+    PrintRawCompoundStmt(CS);
+    OS << "\n";
+  } else {
+    OS << "\n";
+    PrintStmt(Node->getBody());
+  }
+}
 
 void StmtPrinter::VisitAsmStmt(AsmStmt *Node) {
   Indent() << "asm ";
@@ -822,6 +895,9 @@ void StmtPrinter::VisitStringLiteral(StringLiteral *Str) {
   }
   OS << '"';
 }
+void StmtPrinter::VisitUPCThreadExpr(UPCThreadExpr *Node) {
+  OS << "THREAD";
+}
 void StmtPrinter::VisitParenExpr(ParenExpr *Node) {
   OS << "(";
   PrintExpr(Node->getSubExpr());
@@ -896,6 +972,15 @@ void StmtPrinter::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *Node){
     break;
   case UETT_VecStep:
     OS << "vec_step";
+    break;
+  case UETT_UPC_LocalSizeOf:
+    OS << "upc_localsizeof";
+    break;
+  case UETT_UPC_BlockSizeOf:
+    OS << "upc_blocksizeof";
+    break;
+  case UETT_UPC_ElemSizeOf:
+    OS << "upc_elemsizeof";
     break;
   }
   if (Node->isArgumentType())
