@@ -1,4 +1,4 @@
-/*===-- gasp.h - UPC Runtime Support Library ------------------------------===
+/*===-- gasp.h - UPC Runtime Support Library -----------------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

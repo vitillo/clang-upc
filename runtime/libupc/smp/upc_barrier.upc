@@ -1,4 +1,4 @@
-/*===-- upc_barrier.upc - UPC Runtime Support Library ---------------------===
+/*===-- upc_barrier.upc - UPC Runtime Support Library --------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

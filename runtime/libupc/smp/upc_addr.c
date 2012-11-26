@@ -1,4 +1,4 @@
-/*===-- upc_addr.c - UPC Runtime Support Library --------------------------===
+/*===-- upc_addr.c - UPC Runtime Support Library -------------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

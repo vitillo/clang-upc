@@ -1,4 +1,4 @@
-/*===-- upc_tick.c - UPC Runtime Support Library --------------------------===
+/*===-- upc_tick.c - UPC Runtime Support Library -------------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

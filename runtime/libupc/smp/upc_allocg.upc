@@ -1,4 +1,4 @@
-/*===-- upc_allocg.upc - UPC Runtime Support Library ----------------------===
+/*===-- upc_allocg.upc - UPC Runtime Support Library ---------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

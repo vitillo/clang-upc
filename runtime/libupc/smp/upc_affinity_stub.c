@@ -1,4 +1,4 @@
-/*===-- upc_affinity_stub.c - UPC Runtime Support Library -----------------===
+/*===-- upc_affinity_stub.c - UPC Runtime Support Library ----------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

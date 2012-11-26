@@ -1,4 +1,4 @@
-/*===-- upc-crtstuff.c - UPC Runtime Support Library -----------------------===
+/*===-- upc-crtstuff.c - UPC Runtime Support Library ----------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

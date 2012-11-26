@@ -1,4 +1,4 @@
-/*===-- upc_gum.c - UPC Runtime Support Library ---------------------------===
+/*===-- upc_gum.c - UPC Runtime Support Library --------------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

@@ -1,4 +1,4 @@
-/*===-- upc_pupc.h - UPC Runtime Support Library --------------------------===
+/*===-- upc_pupc.h - UPC Runtime Support Library -------------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

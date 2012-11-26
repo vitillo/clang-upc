@@ -1,4 +1,4 @@
-/*===-- upc_backtrace.h - UPC Runtime Support Library ---------------------===
+/*===-- upc_backtrace.h - UPC Runtime Support Library --------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

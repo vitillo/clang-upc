@@ -1,4 +1,4 @@
-/*===-- upc_relaxed.h - UPC Runtime Support Library -----------------------===
+/*===-- upc_relaxed.h - UPC Runtime Support Library ----------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

@@ -1,4 +1,5 @@
-/*===-- upc_coll_sort.upc - UPC Runtime Support Library -------------------===*|*
+/*===-- upc_coll_sort.upc - UPC Runtime Support Library ------------------===
+|*
 |*                     The LLVM Compiler Infrastructure
 |*
 |* Copyright 2004, Michigan Technological University.  All rights reserved.

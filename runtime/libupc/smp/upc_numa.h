@@ -1,4 +1,4 @@
-/*===-- upc_numa.h - UPC Runtime Support Library --------------------------===
+/*===-- upc_numa.h - UPC Runtime Support Library -------------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*

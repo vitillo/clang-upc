@@ -1,4 +1,4 @@
-/*===-- upc_pgm_info.c - UPC Runtime Support Library ----------------------===
+/*===-- upc_pgm_info.c - UPC Runtime Support Library ---------------------===
 |*
 |*                     The LLVM Compiler Infrastructure
 |*
