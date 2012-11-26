@@ -1,24 +1,12 @@
-/* upc-crtstuff.c: UPC specific "C Runtime Support"
-   Copyright (C) 2009, 2010, 2011
-   Free Software Foundation, Inc.
-   Contributed by Gary Funck <gary@intrepid.com>
-     and Nenad Vukicevic <nenad@intrepid.com>.
-
-This file is part of GCC.
-
-GCC is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 3, or (at your option)
-any later version.
-
-GCC is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with GCC; see the file COPYING3.  If not see
-<http://www.gnu.org/licenses/>.  */
+/*===-- upc-crtstuff.c - UPC Runtime Support Library -----------------------===
+|*
+|*                     The LLVM Compiler Infrastructure
+|*
+|* Copyright 2012, Intrepid Technology, Inc.  All rights reserved.
+|* This file is distributed under a BSD-style Open Source License.
+|* See LICENSE-INTREPID.TXT for details.
+|*
+|*===---------------------------------------------------------------------===*/
 
 /* Target machine header files require this define. */
 #define IN_LIBGCC2
