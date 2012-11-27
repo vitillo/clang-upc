@@ -56,21 +56,18 @@
 #define __UPC_THREADS_MODEL__ "pthreads-tls"
 #else
 #define __UPC_THREADS_MODEL__ "process"
-#define __UPC_PTHREADS_CONFIG__
-#define __UPC_N_PTHREADS__ 0
 #endif
 
-#ifdef __UPC_USES_PTHREADS__
-#ifdef __UPC_STATIC_PTHREADS__
-/* defined at compile time by the -fupc-pthreads-per-procees-N switch. */
-#define __UPC_N_PTHREADS__ PTHREADS
-#define __UPC_PTHREADS_CONFIG__ "staticpthreads=" __UPC_XSTR__(PTHREADS)
+/* Place configuration information required by the Berkeley
+   UPC compilation system into the object file. */
+static const char GCCUPCConfig[]
+#if __MACH__
+   __attribute__ ((section("__DATA,upc_pgm_info"))) __attribute__ ((used)) =
 #else
-/* no value of pthreads per process given at compile time. */
-#define __UPC_N_PTHREADS__ -1
-#define __UPC_PTHREADS_CONFIG__ "dynamicpthreads"
-#endif /* __UPC_STATIC_PTHREADS__ */
-#endif /* __UPC_USES_PTHREADS__ */
+   __attribute__ ((section("upc_pgm_info"))) __attribute__ ((used)) =
+#endif
+  "$GCCUPCConfig: (" __BASE_FILE__ ") "
+                   __UPC_THREADS_CONFIG__ " " __UPC_THREADS_MODEL__ "$";
 
 #undef __UPC_XSTR__
 #undef __UPC_STR__
@@ -91,6 +88,23 @@ extern GUPCR_THREAD_LOCAL int __upc_forall_depth;
 #define GUPCR_PTS_VADDR_FIRST 1
 #endif
 
+#if !defined(_CRAYT3E)
+/* The UPC runtime's main program must run first,
+ * we rename the user's main to upc_main(). */
+#if __MACH__
+extern int main () __asm__("_upc_main");
+#else
+extern int main () __asm__("upc_main");
+#endif
+#endif
+
+/* Remap calls to exit so that they invoke the UPC runtime's
+   implementation of exit instead. */
+#define exit __upc_exit
+
+/* Implementation of upc_fence.  */
+#define upc_fence __upc_fence()
+
 /* upc_shared_ptr_t is predefined as the representation of
    a shared pointer type. */
 
@@ -109,9 +123,11 @@ extern char __upc_shared_start[1];
 extern unsigned long const __upc_global_base;
 
 //include detect_target64
-
-/* Runtime shared access procedures */
 //include mode_types
+//include lib_pts_defs
+/* Runtime procedures */
+//include lib_runtime_api
+
 
 #if defined(__UPC_INLINE_LIB__) || defined(IN_TARGET_LIBS)
 
@@ -120,12 +136,10 @@ extern unsigned long const __upc_global_base;
 //include gupcr_config_h
 //include lib_min_max
 //include lib_config_vm
+//include lib_vm_api
 //include lib_config_heap
 //include lib_heap_api
 //include lib_config_shared_section
-//include lib_pts_defs
-//include lib_runtime_api
-//include lib_vm_api
 //include lib_max_threads_def
 //include lib_sptr_to_addr
 

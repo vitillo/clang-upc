@@ -14,6 +14,8 @@
 /* Environment variables. */
 /** Enable/Disable backtrace env variable. */
 #define GUPCR_BACKTRACE_ENV "UPC_BACKTRACE"
+/** Enable/Disable STAT backtrace env variable. */
+#define GUPCR_BACKTRACE_FILE_ENV "UPC_BACKTRACEFILE"
 /** GDB command for backtrace env variable. */
 #define GUPCR_BACKTRACE_GDB_ENV "UPC_BACKTRACE_GDB"
 
@@ -21,6 +23,7 @@
 extern void __upc_backtrace (void);
 extern void __upc_fatal_backtrace (void);
 extern void __upc_backtrace_init (const char *execname);
+extern void __upc_backtrace_restore_handlers (void);
 
 #if HAVE_LIBBFD
 extern char **backtrace_src_symbols(void *const *buffer, int size,

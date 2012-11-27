@@ -25,9 +25,8 @@ __upc_access_sptr_to_addr (upc_shared_ptr_t p)
 {
   if (GUPCR_PTS_IS_NULL (p))
     __upc_fatal ("Invalid access via null shared pointer");
-  if ((int)GUPCR_PTS_THREAD(p) >= THREADS) {
+  if ((int)GUPCR_PTS_THREAD(p) >= THREADS)
     __upc_fatal ("Thread number in shared address is out of range");
-  }
   return __upc_sptr_to_addr (p);
 }
 
@@ -428,6 +427,13 @@ __copysblk3 (upc_shared_ptr_t dest, upc_shared_ptr_t src, size_t len)
 {
   GUPCR_WRITE_FENCE ();
   __copyblk3 (dest, src, len);
+  GUPCR_FENCE ();
+}
+
+//inline
+void
+__upc_fence (void)
+{
   GUPCR_FENCE ();
 }
 //end lib_inline_access

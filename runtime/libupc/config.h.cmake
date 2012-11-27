@@ -8,6 +8,8 @@
 |*
 |*===---------------------------------------------------------------------===*/
 
+/* config.h.in.  Generated from configure.ac by autoheader.  */
+
 #ifndef __CONFIG_H__
 #define __CONFIG_H__ 1
 
@@ -20,23 +22,47 @@
 /* Define to preferred signal for UPC backtrace. */
 #undef GUPCR_BACKTRACE_SIGNAL
 
+/* Size of get/put bounce buffer */
+#undef GUPCR_BOUNCE_BUFFER_SIZE
+
+/* upc_global_exit() timeout in seconds. */
+#undef GUPCR_GLOBAL_EXIT_TIMEOUT
+
+/* Define to 1 if UPC runtime checks are supported. */
+#undef GUPCR_HAVE_CHECKS
+
+/* Define to 1 if UPC runtime debugging mode is enabled. */
+#undef GUPCR_HAVE_DEBUG
+
 /* Define if UPC GUM debug server is supported. */
 #undef GUPCR_HAVE_GUM_DEBUG
 
-/* The required alignment for the UPC struct shared pointer representation. */
-#undef GUPCR_PTS_ALIGN
+/* Define to 1 if UPC runtime statistics collection is supported. */
+#undef GUPCR_HAVE_STATS
 
-/* The data type of the 'phase' field in a UPC shared pointer */
-#undef GUPCR_PTS_PHASE_TYPE
+/* Define to 1 if UPC runtime tracing is supported. */
+#undef GUPCR_HAVE_TRACE
 
-/* The data type of the 'thread' field in a UPC shared pointer */
-#undef GUPCR_PTS_THREAD_TYPE
+/* Maximum number of locks held per thread */
+#define GUPCR_MAX_LOCKS @UPC_MAX_LOCKS@
 
-/* The data type of the 'vaddr' field in a UPC shared pointer */
-#undef GUPCR_PTS_VADDR_TYPE
+/* Define to 1 if UPC runtime will use node local memory accesses. */
+#undef GUPCR_NODE_LOCAL_MEM
+
+/* Define to 1 if UPC node local access uses mmap-ed file. */
+#undef GUPCR_NODE_LOCAL_MEM_MMAP
+
+/* Define to 1 if UPC node local access uses Posix shared memory. */
+#undef GUPCR_NODE_LOCAL_MEM_POSIX
+
+/* Portals4 PTE base index. */
+#undef GUPCR_PTE_BASE
 
 /* Maximum number of children at each level of a collective operation tree. */
 #define GUPCR_TREE_FANOUT @UPC_TREE_FANOUT@
+
+/* Define to 1 if UPC runtime will use Portals4 triggered operations. */
+#undef GUPCR_USE_PORTALS4_TRIGGERED_OPS
 
 //end gupcr_config_h
 
@@ -152,6 +178,9 @@
 
 /* Define to 1 if you have the <semaphore.h> header file. */
 #undef HAVE_SEMAPHORE_H
+
+/* Define to 1 if you have the 'shm_open' function. */
+#undef HAVE_SHM_OPEN
 
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET

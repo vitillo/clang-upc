@@ -11,6 +11,7 @@
 #include "upc_config.h"
 #include "upc_sysdep.h"
 #include "upc_defs.h"
+#include "upc_lock.h"
 #include "upc_sup.h"
 #include "upc_sync.h"
 #include "upc_affinity.h"
@@ -64,14 +65,9 @@ GUPCR_THREAD_LOCAL const char *__upc_err_filename;
    debug-enabled ('g') UPC runtime library routines.  */
 GUPCR_THREAD_LOCAL unsigned int __upc_err_linenum;
 
-/* Interface to the debugger */
-MPIR_PROCDESC *MPIR_proctable = 0;
-int MPIR_proctable_size = 0;
-const char *MPIR_debug_abort_string = 0;
-
-volatile int MPIR_debug_state;
-volatile int MPIR_debug_gate;
-int MPIR_being_debugged;	/* Set by the debugger */
+/* Local host name.  */
+#define HOST_NAME_LEN 256
+static char host_name[HOST_NAME_LEN];
 
 /* per-thread initial heap size */
 static size_t __upc_init_heap_size = GUPCR_DEFAULT_PER_THREAD_HEAP_SIZE;
@@ -179,10 +175,6 @@ __upc_print_help_and_exit (char *pgm)
   fprintf (stderr,
 	   "						(N must be in the range 1..%d)\n",
 	   GUPCR_THREADS_MAX);
-#ifdef GUPCR_USE_PTHREADS
-  fprintf (stderr,
-	   "	-fupc-pthreads-per-process-N		map UPC threads to POSIX threads using TLS capability\n");
-#endif /* GUPCR_USE_PTHREADS */
   fprintf (stderr,
 	   "	-fupc-heap-N or -heap N			N is the maximum per-thread memory\n");
   fprintf (stderr,
@@ -525,6 +517,17 @@ __upc_init (char *pgm, const char **err_msg)
   u->sched_policy = __upc_sched_policy;
   u->mem_policy = __upc_mem_policy;
 
+  /* MPIR_partial_attach_ok support.  */
+  if (MPIR_being_debugged)
+    u->partial_attach_start = 0; /* Stop the threads until MPIR_berakpint.  */
+  else
+    u->partial_attach_start = 1; /* No debugging, threads can proceed.  */
+  /* Find host name for MPIR interface.  */
+  if (!gethostname (host_name, HOST_NAME_LEN))
+    u->host_name = host_name;
+  else
+    perror ("unable to find hostname");
+
   /* Calculate per-thread contribution to global shared memory region. */
   alloc_data_size = GUPCR_SHARED_SECTION_END - GUPCR_SHARED_SECTION_START;
   alloc_data_size = GUPCR_ROUND (alloc_data_size, C64K);
@@ -577,6 +580,7 @@ __upc_per_thread_init (upc_info_p u)
   const int n_init = (int)(GUPCR_INIT_ARRAY_END - GUPCR_INIT_ARRAY_START);
   int i;
   __upc_vm_init_per_thread ();
+  __upc_lock_init ();
   __upc_heap_init (u->init_heap_base, u->init_heap_size);
   __upc_barrier_init ();
   for (i = 0; i < n_init; ++i)
@@ -616,7 +620,11 @@ __upc_run_this_thread (upc_info_p u, int argc, char *argv[],
     }
   else if (MPIR_being_debugged)
     {
-      /* Wait for the debugger to acquire us */
+      /* Wait for partial attach flag.  */
+      while (!u->partial_attach_start)
+	__upc_yield_cpu ();
+    
+      /* Wait for the debugger to acquire us.  */
       while (!MPIR_debug_gate)
 	__upc_yield_cpu ();
     }
@@ -670,8 +678,8 @@ __upc_run_threads (upc_info_p u, int argc, char *argv[])
 	  u->thread_info[thread_id].pid = pid;
 	  if (MPIR_being_debugged)
 	    {
-	      MPIR_proctable[thread_id].host_name = 0;
-	      MPIR_proctable[thread_id].executable_name = 0;
+	      MPIR_proctable[thread_id].host_name = u->host_name;
+	      MPIR_proctable[thread_id].executable_name = u->program_name;
 	      MPIR_proctable[thread_id].pid = pid;
 	    }
 	}
@@ -691,6 +699,8 @@ __upc_run_threads (upc_info_p u, int argc, char *argv[])
       MPIR_debug_state = MPIR_DEBUG_SPAWNED;
       /* The debugger will have set a breakpoint there... */
       MPIR_Breakpoint ();
+      /* Release threads.  */
+      u->partial_attach_start = 1;
     }
   if (unlink (u->mmap_file_name) < 0)
     {
@@ -710,6 +720,27 @@ __upc_get_thread_id (pid_t pid)
   return thread_id;
 }
 
+/* Terminate program. 
+   The monitor thread received a SIGTERM. Terminate
+   all processes in the current process group.  */
+static void
+__upc_sigterm_handler (int sig)
+{
+  struct sigaction action;
+  /* Install the default SIGTERM so monitor thread
+     is killed as part of the group.  */
+  action.sa_handler = SIG_DFL;
+  sigemptyset (&action.sa_mask);
+  action.sa_flags = 0;
+  sigaction (sig, &action, NULL);
+  /* Kill the whole group.  */
+  if (killpg (getpgrp (), sig) == -1)
+    {
+      perror ("killpg");
+      abort ();
+    }
+}
+
 static int
 __upc_monitor_threads (void)
 {
@@ -719,12 +750,46 @@ __upc_monitor_threads (void)
   int exit_status;
   int thread_id;
   int global_exit_invoked;
+  struct sigaction action;
   exit_status = -1;
   global_exit_invoked = 0;
-  while ((pid = wait (&wait_status)) > 0 || errno == EINTR)
+  /* Install SIGTERM handler responsible for
+     terminating the whole program.  */
+  action.sa_handler = __upc_sigterm_handler;
+  sigemptyset (&action.sa_mask);
+  action.sa_flags = 0;
+  sigaction (SIGTERM, &action, NULL);
+  /* Wait for threads to finish.  */
+  for (;;)
     {
-      if (errno == EINTR)
-	continue;
+      pid = waitpid (-1, &wait_status, WNOHANG);
+      /* Check for errors.  */
+      if (pid == -1)
+	{
+	  /* Continue checking if interrupted
+	     (handling other signals).  */
+	  if (errno == EINTR)
+	    continue;
+	  /* Stop waiting if no more children.  */
+	  if (errno == ECHILD)
+	    break;
+	  /* Abort if invalid argument.  */
+	  if (errno == EINVAL)
+	    {
+	      perror ("waitpid");
+	      abort ();
+	    }
+	}
+      /* Not a child exit?  */
+      if (pid == 0)
+	{
+	  /* Check for debugger attach.  */
+	  MPIR_Breakpoint ();
+	  /* Release the CPU for 100mS and continue checking.  */
+	  usleep (100000);
+	  continue;
+	}
+      /* Check for child process that exited.  */
       thread_id = __upc_get_thread_id (pid);
       if (!global_exit_invoked && WIFEXITED (wait_status))
 	{
@@ -758,7 +823,7 @@ __upc_monitor_threads (void)
 	  int child_sig = WTERMSIG (wait_status);
 	  /* Ignore SIGKILL signals.
 	     We use them to implement upc_global_exit(). */
-	  if (child_sig == SIGKILL)
+	  if (child_sig == SIGKILL && global_exit_invoked)
 	    continue;
 	  fprintf (stderr, "thread %d terminated with signal: '%s'\n",
 		   thread_id, __upc_strsignal (child_sig));
@@ -991,31 +1056,6 @@ upc_global_exit (int status)
 
 #endif /* !GUPCR_USE_PTHREADS */
 
-void
-MPIR_Breakpoint (void)
-{
-}
-
-/* Tell the debugger that this initial process is not to be
-   included in the set of processes which form the UPC program.  */
-void
-MPIR_i_am_starter (void)
-{
-}
-
-/* Tell the debugger that we're not really MPI after all.  */
-void
-MPIR_ignore_queues (void)
-{
-}
-
-/* Tell the debugger to display "main" if we stop immediately
-   after acquiring the processes at startup time.  */
-void
-MPIR_force_to_main (void)
-{
-}
-
 static void
 __upc_notify_debugger_of_abort (const char *mesg)
 {
@@ -1047,6 +1087,7 @@ __upc_fatal (const char *msg)
   fflush (0);
   __upc_notify_debugger_of_abort (msg);
 #if HAVE_UPC_BACKTRACE
+  __upc_backtrace_restore_handlers ();
   __upc_fatal_backtrace ();
 #endif
   abort ();
@@ -1078,12 +1119,10 @@ GUPCR_START (int argc, char *argv[])
   /* Initialize backtrace support. */
   __upc_backtrace_init (__upc_pgm_name);
 #endif
-
-  /* Initialize UPC runtime locks.  We do this after __upc_info
-     has been allocated and initialized, because __upc_init_lock
+  /* Initialize UPC runtime spin lock.  We do this after
+     __upc_info has been allocated and initialized, because __upc_init_lock
      refers to __upc_info on some platforms (eg, SGI/Irix).  */
   __upc_init_lock (&u->lock);
-  __upc_init_lock (&u->alloc_lock);
   /* Initialize the VM system */
   __upc_vm_init (u->init_page_alloc);
   /* Initialize thread affinity */

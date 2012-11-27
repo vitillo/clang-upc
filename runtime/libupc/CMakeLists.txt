@@ -1,4 +1,4 @@
-# See www/CMake.html for instructions on how to build libcxx with CMake.
+# See www/CMake.html for instructions on how to build libupc with CMake.
 
 #===============================================================================
 # Setup Project
@@ -84,6 +84,8 @@ else()
 endif()
 
 set(UPC_TREE_FANOUT 4 CACHE STRING "The maximum number of children in each sub-tree used to implement UPC collectives operations (e. g. upc_barrier)")
+set(UPC_MAX_LOCKS 1024 CACHE STRING "The maximum number of locks that can be
+held by a single UPC thread [default=1024]")
 
 configure_file(config.h.cmake config.h)
 
@@ -94,20 +96,23 @@ configure_file(config.h.cmake config.h)
 include_directories(include collectives)
 
 set(LIBUPC_SOURCES
+
   smp/upc_access.c
   smp/upc_accessg.c
   smp/upc_addr.c
   # smp/upc_affinity.c
   smp/upc_affinity_stub.c
-  smp/upc_alloc.upc
   smp/upc_allocg.upc
-  #smp/upc_backtrace.c
-  #smp/upc_backtrace_sup.c
+  smp/upc_alloc.upc
+  # smp/upc_backtrace.c
+  # smp/upc_backtrace_sup.c
   smp/upc_barrier.upc
+  smp/upc_debug.c
   smp/upc_gasp.c
   smp/upc_gum.c
   smp/upc_libg.c
-  smp/upc_lock.c
+  # smp/upc_lock_sup.c
+  smp/upc_lock.upc
   smp/upc_main.c
   smp/upc_mem.c
   # smp/upc_numa.c

@@ -12,8 +12,7 @@
  * This file defines an interface to allow a debugger easily to 
  * acquire all of the UPC processes at startup time.
  *
- * It exploits the interface used by MPICH
- * (see http://www-unix.mcs.anl.gov/mpi/mpich/)
+ * It exploits the interface used by MPICH http://www-unix.mcs.anl.gov/mpi/mpich/
  * to interface to debuggers.
  */
 

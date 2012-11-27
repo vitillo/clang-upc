@@ -45,26 +45,8 @@ typedef upc_thread_info_t *upc_thread_info_p;
 /* Bit vector used to manage processes */
 typedef os_atomic_t upc_procbits_vec_t[GUPCR_NUM_PROCBIT_WORDS];
 
-typedef int upc_barrier_id_t;
-
-typedef struct barrier_info_struct
-  {
-    upc_procbits_vec_t	wait;
-    upc_barrier_id_t	barrier_id[GUPCR_THREADS_MAX];
-  } upc_barrier_info_t;
-typedef upc_barrier_info_t *upc_barrier_info_p;
-
-#ifndef __UPC__
-
-typedef union upc_lock_struct
-  {
-    /* equate UPC lock to underlying OS lock. */
-    os_lock_t os_lock;
-    int data[4];
-  } upc_lock_t;
-typedef upc_lock_t *upc_lock_p;
-
-#endif
+/* UPC thread barrier ID  */
+extern GUPCR_THREAD_LOCAL int __upc_barrier_id;
 
 /* There is one global page table per UPC program.
    The global page table maps (thread, page) into
@@ -99,10 +81,11 @@ typedef upc_cpu_avoid_t *upc_cpu_avoid_p;
 typedef struct upc_info_struct
   {
     char *program_name;
+    char *host_name;
     pid_t monitor_pid;
+    int partial_attach_start;
     os_heap_p runtime_heap;
     os_lock_t lock;
-    os_lock_t alloc_lock;
     upc_page_num_t init_page_alloc;
     upc_shared_ptr_t init_heap_base;
     size_t init_heap_size;
@@ -111,7 +94,6 @@ typedef struct upc_info_struct
     upc_pte_p gpt;
     upc_page_num_t cur_page_alloc;
     upc_shared_ptr_t all_lock;
-    upc_barrier_info_t barrier;
     upc_thread_info_t thread_info[GUPCR_THREADS_MAX];
     int num_cpus;
     int num_nodes;
@@ -167,11 +149,11 @@ extern int THREADS;
 /* Current thread id */
 extern GUPCR_THREAD_LOCAL int MYTHREAD;
 
-#endif
-
 #ifdef GUPCR_USE_PTHREADS
 /* The value of UPC_PTHREADS when defined at run time */
 extern int UPC_PTHREADS;
+#endif
+
 #endif
 
 #endif /* _UPC_DEFS_H_ */
