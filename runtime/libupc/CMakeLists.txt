@@ -42,6 +42,161 @@ option(LIBUPC_ENABLE_SHARED "Build libupc as a shared library. (Broken)" OFF)
 
 #try_run(LIBUPC_AFFINITY_COMPILE LIBUPC_AFFINITY_RUN conf_affinity.c)
 
+# Configure libupc
+
+set(LIBUPC_ENABLE_BACKTRACE TRUE CACHE STRING "enable UPC backtrace; enable stack frame backtrace report when UPC run-time fatal errors occur or by user request (via signal)")
+set(HAVE_UPC_BACKTRACE ${LIBUPC_ENABLE_BACKTRACE})
+
+set(LIBUPC_ENABLE_BACKTRACE_GDB TRUE CACHE STRING "enable the use of GDB for UPC stack backtrace")
+set(HAVE_UPC_BACKTRACE_GDB ${LIBUPC_ENABLE_BACKTRACE_GDB})
+if(LIBUPC_ENABLE_BACKTRACE_GDB)
+  find_program(LIBUPC_BACKTRACE_GDB gdb)
+  set(GUPCR_BACKTRACE_GDB ${LIBUPC_BACKTRACE_GDB})
+endif()
+
+set(LIBUPC_ENABLE_BACKTRACE_SIGNAL TRUE CACHE STRING "enable signal support for UPC stack backtrace")
+set(HAVE_UPC_BACKTRACE_SIGNAL ${LIBUPC_ENABLE_BACKTRACE_SIGNAL})
+if(LIBUPC_ENABLE_BACKTRACE_SIGNAL)
+  set(LIBUPC_BACKTRACE_SIGNAL SIGUSR1 CACHE STRING "the signal to be used for UPC stack backtrace")
+  set(GUPCR_BACKTRACE_SIGNAL ${LIBUPC_BACKTRACE_SIGNAL})
+endif()
+
+# GUPC_BOUNCE_BUFFER_SIZE
+set(LIBUPC_BOUNCE_BUFFER_SIZE 256K CACHE STRING "the size (in bytes) of the bounce buffer that is used by the UPC runtime to buffer network data")
+if(NOT LIBUPC_BOUNCE_BUFFER_SIZE MATCHES "^([0-9]+[gGmMkK]?)$")
+  message(FATAL_ERROR "Invalid LIBUPC_BOUNCE_BUFFER_SIZE")
+endif()
+set(tmp ${LIBUPC_BOUNCE_BUFFER_SIZE})
+string(REGEX REPLACE [gG] "*1024M" tmp ${tmp})
+string(REGEX REPLACE [mM] "*1024K" tmp ${tmp})
+string(REGEX REPLACE [kK] "*1024" tmp ${tmp})
+math(EXPR GUPCR_BOUNCE_BUFFER_SIZE ${tmp})
+
+set(LIBUPC_GLOBAL_EXIT_TIMEOUT 2 CACHE STRING "upc_global_exit() timeout in seconds.")
+set(GUPCR_GLOBAL_EXIT_TIMEOUT ${LIBUPC_GLOBAL_EXIT_TIMEOUT})
+
+set(LIBUPC_ENABLE_RUNTIME_CHECKS FALSE CACHE BOOL "enable internal UPC runtime checks that validate arguments, and check for inconsistent runtime state.")
+set(GUPCR_HAVE_CHECKS ${LIBUPC_ENABLE_RUNTIME_CHECKS})
+
+set(LIBUPC_ENABLE_RUNTIME_DEBUG FALSE CACHE BOOL "enable UPC runtime debugging mode")
+set(GUPCR_HAVE_DEBUG ${LIBUPC_ENABLE_RUNTIME_DEBUG})
+
+set(LIBUPC_ENABLE_GUM_DEBUG FALSE CACHE BOOL "enable UPC's source level debugging with GDB and GUM support (requires UPC aware GDB)])")
+set(GUPCR_HAVE_GUM_DEBUG ${LIBUPC_ENABLE_GUM_DEBUG})
+
+set(LIBUPC_ENABLE_RUNTIME_STATS FALSE CACHE BOOL "enable internal UPC runtime statistics collection support; these statistics count the number of various significant internal operations, and dump those counts into a per-process statistics file.")
+set(GUPCR_HAVE_STATS ${LIBUPC_ENABLE_RUNTIME_STATS})
+
+set(LIBUPC_ENABLE_RUNTIME_TRACE FALSE CACHE BOOL "enable internal UPC runtime trace collection support; a runtime trace is a time stamped log that records various significant internal events; this trace is written to a per-process log file.")
+set(GUPCR_HAVE_TRACE ${LIBUPC_ENABLE_RUNTIME_TRACE})
+
+set(LIBUPC_RUNTIME_MAX_LOCKS 1024 CACHE STRING "The maximum number of locks that can be held by a single UPC thread")
+set(GUPCR_MAX_LOCKS ${LIBUPC_RUNTIME_MAX_LOCKS})
+
+set(LIBUPC_NODE_LOCAL_MEM posix CACHE STRING "specify type of shared memory used for node local memory accesses. (posix, mmap, or none)")
+if(LIBUPC_NODE_LOCAL_MEM STREQUAL "posix")
+  set(CMAKE_REQUIRED_LIBRARIES rt)
+  check_cxx_source_compiles("
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+int size = 4096;
+int fd;
+
+void * addr;
+
+int main() {
+  fd = shm_open(\"shm-config-test\", O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);
+  (void)shm_unlink(\"shm-config-test\");
+  if (fd < 0) return 1;
+  if (ftruncate(fd, size) < 0) return 1;
+  addr = mmap(NULL, size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+  (void)close(fd);
+  if (!addr || (addr == MAP_FAILED)) return 1;
+  (void)munmap(addr, size);
+  return 0;
+}
+"
+    HAVE_SHM_OPEN)
+  set(CMAKE_REQUIRED_LIBRARIES)
+
+  if(HAVE_SHM_OPEN)
+    set(GUPCR_NODE_LOCAL_MEM 1)
+    set(GUPCR_NODE_LOCAL_MEM_POSIX 1)
+  else()
+    message(warning "shm_open not found.  LIBUPC_NODE_LOCAL_MEM=posix ignored")
+  endif()
+elseif(LIBUPC_NODE_LOCAL_MEM STREQUAL "mmap")
+  set(GUPCR_NODE_LOCAL_MEM 1)
+  set(GUPCR_NODE_LOCAL_MEM_MMAP 1)
+elseif(LIBUPC_NODE_LOCAL_MEM STREQUAL "none")
+  # okay
+else()
+  message(fatal_error "invalid value of LIBUPC_LOCAL_MEM")
+endif()
+
+set(LIBUPC_RUNTIME_PTE_BASE 16 CACHE STRING "specify the base index of the first Portals4 PTE used by the UPC runtime")
+set(GUPCR_PTE_BASE ${LIBUPC_RUNTIME_PTE_BASE})
+
+set(LIBUPC_RUNTIME_ENABLE_TRIGGERED_OPS TRUE CACHE STRING "enable UPC runtime support for Portals4 triggered operations.")
+set(GUPCR_USE_PORTALS4_TRIGGERED_OPS ${LIBUPC_RUNTIME_ENABLE_TRIGGERED_OPS})
+
+
+set(LIBUPC_RUNTIME_TREE_FANOUT 4 CACHE STRING "The maximum number of children in each sub-tree used to implement UPC collectives operations (e. g. upc_barrier)")
+set(GUPCR_TREE_FANOUT ${LIBUPC_RUNTIME_TREE_FANOUT})
+
+set(CMAKE_REQUIRED_LIBRARIES rt)
+check_function_exists(clock_gettime HAVE_CLOCK_GETTIME)
+set(CMAKE_REQUIRED_LIBRARIES)
+
+check_include_file(execinfo.h HAVE_EXECINFO_H)
+check_include_file(limits.h HAVE_LIMITS_H)
+check_include_file(sys/time.h HAVE_SYS_TIME_H)
+
+# CMake 2.8.4 doesn't accept check_c_source_compiles
+check_cxx_source_compiles("
+typedef unsigned int uint32  __attribute__ ((mode (SI)));
+uint32 i;
+int main() { return __sync_fetch_and_add (&i, 1); }
+"
+HAVE_SYNC_FETCH_AND_ADD_4)
+
+check_cxx_source_compiles("
+typedef unsigned int uint64  __attribute__ ((mode (DI)));
+uint64 i;
+int main() { return __sync_fetch_and_add (&i, 1); }
+"
+HAVE_SYNC_FETCH_AND_ADD_8)
+
+
+# HAVE_BFD
+set(BFD_INCLUDE CACHE PATH "the directory for the installed BFD include files")
+set(BFD_LIB CACHE PATH "the directory for the installed BFD library")
+
+set(CMAKE_REQUIRED_LIBRARIES bfd dl)
+check_cxx_source_compiles(
+"
+#include <bfd.h>
+bfd_error_type error;
+int main() {
+  error = bfd_get_error ();
+  return 0;
+}
+"
+HAVE_BFD)
+set(CMAKE_REQUIRED_LIBRARIES)
+if(HAVE_BFD)
+  set(HAVE_LIBBFD TRUE)
+endif()
+
+# The link script is always enabled
+set(HAVE_UPC_LINK_SCRIPT TRUE)
+
+set(TIME_WITH_SYS_TIME TRUE)
+
 set(CMAKE_C_COMPILER ${LLVM_TOOLS_BINARY_DIR}/clang)
 
 #===============================================================================
@@ -83,10 +238,6 @@ else()
   set(CONFIGURATIONS p)
 endif()
 
-set(UPC_TREE_FANOUT 4 CACHE STRING "The maximum number of children in each sub-tree used to implement UPC collectives operations (e. g. upc_barrier)")
-set(UPC_MAX_LOCKS 1024 CACHE STRING "The maximum number of locks that can be
-held by a single UPC thread [default=1024]")
-
 configure_file(config.h.cmake config.h)
 
 #===============================================================================
@@ -104,8 +255,6 @@ set(LIBUPC_SOURCES
   smp/upc_affinity_stub.c
   smp/upc_allocg.upc
   smp/upc_alloc.upc
-  # smp/upc_backtrace.c
-  # smp/upc_backtrace_sup.c
   smp/upc_barrier.upc
   smp/upc_debug.c
   smp/upc_gasp.c
@@ -135,6 +284,13 @@ set(LIBUPC_SOURCES
   collectives/upc_coll_scatter.upc
   collectives/upc_coll_sort.upc
 )
+
+if(LIBUPC_ENABLE_BACKTRACE)
+  list(APPEND LIBUPC_SOURCES smp/upc_backtrace.c)
+  if(HAVE_BFD)
+    list(append LIBUPC_SOURCES smp/upc_backtrace_sup.c)
+  endif()
+endif()
 
 foreach(config ${CONFIGURATIONS})
   set(pts_type PACKED)
