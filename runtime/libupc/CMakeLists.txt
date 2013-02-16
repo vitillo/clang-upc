@@ -44,6 +44,8 @@ option(LIBUPC_ENABLE_SHARED "Build libupc as a shared library. (Broken)" OFF)
 
 # Configure libupc
 
+set(LIBUPC_RUNTIME_MODEL SMP CACHE STRING "specify the runtime implementation model for UPC, where MODEL may be: 'SMP' (Symmetric Multiprocessing) or 'Portals4'")
+
 set(LIBUPC_ENABLE_BACKTRACE TRUE CACHE STRING "enable UPC backtrace; enable stack frame backtrace report when UPC run-time fatal errors occur or by user request (via signal)")
 set(HAVE_UPC_BACKTRACE ${LIBUPC_ENABLE_BACKTRACE})
 
@@ -246,6 +248,8 @@ configure_file(config.h.cmake config.h)
 
 include_directories(include collectives)
 
+if(LIBUPC_RUNTIME_MODEL STREQUAL SMP)
+
 set(LIBUPC_SOURCES
 
   smp/upc_access.c
@@ -271,7 +275,16 @@ set(LIBUPC_SOURCES
   smp/upc_sysdep.c
   smp/upc_tick.c
   smp/upc_vm.c
+)
 
+if(LIBUPC_ENABLE_BACKTRACE)
+  list(APPEND LIBUPC_SOURCES smp/upc_backtrace.c)
+  if(HAVE_BFD)
+    list(append LIBUPC_SOURCES smp/upc_backtrace_sup.c)
+  endif()
+endif()
+
+list(APPEND LIBUPC_SOURCES
   collectives/upc_coll_broadcast.upc
   collectives/upc_coll_err.upc
   collectives/upc_coll_exchange.upc
@@ -285,11 +298,56 @@ set(LIBUPC_SOURCES
   collectives/upc_coll_sort.upc
 )
 
-if(LIBUPC_ENABLE_BACKTRACE)
-  list(APPEND LIBUPC_SOURCES smp/upc_backtrace.c)
-  if(HAVE_BFD)
-    list(append LIBUPC_SOURCES smp/upc_backtrace_sup.c)
+elseif(LIBUPC_RUNTIME_MODEL STREQUAL Portals4)
+  set(LIBUPC_SOURCES
+    portals4/gupcr_access.c
+    portals4/gupcr_addr.c
+    portals4/gupcr_alloc.upc
+    portals4/gupcr_barrier.c
+    portals4/gupcr_broadcast.c
+    portals4/gupcr_clock.c
+    portals4/gupcr_coll_broadcast.upc
+    portals4/gupcr_coll_init.upc
+    portals4/gupcr_coll_reduce.upc
+    portals4/gupcr_coll_sup.c
+    portals4/gupcr_env.c
+    portals4/gupcr_gmem.c
+    portals4/gupcr_lock_sup.c
+    portals4/gupcr_lock.upc
+    portals4/gupcr_main.c
+    portals4/gupcr_mem.c
+    portals4/gupcr_node.c
+    portals4/gupcr_pgm_info.c
+    portals4/gupcr_portals.c
+    portals4/gupcr_runtime.c
+    portals4/gupcr_shutdown.c
+    portals4/gupcr_tick.c
+    portals4/gupcr_utils.c
+  )
+
+  if(LIBUPC_NODE_LOCAL_MEM STREQUAL "mmap")
+    list(APPEND LIBUPC_SOURCES portals4/gupcr_node_mem_mmap.c)
+  else()
+    list(APPEND LIBUPC_SOURCES portals4/gupcr_node_mem_posix.c)
   endif()
+
+
+  list(APPEND LIBUPC_SOURCES
+    #collectives/upc_coll_broadcast.upc
+    collectives/upc_coll_err.upc
+    collectives/upc_coll_exchange.upc
+    collectives/upc_coll_gather.upc
+    collectives/upc_coll_gather_all.upc
+    #collectives/upc_coll_init.upc
+    collectives/upc_coll_permute.upc
+    collectives/upc_coll_prefix_reduce.upc
+    #collectives/upc_coll_reduce.upc
+    collectives/upc_coll_scatter.upc
+    collectives/upc_coll_sort.upc
+  )
+
+else()
+  message(fatal_error "Unknown value of LIBUPC_RUNTIME_MODEL")
 endif()
 
 foreach(config ${CONFIGURATIONS})
