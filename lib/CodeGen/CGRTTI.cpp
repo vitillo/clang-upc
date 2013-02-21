@@ -397,6 +397,9 @@ void RTTIBuilder::BuildVTablePointer(const Type *Ty) {
 #include "clang/AST/TypeNodes.def"
     llvm_unreachable("Non-canonical and dependent types shouldn't get here");
 
+  case Type::UPCThreadArray:
+    llvm_unreachable("UPC is incompatible with C++. Thus, no RTTI.");
+
   case Type::LValueReference:
   case Type::RValueReference:
     llvm_unreachable("References shouldn't get here");
@@ -603,6 +606,9 @@ llvm::Constant *RTTIBuilder::BuildTypeInfo(QualType Ty, bool Force) {
     // Itanium C++ ABI 2.9.5p4:
     // abi::__fundamental_type_info adds no data members to std::type_info.
     break;
+
+  case Type::UPCThreadArray:
+    llvm_unreachable("Combining UPC with C++ is unsupported. Thus, no RTTI.");
 
   case Type::LValueReference:
   case Type::RValueReference:

@@ -337,7 +337,9 @@ void ExprEngine::VisitCast(const CastExpr *CastE, const Expr *Ex,
       case CK_UserDefinedConversion:
       case CK_ConstructorConversion:
       case CK_VectorSplat:
-      case CK_MemberPointerToBoolean: {
+      case CK_MemberPointerToBoolean:
+      case CK_UPCSharedToLocal:
+      case CK_UPCBitCastZeroPhase: {
         // Recover some path-sensitivty by conjuring a new value.
         QualType resultType = CastE->getType();
         if (CastE->isLValue())
