@@ -357,6 +357,11 @@ foreach(config ${CONFIGURATIONS})
 
   string(REGEX MATCHALL "[^-]+" args ${config})
   
+  # Somehow f is set to a variable, which
+  # breaks because of the bizarre rules of
+  # STREQUAL in CMake.
+  set(f f)
+
   foreach(argument ${args})
     if(${argument} STREQUAL p)
       set(pts_type PACKED)
