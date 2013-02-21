@@ -20,6 +20,7 @@
 #include "clang/Frontend/CompilerInvocation.h"
 #include "clang/Frontend/LangStandard.h"
 #include "clang/Serialization/ASTReader.h"
+#include "clang/Config/config.h"
 #include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringExtras.h"
@@ -1915,32 +1916,32 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
   Opts.PIELevel = Args.getLastArgIntValue(OPT_pie_level, 0, Diags);
   Opts.Static = Args.hasArg(OPT_static_define);
 
-  StringRef UPCPts = Args.getLastArgValue(OPT_fupc_pts_EQ, "packed");
+  StringRef UPCPts = Args.getLastArgValue(OPT_fupc_pts_EQ, UPC_PTS);
   if (UPCPts == "packed") {
-    if (Arg * A = Args.getLastArg(OPT_fupc_packed_bits_EQ)) {
-      llvm::SmallVector<llvm::StringRef, 3> Bits;
-      StringRef(A->getValue(Args)).split(Bits, ",");
-      bool okay = true;
-      int Values[3];
-      if (Bits.size() == 3) {
-        for (int i = 0; i < 3; ++i)
-          if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
-            okay = false;
-        if (Values[0] + Values[1] + Values[2] != 64)
-          okay = false;
-      } else {
-        okay = false;
-      }
+    StringRef PackedBits = Args.getLastArgValue(OPT_fupc_packed_bits_EQ, UPC_PACKED_BITS);
 
-      if (okay) {
-        Opts.UPCPhaseBits = Values[0];
-        Opts.UPCThreadBits = Values[1];
-        Opts.UPCAddrBits = Values[2];
-      }
-      else
-        Diags.Report(diag::err_drv_invalid_value)
-          << A->getAsString(Args) << A->getValue(Args);
+    llvm::SmallVector<llvm::StringRef, 3> Bits;
+    PackedBits.split(Bits, ",");
+    bool okay = true;
+    int Values[3];
+    if (Bits.size() == 3) {
+      for (int i = 0; i < 3; ++i)
+        if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
+          okay = false;
+      if (Values[0] + Values[1] + Values[2] != 64)
+        okay = false;
+    } else {
+      okay = false;
     }
+
+    if (okay) {
+      Opts.UPCPhaseBits = Values[0];
+      Opts.UPCThreadBits = Values[1];
+      Opts.UPCAddrBits = Values[2];
+    }
+    else
+      Diags.Report(diag::err_drv_invalid_value)
+        << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args) << PackedBits;
   } else if(UPCPts == "struct") {
     Opts.UPCPhaseBits = 32;
     Opts.UPCThreadBits = 32;
@@ -1954,7 +1955,7 @@ static void ParseLangArgs(LangOptions &Opts, ArgList &Args, InputKind IK,
       << Args.getLastArg(OPT_fupc_pts_EQ)->getAsString(Args) << UPCPts;
   }
 
-  StringRef VaddrOrder = Args.getLastArgValue(OPT_fupc_pts_vaddr_order_EQ, "first");
+  StringRef VaddrOrder = Args.getLastArgValue(OPT_fupc_pts_vaddr_order_EQ, UPC_PTS_VADDR_ORDER);
   if (VaddrOrder == "first")
     Opts.UPCVaddrFirst = 1;
   else if (VaddrOrder == "last")

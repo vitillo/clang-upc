@@ -133,6 +133,10 @@ if (APPLE)
   set(CMAKE_MODULE_LINKER_FLAGS "-Wl,-flat_namespace -Wl,-undefined -Wl,suppress")
 endif ()
 
+set(UPC_PTS "packed" CACHE STRING "UPC shared pointer representation (packed|struct) default packed")
+set(UPC_PACKED_BITS "20,10,34" CACHE STRING "UPC shared pointer bits per field (phase,thread,addr) default 20,10,34")
+set(UPC_PTS_VADDR_ORDER "first" CACHE STRING "UPC shared pointer field order default first")
+
 configure_file(
   ${CLANG_SOURCE_DIR}/include/clang/Config/config.h.cmake
   ${CLANG_BINARY_DIR}/include/clang/Config/config.h)
