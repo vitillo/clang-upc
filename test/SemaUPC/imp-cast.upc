@@ -121,9 +121,9 @@ int main() {
     f14(ptr5);
     // CHECK: ImplicitCastExpr {{.*}} 'shared void *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr5'
-#ifdef ERRORS
-    f16(ptr5); // expected-error{{converting a pointer-to-shared requires the pointee type to be complete}}
-#endif
+    f16(ptr5); // expected-warning{{incompatible pointer types}}
+    // CHECK: ImplicitCastExpr {{.*}} 'shared [3] struct incomplete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
     f17(ptr5); // expected-warning{{incompatible pointer types}}
     // CHECK: ImplicitCastExpr {{.*}} 'shared [3] struct complete1 *' <UPCBitCastZeroPhase>
     // CHECK: DeclRefExpr {{.*}} 'ptr5'
@@ -138,9 +138,9 @@ int main() {
     // CHECK: ImplicitCastExpr {{.*}} 'shared [2] int *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr6'
 
-#ifdef ERRORS
-    f10(ptr7); // expected-error{{converting a pointer-to-shared requires the pointee type to be complete}}
-#endif
+    f10(ptr7); // expected-warning{{incompatible pointer types}}
+    // CHECK: ImplicitCastExpr {{.*}} 'shared [2] struct complete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr7'
 
     f4((void*)0);
     // CHECK: ImplicitCastExpr {{.*}} 'shared int *' <NullToPointer>

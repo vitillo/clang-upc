@@ -2046,16 +2046,6 @@ void CastOperation::CheckCStyleCast() {
           << SrcExpr.get()->getSourceRange();
         return;
       }
-      if (CastQuals.hasShared() && ExprQuals.hasShared() &&
-          (CastPtr->getPointeeType()->isIncompleteType() ||
-           ExprPtr->getPointeeType()->isIncompleteType()) &&
-          CastQuals.getLayoutQualifier() > 1 &&
-          CastQuals.getLayoutQualifier() == ExprQuals.getLayoutQualifier()) {
-        Self.Diag(SrcExpr.get()->getLocStart(), diag::err_upc_pointer_cast_requires_complete_type)
-          << SrcType << DestType << Sema::AA_Casting
-          << SrcExpr.get()->getSourceRange();
-        return;
-      }
     } else if (CastPtr->getPointeeType().getQualifiers().hasShared() &&
                !SrcExpr.get()->isNullPointerConstant(
                  Self.getASTContext(), Expr::NPC_NeverValueDependent)) {

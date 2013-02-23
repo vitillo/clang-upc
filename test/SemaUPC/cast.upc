@@ -121,9 +121,9 @@ int main() { // CHECK: int main()
     (void)(shared void *)ptr5;
     // CHECK: CStyleCastExpr {{.*}} 'shared void *' <BitCast>
     // CHECK: DeclRefExpr {{.*}} 'ptr5'
-#ifdef ERRORS
-    (void)(shared [3] struct incomplete1 *)ptr5; // expected-error{{converting a pointer-to-shared requires the pointee type to be complete}}
-#endif
+    (void)(shared [3] struct incomplete1 *)ptr5;
+    // CHECK: CStyleCastExpr {{.*}} 'shared [3] struct incomplete1 *' <UPCBitCastZeroPhase>
+    // CHECK: DeclRefExpr {{.*}} 'ptr5'
     (void)(shared [3] struct complete1 *)(ptr5);
     // CHECK: CStyleCastExpr {{.*}} 'shared [3] struct complete1 *' <UPCBitCastZeroPhase>
     // CHECK: DeclRefExpr {{.*}} 'ptr5'

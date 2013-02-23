@@ -4143,9 +4143,10 @@ static CastKind CheckPointerToSharedConversion(ASTContext& Context, QualType Src
   if (SrcPointee.getQualifiers().getLayoutQualifier() !=
       DestPointee.getQualifiers().getLayoutQualifier())
     return CK_UPCBitCastZeroPhase;
-  // This is an error, but the Diag is elsewhere
+  // Clarification in UPC 1.3.
+  // ... or either type is incomplete, ...
   if (SrcPointee->isIncompleteType() || DestPointee->isIncompleteType())
-    return CK_BitCast;
+    return CK_UPCBitCastZeroPhase;
   if (Context.getTypeSize(SrcPointee) !=
       Context.getTypeSize(DestPointee))
     return CK_UPCBitCastZeroPhase;
@@ -5356,15 +5357,6 @@ checkPointerTypesForAssignment(Sema &S, QualType LHSType, QualType RHSType) {
     // as still compatible in C.
     else ConvTy = Sema::CompatiblePointerDiscardsQualifiers;
   }
-
-  // If one argument is a pointer to an incomplete type and the
-  // arguments have equal layout qualifiers greater than one,
-  // we can't determine whether the phase should be preserved
-  // or set to zero.
-  if ((lhptee->isIncompleteType() || rhptee->isIncompleteType()) &&
-      lhq.getLayoutQualifier() > 1 &&
-      lhq.getLayoutQualifier() == rhq.getLayoutQualifier())
-    return Sema::IncompatiblePointerToSharedIncomplete;
 
   // C99 6.5.16.1p1 (constraint 4): If one operand is a pointer to an object or
   // incomplete type and the other is a pointer to a qualified or unqualified
@@ -9571,9 +9563,6 @@ bool Sema::DiagnoseAssignmentResult(AssignConvertType ConvTy,
     break;
   case IncompatibleNestedPointerQualifiers:
     DiagKind = diag::ext_nested_pointer_qualifier_mismatch;
-    break;
-  case IncompatiblePointerToSharedIncomplete:
-    DiagKind = diag::err_upc_pointer_cast_requires_complete_type;
     break;
   case IntToBlockPointer:
     DiagKind = diag::err_int_to_block_pointer;

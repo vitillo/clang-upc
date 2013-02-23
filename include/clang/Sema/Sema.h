@@ -6265,11 +6265,6 @@ public:
     /// extension.
     IncompatibleNestedPointerQualifiers,
 
-    // IncompatiblePointerToSharedIncomplete - The assignment is between two
-    // UPC pointer-to-shared types at least one of which is incomplete, and
-    // we would need to know the size to determine how to cast
-    IncompatiblePointerToSharedIncomplete,
-
     /// IncompatibleVectors - The assignment is between two vector types that
     /// have the same size, which we accept as an extension.
     IncompatibleVectors,
