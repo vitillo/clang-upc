@@ -6944,6 +6944,12 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
           << LHSType << RHSType << LHS.get()->getSourceRange()
           << RHS.get()->getSourceRange();
       }
+      // Relational comparison of pointers-to-shared requires a complete type
+      if (IsRelational && LQuals.hasShared() && LCanPointeeTy->isIncompleteType()) {
+        Diag(Loc, diag::err_upc_typecheck_relational_incomplete)
+          << LHSType->castAs<PointerType>()->getPointeeType()
+          << LHS.get()->getSourceRange() << RHS.get()->getSourceRange();
+      }
     } else if (!IsRelational &&
                (LCanPointeeTy->isVoidType() || RCanPointeeTy->isVoidType())) {
       // Valid unless comparison between non-null pointer and function pointer

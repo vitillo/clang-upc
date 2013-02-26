@@ -6,6 +6,7 @@ shared [1] int *p4;
 shared [] int *p5;
 shared [2] int *p6;
 shared void * p7;
+shared struct incomplete *p8, *p9; // expected-note{{}}
 
 int main() {
   p2 = p1 + 1;
@@ -116,6 +117,14 @@ int main() {
   (void)(p4 <= p6); // expected-error{{comparison of distinct pointer types}}
   (void)(p4 >  p6); // expected-error{{comparison of distinct pointer types}}
   (void)(p4 >= p6); // expected-error{{comparison of distinct pointer types}}
+
+  (void)(p8 -  p9); // expected-error{{arithmetic on a pointer to an incomplete type}}
+  (void)(p8 == p9);
+  (void)(p8 != p9);
+  (void)(p8 <  p9); // expected-error{{relational comparison on a pointer-to-shared to an incomplete type}}
+  (void)(p8 <= p9); // expected-error{{relational comparison on a pointer-to-shared to an incomplete type}}
+  (void)(p8 >  p9); // expected-error{{relational comparison on a pointer-to-shared to an incomplete type}}
+  (void)(p8 >= p9); // expected-error{{relational comparison on a pointer-to-shared to an incomplete type}}
 
   (void)(1? p1 : p3); // expected-error{{incompatible operand types}}
   p1 = 1? p1 : p4;
