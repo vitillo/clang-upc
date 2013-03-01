@@ -5350,6 +5350,7 @@ void linuxtools::Link::ConstructJob(Compilation &C, const JobAction &JA,
       }
     }
     CmdArgs.push_back(Args.MakeArgString(Buf));
+    CmdArgs.push_back("-lrt");
   }
 
   // Call this before we add the C run-time.
