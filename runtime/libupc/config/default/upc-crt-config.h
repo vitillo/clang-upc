@@ -7,8 +7,6 @@
 #define UPC_SHARED_END_NAME __upc_shared_end
 #define UPC_PGM_INFO_BEGIN_NAME __upc_pgm_info_start
 #define UPC_PGM_INFO_END_NAME __upc_pgm_info_end
-#define UPC_INIT_BEGIN_NAME __upc_init_start
-#define UPC_INIT_END_NAME __upc_init_end
 #define UPC_INIT_ARRAY_BEGIN_NAME __upc_init_array_start
 #define UPC_INIT_ARRAY_END_NAME __upc_init_array_end
 
