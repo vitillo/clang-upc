@@ -46,6 +46,8 @@ option(LIBUPC_ENABLE_SHARED "Build libupc as a shared library. (Broken)" OFF)
 
 set(LIBUPC_RUNTIME_MODEL SMP CACHE STRING "specify the runtime implementation model for UPC, where MODEL may be: 'SMP' (Symmetric Multiprocessing) or 'Portals4'")
 
+set(LIBUPC_ENABLE_LINK_SCRIPT TRUE CACHE STRING "enable UPC's use of a custom linker script; this will define the UPC shared section as a no load section on targets where this feature is supported (requires GNU LD)")
+
 set(LIBUPC_ENABLE_BACKTRACE TRUE CACHE STRING "enable UPC backtrace; enable stack frame backtrace report when UPC run-time fatal errors occur or by user request (via signal)")
 set(HAVE_UPC_BACKTRACE ${LIBUPC_ENABLE_BACKTRACE})
 
@@ -467,6 +469,8 @@ add_crt_target(upc-crtendS -DCRT_END)
 add_crt_target(upc-crtbeginT -DCRT_BEGIN)
 add_crt_target(upc-crtendT -DCRT_END)
 
+if(LIBUPC_ENABLE_LINK_SCRIPT)
+
 find_package(Perl REQUIRED)
 
 set(upc_link_script ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/upc.ld)
@@ -474,6 +478,8 @@ add_custom_target(upc-link-script ALL DEPENDS ${upc_link_script})
 add_custom_command(OUTPUT ${upc_link_script}
    COMMAND ld --verbose | ${PERL_EXECUTABLE} ${PROJECT_SOURCE_DIR}/gen-upc-ld-script.pl > ${upc_link_script}
    VERBATIM)
+
+endif()
 
 set(header_location lib${LLVM_LIBDIR_SUFFIX}/clang/${CLANG_VERSION}/include)
 
