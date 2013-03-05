@@ -168,7 +168,10 @@ void CodeGenModule::Release() {
                                true, llvm::GlobalValue::InternalLinkage,
                                llvm::ConstantDataArray::getString(getLLVMContext(), str),
                                "GCCUPCConfig");
-    conf->setSection("upc_pgm_info");
+    if(isTargetDarwin())
+      conf->setSection("__DATA,upc_pgm_info");
+    else
+      conf->setSection("upc_pgm_info");
     AddUsedGlobal(conf);
   }
   EmitDeferred();
@@ -1654,8 +1657,12 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     GV->setConstant(false);
 
   SetCommonAttributes(D, GV);
-  if(ASTTy.getQualifiers().hasShared())
-    GV->setSection("upc_shared");
+  if(ASTTy.getQualifiers().hasShared()) {
+    if(isTargetDarwin())
+      GV->setSection("__DATA,upc_shared");
+    else
+      GV->setSection("upc_shared");
+  }
 
   // Emit the initializer function if necessary.
   if (NeedsGlobalCtor || NeedsGlobalDtor)

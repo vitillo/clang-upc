@@ -442,12 +442,18 @@ endforeach()
 
 set_property(SOURCE ${LIBUPC_SOURCES} PROPERTY LANGUAGE C)
 
+if(APPLE)
+  set(config_dir darwin)
+else()
+  set(config_dir default)
+endif()
+
 macro(add_crt_target name opts)
   set(obj ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/${name}.o)
   list(APPEND objects ${obj})
   add_custom_target(${name} ALL DEPENDS ${obj})
   add_custom_command(OUTPUT ${obj}
-  COMMAND ${CMAKE_C_COMPILER} -c -o ${obj} ${PROJECT_SOURCE_DIR}/upc-crtstuff.c -I${PROJECT_SOURCE_DIR}/config/default -I${PROJECT_BINARY_DIR} ${opts}
+  COMMAND ${CMAKE_C_COMPILER} -c -o ${obj} ${PROJECT_SOURCE_DIR}/upc-crtstuff.c -I${PROJECT_SOURCE_DIR}/config/${config_dir} -I${PROJECT_BINARY_DIR} ${opts}
   MAIN_DEPENDENCY upc-crtstuff.c
   IMPLICIT_DEPENDENCY upc-crtstuff.c
   VERBATIM)

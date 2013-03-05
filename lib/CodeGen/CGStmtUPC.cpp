@@ -68,7 +68,11 @@ llvm::Constant *CodeGenModule::getUPCFenceVar() {
                                llvm::GlobalValue::LinkOnceODRLinkage,
                                llvm::ConstantInt::get(IntTy, 0),
                                "__upc_fence_var");
-    GV->setSection("upc_shared");
+
+    if(isTargetDarwin())
+      GV->setSection("__DATA,upc_shared");
+    else
+      GV->setSection("upc_shared");
     UPCFenceVar = GV;
   }
   return UPCFenceVar;

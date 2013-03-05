@@ -201,8 +201,12 @@ CodeGenFunction::CreateStaticVarDecl(const VarDecl &D,
   GV->setAlignment(getContext().getDeclAlign(&D).getQuantity());
   if (Linkage != llvm::GlobalValue::InternalLinkage)
     GV->setVisibility(CurFn->getVisibility());
-  if(SharedInit)
-    GV->setSection("upc_shared");
+  if(SharedInit) {
+    if(CGM.isTargetDarwin())
+      GV->setSection("__DATA,upc_shared");
+    else
+      GV->setSection("upc_shared");
+  }
   return GV;
 }
 
