@@ -196,8 +196,7 @@ if(HAVE_BFD)
   set(HAVE_LIBBFD TRUE)
 endif()
 
-# The link script is always enabled
-set(HAVE_UPC_LINK_SCRIPT TRUE)
+set(HAVE_UPC_LINK_SCRIPT ${LIBUPC_ENABLE_LINK_SCRIPT})
 
 set(TIME_WITH_SYS_TIME TRUE)
 
@@ -469,9 +468,9 @@ add_crt_target(upc-crtendS -DCRT_END)
 add_crt_target(upc-crtbeginT -DCRT_BEGIN)
 add_crt_target(upc-crtendT -DCRT_END)
 
-if(LIBUPC_ENABLE_LINK_SCRIPT)
-
 find_package(Perl REQUIRED)
+
+if(LIBUPC_ENABLE_LINK_SCRIPT)
 
 set(upc_link_script ${LLVM_BINARY_DIR}/lib${LLVM_LIBDIR_SUFFIX}/upc.ld)
 add_custom_target(upc-link-script ALL DEPENDS ${upc_link_script})
