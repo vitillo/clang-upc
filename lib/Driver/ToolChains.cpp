@@ -54,6 +54,8 @@ Darwin::Darwin(const Driver &D, const llvm::Triple& Triple)
   llvm::raw_string_ostream(MacosxVersionMin)
     << Major << '.' << Minor << '.' << Micro;
 
+  getFilePaths().push_back(getDriver().Dir + "/../lib");
+
   // FIXME: DarwinVersion is only used to find GCC's libexec directory.
   // It should be removed when we stop supporting that.
   DarwinVersion[0] = Minor + 4;

@@ -4074,6 +4074,9 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
                                 const InputInfoList &Inputs,
                                 const ArgList &Args,
                                 const char *LinkingOutput) const {
+  const toolchains::Darwin& ToolChain = getDarwinToolChain();
+  const Driver &D = ToolChain.getDriver();
+
   assert(Output.getType() == types::TY_Image && "Invalid linker output type.");
 
   // The logic here is derived from gcc's behavior; most of which
@@ -4189,6 +4192,16 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
           }
         }
       }
+      if (D.CCCIsUPC) {
+        const char *upc_crtbegin;
+        if (Args.hasArg(options::OPT_static))
+          upc_crtbegin = "upc-crtbeginT.o";
+        else if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
+          upc_crtbegin = "upc-crtbeginS.o";
+        else
+          upc_crtbegin = "upc-crtbegin.o";
+        CmdArgs.push_back(Args.MakeArgString(getToolChain().GetFilePath(upc_crtbegin)));
+      }
     }
 
     if (!getDarwinToolChain().isTargetIPhoneOS() &&
@@ -4201,6 +4214,12 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_L);
+
+  const ToolChain::path_list Paths = ToolChain.getFilePaths();
+
+  for (ToolChain::path_list::const_iterator i = Paths.begin(), e = Paths.end();
+       i != e; ++i)
+    CmdArgs.push_back(Args.MakeArgString(StringRef("-L") + *i));
 
   // If we're building a dynamic lib with -faddress-sanitizer, unresolved
   // symbols may appear. Mark all of them as dynamic_lookup.
@@ -4217,6 +4236,42 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
   if (Args.hasArg(options::OPT_fopenmp))
     // This is more complicated in gcc...
     CmdArgs.push_back("-lgomp");
+
+  if (D.CCCIsUPC && !Args.hasArg(options::OPT_nostdlib)) {
+    llvm::SmallString<32> Buf("-lupc");
+    if (Args.getLastArgValue(options::OPT_fupc_pts_EQ, "packed") == "struct") {
+      Buf += "-s";
+    }
+    if (Args.getLastArgValue(options::OPT_fupc_pts_vaddr_order_EQ, "first") == "last") {
+      Buf += "-l";
+    }
+    if (Arg * A = Args.getLastArg(options::OPT_fupc_packed_bits_EQ)) {
+      llvm::SmallVector<llvm::StringRef, 3> Bits;
+      StringRef(A->getValue(Args)).split(Bits, ",");
+      bool okay = true;
+      int Values[3];
+      if (Bits.size() == 3) {
+        for (int i = 0; i < 3; ++i)
+          if (Bits[i].getAsInteger(10, Values[i]) || Values[i] <= 0)
+            okay = false;
+        if (Values[0] + Values[1] + Values[2] != 64)
+          okay = false;
+      } else {
+        okay = false;
+      }
+      if (okay) {
+        if(Values[0] != 20 || Values[1] != 10 || Values[2] != 34) {
+          Buf += "-";
+          Buf += Bits[0];
+          Buf += "-";
+          Buf += Bits[1];
+          Buf += "-";
+          Buf += Bits[2];
+        }
+      }
+    }
+    CmdArgs.push_back(Args.MakeArgString(Buf));
+  }
 
   getDarwinToolChain().AddLinkSearchPathArgs(Args, CmdArgs);
 
@@ -4265,7 +4320,17 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
   if (!Args.hasArg(options::OPT_A) &&
       !Args.hasArg(options::OPT_nostdlib) &&
       !Args.hasArg(options::OPT_nostartfiles)) {
-    // endfile_spec is empty.
+
+    if (D.CCCIsUPC) {
+      const char *upc_crtend;
+      if (Args.hasArg(options::OPT_static))
+        upc_crtend = "upc-crtendT.o";
+      else if (Args.hasArg(options::OPT_shared) || Args.hasArg(options::OPT_pie))
+        upc_crtend = "upc-crtendS.o";
+      else
+        upc_crtend = "upc-crtend.o";
+      CmdArgs.push_back(Args.MakeArgString(ToolChain.GetFilePath(upc_crtend)));
+    }
   }
 
   Args.AddAllArgs(CmdArgs, options::OPT_T_Group);
