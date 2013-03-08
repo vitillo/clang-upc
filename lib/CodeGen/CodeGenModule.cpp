@@ -458,7 +458,10 @@ void CodeGenModule::EmitUPCInits(const CtorList &Fns, const char *GlobalName) {
                              llvm::GlobalValue::AppendingLinkage,
                              llvm::ConstantArray::get(AT, Ctors),
                              GlobalName);
-    GV->setSection("upc_init_array");
+    if(isTargetDarwin())
+      GV->setSection("__DATA,upc_init_array");
+    else
+      GV->setSection("upc_init_array");
   }
 }
 
