@@ -1,6 +1,13 @@
 set(LLVM_NO_RTTI 1)
 
-set(LLVM_USED_LIBS
+set(LLVM_LINK_COMPONENTS
+    jit
+  )
+
+add_clang_executable(ast-test
+  ast-test.cpp
+  )
+target_link_libraries(ast-test
     clangFrontend
     clangSerialization
     clangSema
@@ -9,12 +16,4 @@ set(LLVM_USED_LIBS
     clangLex
     clangBasic
     )
-
-set(LLVM_LINK_COMPONENTS
-    jit
-  )
-
-add_clang_executable(ast-test
-  ast-test.cpp
-  )
 add_dependencies(ast-test clang-headers)

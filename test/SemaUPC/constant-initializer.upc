@@ -1,4 +1,5 @@
 // RUN: %clang_cc1 %s -fsyntax-only -verify
+// expected-no-diagnostics
 
 shared int array[10 * THREADS];
 

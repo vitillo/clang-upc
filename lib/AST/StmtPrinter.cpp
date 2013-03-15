@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/AST/ASTContext.h"
 #include "clang/AST/StmtVisitor.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/DeclObjC.h"
@@ -29,17 +30,15 @@ using namespace clang;
 namespace  {
   class StmtPrinter : public StmtVisitor<StmtPrinter> {
     raw_ostream &OS;
-    ASTContext &Context;
     unsigned IndentLevel;
     clang::PrinterHelper* Helper;
     PrintingPolicy Policy;
 
   public:
-    StmtPrinter(raw_ostream &os, ASTContext &C, PrinterHelper* helper,
+    StmtPrinter(raw_ostream &os, PrinterHelper* helper,
                 const PrintingPolicy &Policy,
                 unsigned Indentation = 0)
-      : OS(os), Context(C), IndentLevel(Indentation), Helper(helper),
-        Policy(Policy) {}
+      : OS(os), IndentLevel(Indentation), Helper(helper), Policy(Policy) {}
 
     void PrintStmt(Stmt *S) {
       PrintStmt(S, Policy.Indentation);
@@ -62,7 +61,7 @@ namespace  {
 
     void PrintRawCompoundStmt(CompoundStmt *S);
     void PrintRawDecl(Decl *D);
-    void PrintRawDeclStmt(DeclStmt *S);
+    void PrintRawDeclStmt(const DeclStmt *S);
     void PrintRawIfStmt(IfStmt *If);
     void PrintRawCXXCatchStmt(CXXCatchStmt *Catch);
     void PrintCallArgs(CallExpr *E);
@@ -122,8 +121,8 @@ void StmtPrinter::PrintRawDecl(Decl *D) {
   D->print(OS, Policy, IndentLevel);
 }
 
-void StmtPrinter::PrintRawDeclStmt(DeclStmt *S) {
-  DeclStmt::decl_iterator Begin = S->decl_begin(), End = S->decl_end();
+void StmtPrinter::PrintRawDeclStmt(const DeclStmt *S) {
+  DeclStmt::const_decl_iterator Begin = S->decl_begin(), End = S->decl_end();
   SmallVector<Decl*, 2> Decls;
   for ( ; Begin != End; ++Begin)
     Decls.push_back(*Begin);
@@ -172,15 +171,15 @@ void StmtPrinter::VisitLabelStmt(LabelStmt *Node) {
 void StmtPrinter::VisitAttributedStmt(AttributedStmt *Node) {
   OS << "[[";
   bool first = true;
-  for (AttrVec::const_iterator it = Node->getAttrs().begin(),
-                               end = Node->getAttrs().end();
-                               it != end; ++it) {
+  for (ArrayRef<const Attr*>::iterator it = Node->getAttrs().begin(),
+                                       end = Node->getAttrs().end();
+                                       it != end; ++it) {
     if (!first) {
       OS << ", ";
       first = false;
     }
     // TODO: check this
-    (*it)->printPretty(OS, Context);
+    (*it)->printPretty(OS, Policy);
   }
   OS << "]] ";
   PrintStmt(Node->getSubStmt(), 0);
@@ -188,7 +187,10 @@ void StmtPrinter::VisitAttributedStmt(AttributedStmt *Node) {
 
 void StmtPrinter::PrintRawIfStmt(IfStmt *If) {
   OS << "if (";
-  PrintExpr(If->getCond());
+  if (const DeclStmt *DS = If->getConditionVariableDeclStmt())
+    PrintRawDeclStmt(DS);
+  else
+    PrintExpr(If->getCond());
   OS << ')';
 
   if (CompoundStmt *CS = dyn_cast<CompoundStmt>(If->getThen())) {
@@ -225,7 +227,10 @@ void StmtPrinter::VisitIfStmt(IfStmt *If) {
 
 void StmtPrinter::VisitSwitchStmt(SwitchStmt *Node) {
   Indent() << "switch (";
-  PrintExpr(Node->getCond());
+  if (const DeclStmt *DS = Node->getConditionVariableDeclStmt())
+    PrintRawDeclStmt(DS);
+  else
+    PrintExpr(Node->getCond());
   OS << ")";
 
   // Pretty print compoundstmt bodies (very common).
@@ -241,7 +246,10 @@ void StmtPrinter::VisitSwitchStmt(SwitchStmt *Node) {
 
 void StmtPrinter::VisitWhileStmt(WhileStmt *Node) {
   Indent() << "while (";
-  PrintExpr(Node->getCond());
+  if (const DeclStmt *DS = Node->getConditionVariableDeclStmt())
+    PrintRawDeclStmt(DS);
+  else
+    PrintExpr(Node->getCond());
   OS << ")\n";
   PrintStmt(Node->getBody());
 }
@@ -440,7 +448,7 @@ void StmtPrinter::VisitUPCForAllStmt(UPCForAllStmt *Node) {
   }
 }
 
-void StmtPrinter::VisitAsmStmt(AsmStmt *Node) {
+void StmtPrinter::VisitGCCAsmStmt(GCCAsmStmt *Node) {
   Indent() << "asm ";
 
   if (Node->isVolatile())
@@ -496,10 +504,20 @@ void StmtPrinter::VisitAsmStmt(AsmStmt *Node) {
     if (i != 0)
       OS << ", ";
 
-    VisitStringLiteral(Node->getClobber(i));
+    VisitStringLiteral(Node->getClobberStringLiteral(i));
   }
 
   OS << ");\n";
+}
+
+void StmtPrinter::VisitMSAsmStmt(MSAsmStmt *Node) {
+  // FIXME: Implement MS style inline asm statement printer.
+  Indent() << "__asm ";
+  if (Node->hasBraces())
+    OS << "{\n";
+  OS << *(Node->getAsmString()) << "\n";
+  if (Node->hasBraces())
+    Indent() << "}\n";
 }
 
 void StmtPrinter::VisitObjCAtTryStmt(ObjCAtTryStmt *Node) {
@@ -711,6 +729,9 @@ void StmtPrinter::VisitPredefinedExpr(PredefinedExpr *Node) {
     case PredefinedExpr::Function:
       OS << "__FUNCTION__";
       break;
+    case PredefinedExpr::LFunction:
+      OS << "L__FUNCTION__";
+      break;
     case PredefinedExpr::PrettyFunction:
       OS << "__PRETTY_FUNCTION__";
       break;
@@ -795,10 +816,30 @@ void StmtPrinter::VisitIntegerLiteral(IntegerLiteral *Node) {
   case BuiltinType::UInt128:   OS << "Ui128"; break;
   }
 }
-void StmtPrinter::VisitFloatingLiteral(FloatingLiteral *Node) {
+
+static void PrintFloatingLiteral(raw_ostream &OS, FloatingLiteral *Node,
+                                 bool PrintSuffix) {
   SmallString<16> Str;
   Node->getValue().toString(Str);
   OS << Str;
+  if (Str.find_first_not_of("-0123456789") == StringRef::npos)
+    OS << '.'; // Trailing dot in order to separate from ints.
+
+  if (!PrintSuffix)
+    return;
+
+  // Emit suffixes.  Float literals are always a builtin float type.
+  switch (Node->getType()->getAs<BuiltinType>()->getKind()) {
+  default: llvm_unreachable("Unexpected type for float literal!");
+  case BuiltinType::Half:       break; // FIXME: suffix?
+  case BuiltinType::Double:     break; // no suffix.
+  case BuiltinType::Float:      OS << 'F'; break;
+  case BuiltinType::LongDouble: OS << 'L'; break;
+  }
+}
+
+void StmtPrinter::VisitFloatingLiteral(FloatingLiteral *Node) {
+  PrintFloatingLiteral(OS, Node, /*PrintSuffix=*/true);
 }
 
 void StmtPrinter::VisitImaginaryLiteral(ImaginaryLiteral *Node) {
@@ -807,93 +848,7 @@ void StmtPrinter::VisitImaginaryLiteral(ImaginaryLiteral *Node) {
 }
 
 void StmtPrinter::VisitStringLiteral(StringLiteral *Str) {
-  switch (Str->getKind()) {
-  case StringLiteral::Ascii: break; // no prefix.
-  case StringLiteral::Wide:  OS << 'L'; break;
-  case StringLiteral::UTF8:  OS << "u8"; break;
-  case StringLiteral::UTF16: OS << 'u'; break;
-  case StringLiteral::UTF32: OS << 'U'; break;
-  }
-  OS << '"';
-  static char Hex[] = "0123456789ABCDEF";
-
-  unsigned LastSlashX = Str->getLength();
-  for (unsigned I = 0, N = Str->getLength(); I != N; ++I) {
-    switch (uint32_t Char = Str->getCodeUnit(I)) {
-    default:
-      // FIXME: Convert UTF-8 back to codepoints before rendering.
-
-      // Convert UTF-16 surrogate pairs back to codepoints before rendering.
-      // Leave invalid surrogates alone; we'll use \x for those.
-      if (Str->getKind() == StringLiteral::UTF16 && I != N - 1 &&
-          Char >= 0xd800 && Char <= 0xdbff) {
-        uint32_t Trail = Str->getCodeUnit(I + 1);
-        if (Trail >= 0xdc00 && Trail <= 0xdfff) {
-          Char = 0x10000 + ((Char - 0xd800) << 10) + (Trail - 0xdc00);
-          ++I;
-        }
-      }
-
-      if (Char > 0xff) {
-        // If this is a wide string, output characters over 0xff using \x
-        // escapes. Otherwise, this is a UTF-16 or UTF-32 string, and Char is a
-        // codepoint: use \x escapes for invalid codepoints.
-        if (Str->getKind() == StringLiteral::Wide ||
-            (Char >= 0xd800 && Char <= 0xdfff) || Char >= 0x110000) {
-          // FIXME: Is this the best way to print wchar_t?
-          OS << "\\x";
-          int Shift = 28;
-          while ((Char >> Shift) == 0)
-            Shift -= 4;
-          for (/**/; Shift >= 0; Shift -= 4)
-            OS << Hex[(Char >> Shift) & 15];
-          LastSlashX = I;
-          break;
-        }
-
-        if (Char > 0xffff)
-          OS << "\\U00"
-             << Hex[(Char >> 20) & 15]
-             << Hex[(Char >> 16) & 15];
-        else
-          OS << "\\u";
-        OS << Hex[(Char >> 12) & 15]
-           << Hex[(Char >>  8) & 15]
-           << Hex[(Char >>  4) & 15]
-           << Hex[(Char >>  0) & 15];
-        break;
-      }
-
-      // If we used \x... for the previous character, and this character is a
-      // hexadecimal digit, prevent it being slurped as part of the \x.
-      if (LastSlashX + 1 == I) {
-        switch (Char) {
-          case '0': case '1': case '2': case '3': case '4':
-          case '5': case '6': case '7': case '8': case '9':
-          case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
-          case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
-            OS << "\"\"";
-        }
-      }
-
-      if (Char <= 0xff && isprint(Char))
-        OS << (char)Char;
-      else  // Output anything hard as an octal escape.
-        OS << '\\'
-           << (char)('0' + ((Char >> 6) & 7))
-           << (char)('0' + ((Char >> 3) & 7))
-           << (char)('0' + ((Char >> 0) & 7));
-      break;
-    // Handle some common non-printable cases to make dumps prettier.
-    case '\\': OS << "\\\\"; break;
-    case '"': OS << "\\\""; break;
-    case '\n': OS << "\\n"; break;
-    case '\t': OS << "\\t"; break;
-    case '\a': OS << "\\a"; break;
-    case '\b': OS << "\\b"; break;
-    }
-  }
-  OS << '"';
+  Str->outputString(OS);
 }
 void StmtPrinter::VisitUPCThreadExpr(UPCThreadExpr *Node) {
   OS << "THREAD";
@@ -968,7 +923,12 @@ void StmtPrinter::VisitUnaryExprOrTypeTraitExpr(UnaryExprOrTypeTraitExpr *Node){
     OS << "sizeof";
     break;
   case UETT_AlignOf:
-    OS << "__alignof";
+    if (Policy.LangOpts.CPlusPlus)
+      OS << "alignof";
+    else if (Policy.LangOpts.C11)
+      OS << "_Alignof";
+    else
+      OS << "__alignof";
     break;
   case UETT_VecStep:
     OS << "vec_step";
@@ -1061,7 +1021,7 @@ void StmtPrinter::VisitExtVectorElementExpr(ExtVectorElementExpr *Node) {
   OS << Node->getAccessor().getName();
 }
 void StmtPrinter::VisitCStyleCastExpr(CStyleCastExpr *Node) {
-  OS << "(" << Node->getType().getAsString(Policy) << ")";
+  OS << "(" << Node->getTypeAsWritten().getAsString(Policy) << ")";
   PrintExpr(Node->getSubExpr());
 }
 void StmtPrinter::VisitCompoundLiteralExpr(CompoundLiteralExpr *Node) {
@@ -1264,6 +1224,8 @@ void StmtPrinter::VisitCXXOperatorCallExpr(CXXOperatorCallExpr *Node) {
       PrintExpr(Node->getArg(0));
       OS << ' ' << OpStrings[Kind];
     }
+  } else if (Kind == OO_Arrow) {
+    PrintExpr(Node->getArg(0));
   } else if (Kind == OO_Call) {
     PrintExpr(Node->getArg(0));
     OS << '(';
@@ -1360,7 +1322,7 @@ void StmtPrinter::VisitUserDefinedLiteral(UserDefinedLiteral *Node) {
     const TemplateArgument &Pack = Args->get(0);
     for (TemplateArgument::pack_iterator I = Pack.pack_begin(),
                                          E = Pack.pack_end(); I != E; ++I) {
-      char C = (char)I->getAsIntegral()->getZExtValue();
+      char C = (char)I->getAsIntegral().getZExtValue();
       OS << C;
     }
     break;
@@ -1371,7 +1333,12 @@ void StmtPrinter::VisitUserDefinedLiteral(UserDefinedLiteral *Node) {
     OS << Int->getValue().toString(10, /*isSigned*/false);
     break;
   }
-  case UserDefinedLiteral::LOK_Floating:
+  case UserDefinedLiteral::LOK_Floating: {
+    // Print floating literal without suffix.
+    FloatingLiteral *Float = cast<FloatingLiteral>(Node->getCookedLiteral());
+    PrintFloatingLiteral(OS, Float, /*PrintSuffix=*/false);
+    break;
+  }
   case UserDefinedLiteral::LOK_String:
   case UserDefinedLiteral::LOK_Character:
     PrintExpr(Node->getCookedLiteral());
@@ -1533,10 +1500,12 @@ void StmtPrinter::VisitCXXNewExpr(CXXNewExpr *E) {
     OS << "::";
   OS << "new ";
   unsigned NumPlace = E->getNumPlacementArgs();
-  if (NumPlace > 0) {
+  if (NumPlace > 0 && !isa<CXXDefaultArgExpr>(E->getPlacementArg(0))) {
     OS << "(";
     PrintExpr(E->getPlacementArg(0));
     for (unsigned i = 1; i < NumPlace; ++i) {
+      if (isa<CXXDefaultArgExpr>(E->getPlacementArg(i)))
+        break;
       OS << ", ";
       PrintExpr(E->getPlacementArg(i));
     }
@@ -1547,7 +1516,7 @@ void StmtPrinter::VisitCXXNewExpr(CXXNewExpr *E) {
   std::string TypeS;
   if (Expr *Size = E->getArraySize()) {
     llvm::raw_string_ostream s(TypeS);
-    Size->printPretty(s, Context, Helper, Policy);
+    Size->printPretty(s, Helper, Policy);
     s.flush();
     TypeS = "[" + TypeS + "]";
   }
@@ -1583,6 +1552,7 @@ void StmtPrinter::VisitCXXPseudoDestructorExpr(CXXPseudoDestructorExpr *E) {
     OS << '.';
   if (E->getQualifier())
     E->getQualifier()->print(OS, Policy);
+  OS << "~";
 
   std::string TypeS;
   if (IdentifierInfo *II = E->getDestroyedTypeIdentifier())
@@ -1685,6 +1655,7 @@ static const char *getTypeTraitName(UnaryTypeTrait UTT) {
   case UTT_IsFunction:              return "__is_function";
   case UTT_IsFundamental:           return "__is_fundamental";
   case UTT_IsIntegral:              return "__is_integral";
+  case UTT_IsInterfaceClass:        return "__is_interface_class";
   case UTT_IsLiteral:               return "__is_literal";
   case UTT_IsLvalueReference:       return "__is_lvalue_reference";
   case UTT_IsMemberFunctionPointer: return "__is_member_function_pointer";
@@ -1801,6 +1772,10 @@ void StmtPrinter::VisitSubstNonTypeTemplateParmExpr(
   Visit(Node->getReplacement());
 }
 
+void StmtPrinter::VisitFunctionParmPackExpr(FunctionParmPackExpr *E) {
+  OS << *E->getParameterPack();
+}
+
 void StmtPrinter::VisitMaterializeTemporaryExpr(MaterializeTemporaryExpr *Node){
   PrintExpr(Node->GetTemporaryExpr());
 }
@@ -1812,9 +1787,9 @@ void StmtPrinter::VisitObjCStringLiteral(ObjCStringLiteral *Node) {
   VisitStringLiteral(Node->getString());
 }
 
-void StmtPrinter::VisitObjCNumericLiteral(ObjCNumericLiteral *E) {
+void StmtPrinter::VisitObjCBoxedExpr(ObjCBoxedExpr *E) {
   OS << "@";
-  Visit(E->getNumber());
+  Visit(E->getSubExpr());
 }
 
 void StmtPrinter::VisitObjCArrayLiteral(ObjCArrayLiteral *E) {
@@ -1956,13 +1931,12 @@ void StmtPrinter::VisitAsTypeExpr(AsTypeExpr *Node) {
 // Stmt method implementations
 //===----------------------------------------------------------------------===//
 
-void Stmt::dumpPretty(ASTContext& Context) const {
-  printPretty(llvm::errs(), Context, 0,
-              PrintingPolicy(Context.getLangOpts()));
+void Stmt::dumpPretty(ASTContext &Context) const {
+  printPretty(llvm::errs(), 0, PrintingPolicy(Context.getLangOpts()));
 }
 
-void Stmt::printPretty(raw_ostream &OS, ASTContext& Context,
-                       PrinterHelper* Helper,
+void Stmt::printPretty(raw_ostream &OS,
+                       PrinterHelper *Helper,
                        const PrintingPolicy &Policy,
                        unsigned Indentation) const {
   if (this == 0) {
@@ -1970,12 +1944,12 @@ void Stmt::printPretty(raw_ostream &OS, ASTContext& Context,
     return;
   }
 
-  if (Policy.Dump && &Context) {
-    dump(OS, Context.getSourceManager());
+  if (Policy.DumpSourceManager) {
+    dump(OS, *Policy.DumpSourceManager);
     return;
   }
 
-  StmtPrinter P(OS, Context, Helper, Policy, Indentation);
+  StmtPrinter P(OS, Helper, Policy, Indentation);
   P.Visit(const_cast<Stmt*>(this));
 }
 

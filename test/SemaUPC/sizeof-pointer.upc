@@ -1,5 +1,6 @@
 // RUN: %clang_cc1 %s -fsyntax-only -DEXPECTED=8 -verify
 // RUN: %clang_cc1 %s -fsyntax-only -fupc-pts=struct -DEXPECTED=16 -verify
+// expected-no-diagnostics
 
 #define CAT_I(x, y) x ## y
 #define CAT(x, y) CAT_I(x, y)

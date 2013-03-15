@@ -661,19 +661,19 @@ class ASTTextDiagnosticPrinter : public TextDiagnosticPrinter {
   // make this cloneable, but to do that we need to duplicate some of the data
   // members from TextDiagnosticPrinter.
   raw_ostream &OS;
-  const DiagnosticOptions *DiagOpts;
+  DiagnosticOptions *DiagOpts;
   bool OwnsOutputStream;
 public:
-  ASTTextDiagnosticPrinter(llvm::raw_ostream &os, const DiagnosticOptions &diags,
+  ASTTextDiagnosticPrinter(llvm::raw_ostream &os, DiagnosticOptions *diags,
                            bool OwnsOutputStream_ = false)
     : TextDiagnosticPrinter(os, diags, OwnsOutputStream_),
-      OS(os), DiagOpts(&diags), OwnsOutputStream(OwnsOutputStream_) {
+      OS(os), DiagOpts(diags), OwnsOutputStream(OwnsOutputStream_) {
   }
 
   void EndSourceFile() {}
 
   DiagnosticConsumer* clone(DiagnosticsEngine &Diags) const {
-    return new ASTTextDiagnosticPrinter(OS, *DiagOpts, OwnsOutputStream);
+    return new ASTTextDiagnosticPrinter(OS, DiagOpts, OwnsOutputStream);
   }
 };
 
@@ -693,10 +693,11 @@ int main(int argc, const char **argv) {
   llvm::OwningPtr<CompilerInstance> Clang(new CompilerInstance());
   llvm::IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
 
+  DiagnosticOptions *DiagOpts = new DiagnosticOptions;
   // Buffer diagnostics from argument parsing so that we can output them using a
   // well formed diagnostic object.
   TextDiagnosticBuffer *DiagsBuffer = new TextDiagnosticBuffer;
-  DiagnosticsEngine Diags(DiagID, DiagsBuffer);
+  DiagnosticsEngine Diags(DiagID, DiagOpts, DiagsBuffer);
   CompilerInvocation::CreateFromArgs(Clang->getInvocation(), Args.begin(), Args.end(),
                                      Diags);
 
@@ -708,7 +709,7 @@ int main(int argc, const char **argv) {
 
   // Create the actual diagnostics engine.
   ASTTextDiagnosticPrinter *DiagPrinter =
-    new ASTTextDiagnosticPrinter(llvm::errs(), Clang->getDiagnosticOpts());
+    new ASTTextDiagnosticPrinter(llvm::errs(), &Clang->getDiagnosticOpts());
   Clang->createDiagnostics(Args.size(), const_cast<char**>(Args.data()), DiagPrinter);
   if (!Clang->hasDiagnostics()) {
     return EXIT_FAILURE;

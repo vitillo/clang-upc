@@ -14,7 +14,7 @@
 #include "CodeGenFunction.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/DataLayout.h"
 #include "llvm/ADT/SmallVector.h"
 using namespace clang;
 using namespace CodeGen;
@@ -55,7 +55,7 @@ RValue EmitUPCCall(CodeGenFunction &CGF,
                             ArgTypes.data(), ArgTypes.size(),
                             FunctionProtoType::ExtProtoInfo());
     const CGFunctionInfo &Info =
-      CGF.getTypes().arrangeFunctionCall(Args, FuncType->castAs<FunctionType>());
+      CGF.getTypes().arrangeFreeFunctionCall(Args, FuncType->castAs<FunctionType>());
     llvm::FunctionType * FTy =
       cast<llvm::FunctionType>(CGF.ConvertType(FuncType));
     llvm::Value * Fn = CGF.CGM.CreateRuntimeFunction(FTy, Name);
@@ -174,7 +174,7 @@ llvm::Value *CodeGenFunction::EmitUPCLoad(llvm::Value *Addr,
                                           CharUnits Align,
                                           SourceLocation Loc) {
   const ASTContext& Context = getContext();
-  const llvm::TargetData &Target = CGM.getTargetData();
+  const llvm::DataLayout &Target = CGM.getDataLayout();
   uint64_t Size = Target.getTypeSizeInBits(LTy);
   QualType ArgTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
   QualType ResultTy;
@@ -241,7 +241,7 @@ void CodeGenFunction::EmitUPCStore(llvm::Value *Value,
                                    SourceLocation Loc) {
 
   const ASTContext& Context = getContext();
-  const llvm::TargetData &Target = CGM.getTargetData();
+  const llvm::DataLayout &Target = CGM.getDataLayout();
   uint64_t Size = Target.getTypeSizeInBits(Value->getType());
   QualType AddrTy = Context.getPointerType(Context.getSharedType(Context.VoidTy));
   QualType ValTy;
@@ -728,7 +728,7 @@ llvm::Value *CodeGenFunction::EmitUPCFieldOffset(llvm::Value *Addr,
                                                  llvm::Type * StructTy,
                                                  int Idx) {
   const llvm::StructLayout * Layout =
-    CGM.getTargetData().getStructLayout(cast<llvm::StructType>(StructTy));
+    CGM.getDataLayout().getStructLayout(cast<llvm::StructType>(StructTy));
   llvm::Value * Offset =
     llvm::ConstantInt::get(SizeTy, Layout->getElementOffset(Idx));
   return EmitUPCPointer(

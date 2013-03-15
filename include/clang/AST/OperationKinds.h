@@ -290,6 +290,10 @@ enum CastKind {
   /// lambda expression to a block pointer.
   CK_CopyAndAutoreleaseBlockObject,
 
+  // Convert a builtin function to a function pointer; only allowed in the
+  // callee of a call expression.
+  CK_BuiltinFnToFnPtr,
+
   /// \brief [UPC] Converts from a UPC pointer-to-shared to
   // a regular C pointer.
   CK_UPCSharedToLocal,
@@ -300,7 +304,7 @@ enum CastKind {
   CK_UPCBitCastZeroPhase
 };
 
-#define CK_Invalid ((CastKind) -1)
+static const CastKind CK_Invalid = static_cast<CastKind>(-1);
 
 enum BinaryOperatorKind {
   // Operators listed in order of precedence.
