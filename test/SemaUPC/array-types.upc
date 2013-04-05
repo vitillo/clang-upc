@@ -26,9 +26,10 @@ shared int array3[] = { 1, 2, 3 }; // expected-error{{THREADS must appear exactl
 
 extern shared [*] int array4[][THREADS]; // expected-error{{cannot resolve block size of '*' on an incomplete array type}}
 
-typedef shared [*] int array_type1[10]; // expected-error{{THREADS must appear exactly once in one dimension of a shared array}}
 typedef int array_type2[THREADS];
-typedef shared [*] array_type2 array_type3[10];
+shared [*] array_type2 array6[10];
+
+typedef shared [*] int array_type4[7*THREADS]; // expected-error{{a layout qualifier of '*' is illegal in a typedef declaration}}
 
 void f1(shared int[]);
 void f2(shared int[10]);

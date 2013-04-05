@@ -3014,6 +3014,9 @@ static TypeSourceInfo *GetFullTypeForDeclarator(TypeProcessingState &state,
 
   // Handle shared [*]
   if (LangOpts.UPC) {
+    if (IsTypedefName && T.getQualifiers().hasLayoutQualifierStar()) {
+      S.Diag(D.getDeclSpec().getSharedSpecLoc(), diag::err_upc_shared_star_on_typedef);
+    }
     T = S.ResolveLayoutQualifierStar(T, D.getDeclSpec().getLocStart());
   }
 

@@ -113,15 +113,6 @@ shared [2] shared_3_int t32; // expected-error{{cannot combine with previous 'sh
 shared [3] shared_3_int t33;
 shared [*] shared_3_int t3s; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
 
-typedef shared [*] int shared_s_int;
-shared     shared_s_int tsn;
-shared [ ] shared_s_int tse; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [0] shared_s_int ts0; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [1] shared_s_int ts1;
-shared [2] shared_s_int ts2; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [3] shared_s_int ts3; // expected-error{{cannot combine with previous 'shared' declaration specifier}}
-shared [*] shared_s_int tss;
-
 int * shared     shared     pnn;
 int * shared     shared [ ] pne;
 int * shared     shared [0] pn0;
