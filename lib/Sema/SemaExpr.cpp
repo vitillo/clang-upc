@@ -7337,6 +7337,8 @@ QualType Sema::CheckCompareOperands(ExprResult &LHS, ExprResult &RHS,
           && !LHSIsNull && !RHSIsNull)
         diagnoseFunctionPointerToVoidComparison(*this, Loc, LHS, RHS,
                                                 /*isError*/false);
+    } else if (IsRelational && LQuals.hasShared()) {
+      diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/true);
     } else {
       // Invalid
       diagnoseDistinctPointerComparison(*this, Loc, LHS, RHS, /*isError*/false);

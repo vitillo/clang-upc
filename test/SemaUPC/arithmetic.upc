@@ -118,6 +118,14 @@ int main() {
   (void)(p4 >  p6); // expected-error{{comparison of distinct pointer types}}
   (void)(p4 >= p6); // expected-error{{comparison of distinct pointer types}}
 
+  (void)(p4 -  p7); // expected-error{{not pointers to compatible types}}
+  (void)(p4 == p7);
+  (void)(p4 != p7);
+  (void)(p4 <  p7); // expected-error{{comparison of distinct pointer types}}
+  (void)(p4 <= p7); // expected-error{{comparison of distinct pointer types}}
+  (void)(p4 >  p7); // expected-error{{comparison of distinct pointer types}}
+  (void)(p4 >= p7); // expected-error{{comparison of distinct pointer types}}
+
   (void)(p8 -  p9); // expected-error{{arithmetic on a pointer to an incomplete type}}
   (void)(p8 == p9);
   (void)(p8 != p9);
