@@ -486,7 +486,7 @@ llvm::DIType CGDebugInfo::CreateQualifiedType(QualType Ty, llvm::DIFile Unit) {
   } else if (Qc.hasRestrict()) {
     Tag = llvm::dwarf::DW_TAG_restrict_type;
     Qc.removeRestrict();
-  } else if (Qc.hasShared()) {
+  } else if (Qc.hasShared() || Qc.hasStrict() || Qc.hasRelaxed()) {
     // FIXME: Actually implement this
     Qc.removeShared();
     Qc.removeLayoutQualifier();
