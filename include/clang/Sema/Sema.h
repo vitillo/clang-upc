@@ -7337,6 +7337,7 @@ public:
   /// itself and in routines directly invoked from the parser and *never* from
   /// template substitution or instantiation.
   Scope *getCurScope() const { return CurScope; }
+  void setCurScope(Scope *S) { CurScope = S; }
 
   Decl *getObjCDeclContext() const;
 
