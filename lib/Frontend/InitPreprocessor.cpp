@@ -332,7 +332,6 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
       Builder.defineMacro("__UPC_DYNAMIC_THREADS__", "1");
     }
     Builder.append("extern const int MYTHREAD;\n");
-    Builder.append("typedef shared struct upc_lock_struct upc_lock_t;\n");
     Builder.append(Twine("extern int main() __asm__(\"") + TI.getUserLabelPrefix() + "upc_main\");\n");
     Builder.defineMacro("exit", "__upc_exit");
 

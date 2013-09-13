@@ -14,6 +14,8 @@
 /* required, to define size_t */
 #include <sys/types.h>
 
+typedef shared struct upc_lock_struct upc_lock_t;
+
 extern size_t upc_threadof (shared void *);
 extern size_t upc_phaseof (shared void *);
 extern shared void *upc_resetphase (shared void *);
