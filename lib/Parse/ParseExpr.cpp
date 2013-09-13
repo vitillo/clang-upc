@@ -940,6 +940,10 @@ ExprResult Parser::ParseCastExpression(bool isUnaryExpression,
     Res = Actions.ActOnUPCThreadsExpr(Tok.getLocation());
     ConsumeToken();
     break;
+  case tok::kw_MYTHREAD:
+    Res = Actions.ActOnUPCMyThreadExpr(Tok.getLocation());
+    ConsumeToken();
+    break;
   case tok::kw__Generic:   // primary-expression: generic-selection [C11 6.5.1]
     Res = ParseGenericSelectionExpression();
     break;

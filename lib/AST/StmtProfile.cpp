@@ -322,6 +322,10 @@ void StmtProfiler::VisitUPCThreadExpr(const UPCThreadExpr *S) {
   VisitExpr(S);
 }
 
+void StmtProfiler::VisitUPCMyThreadExpr(const UPCMyThreadExpr *S) {
+  VisitExpr(S);
+}
+
 void StmtProfiler::VisitParenExpr(const ParenExpr *S) {
   VisitExpr(S);
 }

@@ -2779,6 +2779,7 @@ bool Expr::HasSideEffects(const ASTContext &Ctx) const {
   case CXXUuidofExprClass:
   case OpaqueValueExprClass:
   case UPCThreadExprClass:
+  case UPCMyThreadExprClass:
     // These never have a side-effect.
     return false;
 

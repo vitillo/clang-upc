@@ -207,8 +207,12 @@ public:
     return Builder.CreateBitCast(V, ConvertType(E->getType()));
   }
 
-  Value *VisitUPCThreadExpr(UPCThreadExpr *E) {
+  Value *VisitUPCThreadExpr(UPCMyThreadExpr *E) {
     return CGF.EmitUPCThreads();
+  }
+
+  Value *VisitUPCThreadExpr(UPCThreadExpr *E) {
+    return CGF.EmitUPCMyThread();
   }
 
   Value *VisitSizeOfPackExpr(SizeOfPackExpr *E) {

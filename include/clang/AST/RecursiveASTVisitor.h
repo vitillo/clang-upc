@@ -2257,6 +2257,7 @@ DEF_TRAVERSE_STMT(UPCBarrierStmt, { })
 DEF_TRAVERSE_STMT(UPCFenceStmt, { })
 DEF_TRAVERSE_STMT(UPCPragmaStmt, { })
 DEF_TRAVERSE_STMT(UPCThreadExpr, { })
+DEF_TRAVERSE_STMT(UPCMyThreadExpr, { })
 DEF_TRAVERSE_STMT(UPCForAllStmt, { })
 
 // FIXME: look at the following tricky-seeming exprs to see if we

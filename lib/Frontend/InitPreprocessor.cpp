@@ -331,7 +331,6 @@ static void InitializeStandardPredefinedMacros(const TargetInfo &TI,
     } else {
       Builder.defineMacro("__UPC_DYNAMIC_THREADS__", "1");
     }
-    Builder.append("extern const int MYTHREAD;\n");
     Builder.append(Twine("extern int main() __asm__(\"") + TI.getUserLabelPrefix() + "upc_main\");\n");
     Builder.defineMacro("exit", "__upc_exit");
 

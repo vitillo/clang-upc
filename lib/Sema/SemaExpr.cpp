@@ -2967,6 +2967,10 @@ ExprResult Sema::ActOnUPCThreadsExpr(SourceLocation Loc) {
   return Owned(new (Context) UPCThreadExpr(Loc, Context.IntTy));
 }
 
+ExprResult Sema::ActOnUPCMyThreadExpr(SourceLocation Loc) {
+  return Owned(new (Context) UPCMyThreadExpr(Loc, Context.IntTy));
+}
+
 ExprResult Sema::ActOnParenExpr(SourceLocation L, SourceLocation R, Expr *E) {
   assert((E != 0) && "ActOnParenExpr() missing expr");
   return Owned(new (Context) ParenExpr(L, R, E));

@@ -1077,6 +1077,8 @@ namespace clang {
       EXPR_CHARACTER_LITERAL,
       /// \brief A THREAD record.
       EXPR_UPC_THREAD,
+      /// \brief A MYTHREAD record.
+      EXPR_UPC_MYTHREAD,
       /// \brief A ParenExpr record.
       EXPR_PAREN,
       /// \brief A ParenListExpr record.

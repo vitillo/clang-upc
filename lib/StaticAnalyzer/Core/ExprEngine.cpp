@@ -623,6 +623,7 @@ void ExprEngine::Visit(const Stmt *S, ExplodedNode *Pred,
     case Stmt::AsTypeExprClass:
     case Stmt::AtomicExprClass:
     case Stmt::UPCThreadExprClass:
+    case Stmt::UPCMyThreadExprClass:
     case Stmt::UPCNotifyStmtClass:
     case Stmt::UPCWaitStmtClass:
     case Stmt::UPCBarrierStmtClass:

@@ -419,6 +419,12 @@ void ASTStmtWriter::VisitUPCThreadExpr(UPCThreadExpr *E) {
   Code = serialization::EXPR_UPC_THREAD;
 }
 
+void ASTStmtWriter::VisitUPCMyThreadExpr(UPCMyThreadExpr *E) {
+  VisitExpr(E);
+  Writer.AddSourceLocation(E->getLocation(), Record);
+  Code = serialization::EXPR_UPC_MYTHREAD;
+}
+
 void ASTStmtWriter::VisitParenExpr(ParenExpr *E) {
   VisitExpr(E);
   Writer.AddSourceLocation(E->getLParen(), Record);

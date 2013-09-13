@@ -6542,6 +6542,7 @@ static ICEDiag CheckICE(const Expr* E, ASTContext &Ctx) {
 #include "clang/AST/StmtNodes.inc"
   case Expr::PredefinedExprClass:
   case Expr::UPCThreadExprClass:
+  case Expr::UPCMyThreadExprClass:
   case Expr::FloatingLiteralClass:
   case Expr::ImaginaryLiteralClass:
   case Expr::StringLiteralClass:

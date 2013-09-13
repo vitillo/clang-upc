@@ -851,7 +851,10 @@ void StmtPrinter::VisitStringLiteral(StringLiteral *Str) {
   Str->outputString(OS);
 }
 void StmtPrinter::VisitUPCThreadExpr(UPCThreadExpr *Node) {
-  OS << "THREAD";
+  OS << "THREADS";
+}
+void StmtPrinter::VisitUPCMyThreadExpr(UPCMyThreadExpr *Node) {
+  OS << "MYTHREAD";
 }
 void StmtPrinter::VisitParenExpr(ParenExpr *Node) {
   OS << "(";

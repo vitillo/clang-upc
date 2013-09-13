@@ -2409,6 +2409,7 @@ recurse:
   case Expr::PseudoObjectExprClass:
   case Expr::AtomicExprClass:
   case Expr::UPCThreadExprClass:
+  case Expr::UPCMyThreadExprClass:
   {
     // As bad as this diagnostic is, it's better than crashing.
     DiagnosticsEngine &Diags = Context.getDiags();

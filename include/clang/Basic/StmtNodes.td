@@ -167,6 +167,7 @@ def CUDAKernelCallExpr : DStmt<CallExpr>;
 
 // UPC Expressions
 def UPCThreadExpr : DStmt<Expr>;
+def UPCMyThreadExpr : DStmt<Expr>;
 
 // Clang Extensions.
 def ShuffleVectorExpr : DStmt<Expr>;

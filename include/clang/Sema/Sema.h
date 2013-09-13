@@ -2956,6 +2956,7 @@ public:
   ExprResult ActOnNumericConstant(const Token &Tok, Scope *UDLScope = 0);
   ExprResult ActOnCharacterConstant(const Token &Tok, Scope *UDLScope = 0);
   ExprResult ActOnUPCThreadsExpr(SourceLocation Loc);
+  ExprResult ActOnUPCMyThreadExpr(SourceLocation Loc);
   ExprResult ActOnParenExpr(SourceLocation L, SourceLocation R, Expr *E);
   ExprResult ActOnParenListExpr(SourceLocation L,
                                 SourceLocation R,

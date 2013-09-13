@@ -2103,6 +2103,7 @@ DEF_TRAVERSE_STMT(ExtVectorElementExpr, { })
 DEF_TRAVERSE_STMT(GNUNullExpr, { })
 DEF_TRAVERSE_STMT(ImplicitValueInitExpr, { })
 DEF_TRAVERSE_STMT(UPCThreadExpr, { })
+DEF_TRAVERSE_STMT(UPCMyThreadExpr, { })
 DEF_TRAVERSE_STMT(ObjCBoolLiteralExpr, { })
 DEF_TRAVERSE_STMT(ObjCEncodeExpr, {
   if (TypeSourceInfo *TInfo = S->getEncodedTypeSourceInfo())

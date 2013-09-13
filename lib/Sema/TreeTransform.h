@@ -6341,6 +6341,12 @@ TreeTransform<Derived>::TransformUPCThreadExpr(UPCThreadExpr *E) {
 
 template<typename Derived>
 ExprResult
+TreeTransform<Derived>::TransformUPCMyThreadExpr(UPCMyThreadExpr *E) {
+  return SemaRef.Owned(E);
+}
+
+template<typename Derived>
+ExprResult
 TreeTransform<Derived>::TransformUserDefinedLiteral(UserDefinedLiteral *E) {
   return SemaRef.MaybeBindToTemporary(E);
 }

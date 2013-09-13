@@ -237,6 +237,7 @@ CXCursor cxcursor::MakeCXCursor(Stmt *S, Decl *Parent, CXTranslationUnit TU,
   case Stmt::ObjCBoxedExprClass:
   case Stmt::ObjCSubscriptRefExprClass:
   case Stmt::UPCThreadExprClass:
+  case Stmt::UPCMyThreadExprClass:
   case Stmt::UPCBarrierStmtClass:
   case Stmt::UPCFenceStmtClass:
   case Stmt::UPCForAllStmtClass:
