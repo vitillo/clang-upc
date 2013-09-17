@@ -294,6 +294,9 @@ enum CastKind {
   // callee of a call expression.
   CK_BuiltinFnToFnPtr,
 
+  // Convert a zero value for OpenCL event_t initialization.
+  CK_ZeroToOCLEvent
+
   /// \brief [UPC] Converts from a UPC pointer-to-shared to
   // a regular C pointer.
   CK_UPCSharedToLocal,
