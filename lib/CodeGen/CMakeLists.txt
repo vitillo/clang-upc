@@ -2,7 +2,6 @@ set(LLVM_LINK_COMPONENTS
   asmparser
   bitreader
   bitwriter
-  irreader
   instrumentation
   ipo
   linker

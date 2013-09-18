@@ -1394,7 +1394,8 @@ public:
   }
   static bool classof(const UPCNotifyStmt *) { return true; }
 
-  SourceRange getSourceRange() const LLVM_READONLY;
+  SourceLocation getLocStart() const LLVM_READONLY { return NotifyLoc; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return IdExpr ? IdExpr->getLocEnd() : NotifyLoc; }
 
   // Iterators
   child_range children() {
@@ -1426,7 +1427,8 @@ public:
   }
   static bool classof(const UPCWaitStmt *) { return true; }
 
-  SourceRange getSourceRange() const LLVM_READONLY;
+  SourceLocation getLocStart() const LLVM_READONLY { return WaitLoc; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return IdExpr ? IdExpr->getLocEnd() : WaitLoc; }
 
   // Iterators
   child_range children() {
@@ -1458,7 +1460,8 @@ public:
   }
   static bool classof(const UPCBarrierStmt *) { return true; }
 
-  SourceRange getSourceRange() const LLVM_READONLY;
+  SourceLocation getLocStart() const LLVM_READONLY { return BarrierLoc; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return IdExpr ? IdExpr->getLocEnd() : BarrierLoc; }
 
   // Iterators
   child_range children() {
@@ -1484,9 +1487,8 @@ public:
   }
   static bool classof(const UPCFenceStmt *) { return true; }
 
-  SourceRange getSourceRange() const {
-    return SourceRange(FenceLoc);
-  }
+  SourceLocation getLocStart() const LLVM_READONLY { return FenceLoc; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return FenceLoc; }
 
   // Iterators
   child_range children() { return child_range(); }
@@ -1513,9 +1515,8 @@ public:
   }
   static bool classof(const UPCPragmaStmt *) { return true; }
 
-  SourceRange getSourceRange() const {
-    return SourceRange(PragmaLoc);
-  }
+  SourceLocation getLocStart() const LLVM_READONLY { return PragmaLoc; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return PragmaLoc; }
 
   // Iterators
   child_range children() { return child_range(); }
@@ -1574,9 +1575,9 @@ public:
   SourceLocation getRParenLoc() const { return RParenLoc; }
   void setRParenLoc(SourceLocation L) { RParenLoc = L; }
 
-  SourceRange getSourceRange() const LLVM_READONLY {
-    return SourceRange(ForLoc, SubExprs[BODY]->getLocEnd());
-  }
+  SourceLocation getLocStart() const LLVM_READONLY { return ForLoc; }
+  SourceLocation getLocEnd() const LLVM_READONLY { return SubExprs[BODY]->getLocEnd(); }
+
   static bool classof(const Stmt *T) {
     return T->getStmtClass() == UPCForAllStmtClass;
   }

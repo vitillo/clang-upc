@@ -5318,7 +5318,7 @@ void darwin::Link::ConstructJob(Compilation &C, const JobAction &JA,
        i != e; ++i)
     CmdArgs.push_back(Args.MakeArgString(StringRef("-L") + *i));
 
-  SanitizerArgs Sanitize(getToolChain().getDriver(), Args);
+  SanitizerArgs Sanitize(getToolChain(), Args);
   // If we're building a dynamic lib with -fsanitize=address, or
   // -fsanitize=undefined, unresolved symbols may appear. Mark all
   // of them as dynamic_lookup. Linking executables is handled in

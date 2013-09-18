@@ -1125,6 +1125,7 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
 
   // Apply const/volatile/restrict qualifiers to T.
   if (unsigned TypeQuals = DS.getTypeQualifiers()) {
+    SourceLocation Loc;
 
     // Warn about CV qualifiers on functions: C99 6.7.3p8: "If the specification
     // of a function type includes any type qualifiers, the behavior is

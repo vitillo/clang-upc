@@ -211,7 +211,7 @@ CodeGenFunction::CreateStaticVarDecl(const VarDecl &D,
   if (Linkage != llvm::GlobalValue::InternalLinkage)
     GV->setVisibility(CurFn->getVisibility());
   if(SharedInit) {
-    if(CGM.isTargetDarwin())
+    if(CGM.getTarget().getTriple().isMacOSX())
       GV->setSection("__DATA,upc_shared");
     else
       GV->setSection("upc_shared");

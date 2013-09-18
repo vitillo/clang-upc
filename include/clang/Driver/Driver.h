@@ -373,10 +373,6 @@ public:
   bool IsUsingLTO(const ArgList &Args) const;
 
 private:
-
-  bool IsUsingLTO(const ArgList &Args) const;
-
-private:
   /// \brief Retrieves a ToolChain for a particular target triple.
   ///
   /// Will cache ToolChains for the life of the driver object, and create them

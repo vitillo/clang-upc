@@ -197,7 +197,7 @@ void CodeGenModule::Release() {
                                true, llvm::GlobalValue::InternalLinkage,
                                llvm::ConstantDataArray::getString(getLLVMContext(), str),
                                "GCCUPCConfig");
-    if(isTargetDarwin())
+    if(getTarget().getTriple().isMacOSX())
       conf->setSection("__DATA,upc_pgm_info");
     else
       conf->setSection("upc_pgm_info");
@@ -559,7 +559,7 @@ void CodeGenModule::EmitUPCInits(const CtorList &Fns, const char *GlobalName) {
                              llvm::GlobalValue::AppendingLinkage,
                              llvm::ConstantArray::get(AT, Ctors),
                              GlobalName);
-    if(isTargetDarwin())
+    if(getTarget().getTriple().isMacOSX())
       GV->setSection("__DATA,upc_init_array");
     else
       GV->setSection("upc_init_array");

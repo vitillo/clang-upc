@@ -1693,7 +1693,7 @@ StmtResult Parser::ParseUPCForAllStatement(SourceLocation *TrailingElseLoc) {
       Diag(Tok, diag::ext_c99_variable_decl_in_for_loop);
 
     ParsedAttributesWithRange attrs(AttrFactory);
-    MaybeParseCXX0XAttributes(attrs);
+    MaybeParseCXX11Attributes(attrs);
 
     SourceLocation DeclStart = Tok.getLocation(), DeclEnd;
     StmtVector Stmts;
@@ -1711,7 +1711,7 @@ StmtResult Parser::ParseUPCForAllStatement(SourceLocation *TrailingElseLoc) {
 
     // Turn the expression into a stmt.
     if (!Value.isInvalid()) {
-      FirstPart = Actions.ActOnExprStmt(Actions.MakeFullExpr(Value.get()));
+      FirstPart = Actions.ActOnExprStmt(Value);
     }
 
     if (Tok.is(tok::semi)) {
@@ -1907,7 +1907,6 @@ StmtResult Parser::ParseReturnStatement() {
   return Actions.ActOnReturnStmt(ReturnLoc, R.take());
 }
 
-<<<<<<< HEAD
 /// ParseUPCNotifyStatement
 ///       synchronization-statement:
 ///         'upc_notify' expression[opt] ';'
@@ -1969,7 +1968,8 @@ StmtResult Parser::ParseUPCFenceStatement() {
   assert(Tok.is(tok::kw_upc_fence) && "Not a upc_fence stmt!");
   SourceLocation FenceLoc = ConsumeToken();  // eat the 'return'.
   return Actions.ActOnUPCFenceStmt(FenceLoc);
-=======
+}
+
 namespace {
   class ClangAsmParserCallback : public llvm::MCAsmParserSemaCallback {
     Parser &TheParser;
@@ -2243,7 +2243,6 @@ static bool buildMSAsmString(Preprocessor &PP,
 
   assert(TokOffsets.size() == AsmToks.size());
   return false;
->>>>>>> release_33
 }
 
 /// ParseMicrosoftAsmStatement. When -fms-extensions/-fasm-blocks is enabled,

@@ -305,10 +305,10 @@ public:
     TQ_relaxed     = 16,
     TQ_strict      = 32,
     TQ_lqstar      = 64,
-    TQ_lqexpr      = 128
+    TQ_lqexpr      = 128,
     // This has no corresponding Qualifiers::TQ value, because it's not treated
     // as a qualifier in our type system.
-    TQ_atomic      = 256,
+    TQ_atomic      = 256
   };
 
   /// ParsedSpecifiers - Flags to query which specifiers were applied.  This is
@@ -339,9 +339,6 @@ private:
 
   // type-qualifiers
   unsigned TypeQualifiers : 9;  // Bitwise OR of TQ.
-
-  // function-specifier
-  unsigned FS_inline_specified : 1;
 
   // function-specifier
   unsigned FS_inline_specified : 1;

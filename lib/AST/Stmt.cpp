@@ -298,38 +298,6 @@ AttributedStmt *AttributedStmt::CreateEmpty(ASTContext &C, unsigned NumAttrs) {
   return new (Mem) AttributedStmt(EmptyShell(), NumAttrs);
 }
 
-<<<<<<< HEAD
-// This is defined here to avoid polluting Stmt.h with importing Expr.h
-SourceRange ReturnStmt::getSourceRange() const {
-  if (RetExpr)
-    return SourceRange(RetLoc, RetExpr->getLocEnd());
-  else
-    return SourceRange(RetLoc);
-}
-
-SourceRange UPCNotifyStmt::getSourceRange() const {
-  if (IdExpr)
-    return SourceRange(NotifyLoc, IdExpr->getLocEnd());
-  else
-    return SourceRange(NotifyLoc);
-}
-
-SourceRange UPCWaitStmt::getSourceRange() const {
-  if (IdExpr)
-    return SourceRange(WaitLoc, IdExpr->getLocEnd());
-  else
-    return SourceRange(WaitLoc);
-}
-
-SourceRange UPCBarrierStmt::getSourceRange() const {
-  if (IdExpr)
-    return SourceRange(BarrierLoc, IdExpr->getLocEnd());
-  else
-    return SourceRange(BarrierLoc);
-}
-
-=======
->>>>>>> release_33
 bool Stmt::hasImplicitControlFlow() const {
   switch (StmtBits.sClass) {
     default:

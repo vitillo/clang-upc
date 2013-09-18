@@ -744,7 +744,6 @@ bool DeclSpec::SetTypeQual(TQ T, SourceLocation Loc, const char *&PrevSpec,
   llvm_unreachable("Unknown type qualifier!");
 }
 
-<<<<<<< HEAD
 bool DeclSpec::SetTypeQualShared(Sema &S, SourceLocation Loc, TQ T,
                                  Expr * LayoutQualifier,
                                  const char *&PrevSpec, unsigned &DiagID) {
@@ -796,11 +795,7 @@ bool DeclSpec::SetTypeQualStrict(SourceLocation Loc, const char *&PrevSpec,
 }
 
 
-bool DeclSpec::SetFunctionSpecInline(SourceLocation Loc, const char *&PrevSpec,
-                                     unsigned &DiagID) {
-=======
 bool DeclSpec::setFunctionSpecInline(SourceLocation Loc) {
->>>>>>> release_33
   // 'inline inline' is ok.
   FS_inline_specified = true;
   FS_inlineLoc = Loc;

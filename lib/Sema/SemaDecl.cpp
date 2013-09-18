@@ -5198,13 +5198,13 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
       if (NewVD->hasLocalStorage()) {
         Diag(NewVD->getLocation(), diag::err_upc_shared_local);
         NewVD->setInvalidDecl();
-        return false;
+        return;
       } else if (type.getQualifiers().hasLayoutQualifier() &&
             type.getQualifiers().getLayoutQualifier() == 0) {
         if (isa<UPCThreadArrayType>(type.getTypePtr())) {
           Diag(NewVD->getLocation(), diag::err_upc_indefinite_blocksize_uses_threads);
           NewVD->setInvalidDecl();
-          return false;
+          return;
         }
       } else if (const IncompleteArrayType *IAT = dyn_cast<IncompleteArrayType>(type.getTypePtr())) {
         if (!NewVD->hasExternalStorage()) {
@@ -5213,7 +5213,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
               !isa<UPCThreadArrayType>(Elem.getTypePtr())) {
             Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
             NewVD->setInvalidDecl();
-            return false;
+            return;
           }
         } else if (type.getQualifiers().hasLayoutQualifierStar()) {
           Diag(NewVD->getLocation(), diag::err_upc_shared_star_in_incomplete_array);
@@ -5223,7 +5223,7 @@ void Sema::CheckVariableDeclarationType(VarDecl *NewVD) {
                  !isa<UPCThreadArrayType>(type.getTypePtr())) {
         Diag(NewVD->getLocation(), diag::err_upc_dynamic_threads_requires_threads);
         NewVD->setInvalidDecl();
-        return false;
+        return;
       }
     }
   }
@@ -10507,11 +10507,6 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
          diag::err_invalid_thread)
       << DeclSpec::getSpecifierName(TSCS);
 
-  if (D.getDeclSpec().isThreadSpecified())
-    Diag(D.getDeclSpec().getThreadSpecLoc(), diag::err_invalid_thread);
-  if (D.getDeclSpec().isConstexprSpecified())
-    Diag(D.getDeclSpec().getConstexprSpecLoc(), diag::err_invalid_constexpr)
-      << 2;
   if (T.getCanonicalType().getQualifiers().hasShared())
     Diag(Loc, diag::err_upc_shared_field);
 
@@ -10524,11 +10519,11 @@ FieldDecl *Sema::HandleField(Scope *S, RecordDecl *Record,
     case LookupResult::FoundUnresolvedValue:
       PrevDecl = Previous.getAsSingle<NamedDecl>();
       break;
-      
+
     case LookupResult::FoundOverloaded:
       PrevDecl = Previous.getRepresentativeDecl();
       break;
-      
+
     case LookupResult::NotFound:
     case LookupResult::NotFoundInCurrentInstantiation:
     case LookupResult::Ambiguous:

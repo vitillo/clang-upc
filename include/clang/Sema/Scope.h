@@ -91,7 +91,7 @@ public:
     TryScope = 0x2000,
 
     /// \brief This is the scope for a function-level C++ try or catch scope.
-    FnTryCatchScope = 0x4000
+    FnTryCatchScope = 0x4000,
 
     /// UPCForAllScope - This is the scope of a upc_forall statement.
     UPCForAllScope = 0x8000

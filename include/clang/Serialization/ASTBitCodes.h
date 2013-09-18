@@ -535,7 +535,7 @@ namespace clang {
 
       /// \brief Record code for undefined but used functions and variables that
       /// need a definition in this TU.
-      UNDEFINED_BUT_USED = 49
+      UNDEFINED_BUT_USED = 49,
 
       /// \brief Record code for tracking #pragma upc
       UPC_PRAGMA_OPTIONS = 50

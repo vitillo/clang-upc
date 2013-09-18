@@ -384,27 +384,8 @@ isTemplate(const NamedDecl *ND, const TemplateArgumentList *&TemplateArgs) {
 
   // Check if we have a class template.
   if (const ClassTemplateSpecializationDecl *Spec =
-<<<<<<< HEAD
-      dyn_cast<ClassTemplateSpecializationDecl>(ND)) {
-    TypeSourceInfo *TSI = Spec->getTypeAsWritten();
-    if (TSI) {
-      TemplateSpecializationTypeLoc TSTL =
-        cast<TemplateSpecializationTypeLoc>(TSI->getTypeLoc());
-      TemplateArgumentListInfo LI(TSTL.getLAngleLoc(), TSTL.getRAngleLoc());
-      for (unsigned i = 0, e = TSTL.getNumArgs(); i != e; ++i)
-        TemplateArgs.push_back(TSTL.getArgLoc(i));
-    } else {
-      TemplateArgumentListInfo LI;
-      const TemplateArgumentList &ArgList =
-        Spec->getTemplateArgs();
-      for (unsigned i = 0, e = ArgList.size(); i != e; ++i)
-        TemplateArgs.push_back(TemplateArgumentLoc(ArgList[i],
-                                                   TemplateArgumentLocInfo()));
-    }
-=======
         dyn_cast<ClassTemplateSpecializationDecl>(ND)) {
     TemplateArgs = &Spec->getTemplateArgs();
->>>>>>> release_33
     return Spec->getSpecializedTemplate();
   }
 
@@ -1418,7 +1399,7 @@ void MicrosoftCXXNameMangler::mangleType(const ConstantArrayType *T,
 }
 void MicrosoftCXXNameMangler::mangleType(const UPCThreadArrayType *T,
                                          SourceRange) {
-  mangleType(cast<ArrayType>(T), false);
+  llvm_unreachable("Should have been special cased");
 }
 void MicrosoftCXXNameMangler::mangleType(const VariableArrayType *T,
                                          SourceRange) {
