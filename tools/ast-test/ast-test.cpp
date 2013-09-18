@@ -26,6 +26,7 @@
 #include "clang/Frontend/FrontendActions.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/AST.h"
+#include "clang/AST/Attr.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 
 using namespace clang;
@@ -355,7 +356,7 @@ namespace {
   class ThreadSpecifiedDirective : public DeclDirective {
     virtual bool MatchImpl(Decl const *D, std::string &) const {
       VarDecl const *VD = dyn_cast<VarDecl>(D);
-      return (0 != VD && VD->isThreadSpecified());
+      return (0 != VD && VD->getTLSKind());
     }
   public:
     ThreadSpecifiedDirective(SourceLocation Pos, std::size_t Off, bool Negate)
@@ -710,7 +711,7 @@ int main(int argc, const char **argv) {
   // Create the actual diagnostics engine.
   ASTTextDiagnosticPrinter *DiagPrinter =
     new ASTTextDiagnosticPrinter(llvm::errs(), &Clang->getDiagnosticOpts());
-  Clang->createDiagnostics(Args.size(), const_cast<char**>(Args.data()), DiagPrinter);
+  Clang->createDiagnostics(DiagPrinter);
   if (!Clang->hasDiagnostics()) {
     return EXIT_FAILURE;
   }

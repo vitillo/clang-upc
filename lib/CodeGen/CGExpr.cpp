@@ -1365,86 +1365,11 @@ RValue CodeGenFunction::EmitLoadOfLValue(LValue LV) {
 }
 
 RValue CodeGenFunction::EmitLoadOfBitfieldLValue(LValue LV) {
+  //TODO: rewrite with UPC specific code
   const CGBitFieldInfo &Info = LV.getBitFieldInfo();
 
   // Get the output type.
   llvm::Type *ResLTy = ConvertType(LV.getType());
-<<<<<<< HEAD
-  unsigned ResSizeInBits = CGM.getDataLayout().getTypeSizeInBits(ResLTy);
-
-  // Compute the result as an OR of all of the individual component accesses.
-  llvm::Value *Res = 0;
-  for (unsigned i = 0, e = Info.getNumComponents(); i != e; ++i) {
-    const CGBitFieldInfo::AccessInfo &AI = Info.getComponent(i);
-    CharUnits AccessAlignment = AI.AccessAlignment;
-    if (!LV.getAlignment().isZero())
-      AccessAlignment = std::min(AccessAlignment, LV.getAlignment());
-
-    // Get the field pointer.
-    llvm::Value *Ptr = LV.getBitFieldBaseAddr();
-
-    // Only offset by the field index if used, so that incoming values are not
-    // required to be structures.
-    if (AI.FieldIndex) {
-      if (LV.isShared())
-        Ptr = EmitUPCFieldOffset(Ptr, LV.getBitFieldBaseType(), AI.FieldIndex);
-      else
-        Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
-    }
-
-    // Offset by the byte offset, if used.
-    if (!AI.FieldByteOffset.isZero()) {
-      if (LV.isShared()) {
-        Ptr = EmitUPCPointerAdd(Ptr, AI.FieldByteOffset.getQuantity());
-      } else  {
-        Ptr = EmitCastToVoidPtr(Ptr);
-        Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
-                                       "bf.field.offs");
-      }
-    }
-
-    llvm::Value *Val;
-    if (LV.isShared()) {
-      llvm::Type *AccessTy = llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
-      uint64_t BitAlign = CGM.getDataLayout().getABITypeAlignment(AccessTy);
-      CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
-      if (!AI.AccessAlignment.isZero())
-        Align = AI.AccessAlignment;
-      Val = EmitUPCLoad(Ptr, LV.isStrict(), AccessTy, Align, LV.getLoc());
-    } else {
-
-      // Cast to the access type.
-      llvm::Type *PTy = llvm::Type::getIntNPtrTy(getLLVMContext(), AI.AccessWidth,
-                               CGM.getContext().getTargetAddressSpace(LV.getType()));
-      Ptr = Builder.CreateBitCast(Ptr, PTy);
-      
-      // Perform the load.
-      llvm::LoadInst *Load = Builder.CreateLoad(Ptr, LV.isVolatileQualified());
-      Load->setAlignment(AccessAlignment.getQuantity());
-      
-      Val = Load;
-    }
-
-    // Shift out unused low bits and mask out unused high bits.
-    if (AI.FieldBitStart)
-      Val = Builder.CreateLShr(Val, AI.FieldBitStart);
-    Val = Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(AI.AccessWidth,
-                                                            AI.TargetBitWidth),
-                            "bf.clear");
-
-    // Extend or truncate to the target size.
-    if (AI.AccessWidth < ResSizeInBits)
-      Val = Builder.CreateZExt(Val, ResLTy);
-    else if (AI.AccessWidth > ResSizeInBits)
-      Val = Builder.CreateTrunc(Val, ResLTy);
-
-    // Shift into place, and OR into the result.
-    if (AI.TargetBitOffset)
-      Val = Builder.CreateShl(Val, AI.TargetBitOffset);
-    Res = Res ? Builder.CreateOr(Res, Val) : Val;
-  }
-=======
->>>>>>> release_33
 
   llvm::Value *Ptr = LV.getBitFieldAddr();
   llvm::Value *Val = Builder.CreateLoad(Ptr, LV.isVolatileQualified(),
@@ -1597,6 +1522,7 @@ void CodeGenFunction::EmitStoreThroughLValue(RValue Src, LValue Dst, bool isInit
 
 void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
                                                      llvm::Value **Result) {
+  //TODO: rewrite with UPC specific code
   const CGBitFieldInfo &Info = Dst.getBitFieldInfo();
   llvm::Type *ResLTy = ConvertTypeForMem(Dst.getType());
   llvm::Value *Ptr = Dst.getBitFieldAddr();
@@ -1641,103 +1567,6 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     assert(Info.Offset == 0);
   }
 
-<<<<<<< HEAD
-  // Iterate over the components, writing each piece to memory.
-  for (unsigned i = 0, e = Info.getNumComponents(); i != e; ++i) {
-    const CGBitFieldInfo::AccessInfo &AI = Info.getComponent(i);
-    CharUnits AccessAlignment = AI.AccessAlignment;
-    if (!Dst.getAlignment().isZero())
-      AccessAlignment = std::min(AccessAlignment, Dst.getAlignment());
-
-    // Get the field pointer.
-    llvm::Value *Ptr = Dst.getBitFieldBaseAddr();
-
-    // Only offset by the field index if used, so that incoming values are not
-    // required to be structures.
-    if (AI.FieldIndex) {
-      if (Dst.isShared())
-        Ptr = EmitUPCFieldOffset(Ptr, Dst.getBitFieldBaseType(), AI.FieldIndex);
-      else
-        Ptr = Builder.CreateStructGEP(Ptr, AI.FieldIndex, "bf.field");
-    }
-
-    // Offset by the byte offset, if used.
-    if (!AI.FieldByteOffset.isZero()) {
-      if (Dst.isShared()) {
-        Ptr = EmitUPCPointerAdd(Ptr, AI.FieldByteOffset.getQuantity());
-      } else  {
-        Ptr = EmitCastToVoidPtr(Ptr);
-        Ptr = Builder.CreateConstGEP1_32(Ptr, AI.FieldByteOffset.getQuantity(),
-                                       "bf.field.offs");
-      }
-    }
-
-    // Cast to the access type.
-    llvm::Type *AccessLTy =
-      llvm::Type::getIntNTy(getLLVMContext(), AI.AccessWidth);
-
-    if (!Dst.isShared()) {
-      unsigned addressSpace =
-        cast<llvm::PointerType>(Ptr->getType())->getAddressSpace();
-      llvm::Type *PTy = AccessLTy->getPointerTo(addressSpace);
-      Ptr = Builder.CreateBitCast(Ptr, PTy);
-    }
-
-    // Extract the piece of the bit-field value to write in this access, limited
-    // to the values that are part of this access.
-    llvm::Value *Val = SrcVal;
-    if (AI.TargetBitOffset)
-      Val = Builder.CreateLShr(Val, AI.TargetBitOffset);
-    Val = Builder.CreateAnd(Val, llvm::APInt::getLowBitsSet(ResSizeInBits,
-                                                            AI.TargetBitWidth));
-
-    // Extend or truncate to the access size.
-    if (ResSizeInBits < AI.AccessWidth)
-      Val = Builder.CreateZExt(Val, AccessLTy);
-    else if (ResSizeInBits > AI.AccessWidth)
-      Val = Builder.CreateTrunc(Val, AccessLTy);
-
-    // Shift into the position in memory.
-    if (AI.FieldBitStart)
-      Val = Builder.CreateShl(Val, AI.FieldBitStart);
-
-    // If necessary, load and OR in bits that are outside of the bit-field.
-    if (AI.TargetBitWidth != AI.AccessWidth) {
-      llvm::Value *LoadVal;
-      if (Dst.isShared()) {
-        uint64_t BitAlign = CGM.getDataLayout().getABITypeAlignment(AccessLTy);
-        CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
-        if (!AI.AccessAlignment.isZero())
-          Align = AI.AccessAlignment;
-        LoadVal = EmitUPCLoad(Ptr, Dst.isStrict(), AccessLTy, Align, Dst.getLoc());
-      } else {
-        llvm::LoadInst *Load = Builder.CreateLoad(Ptr, Dst.isVolatileQualified());
-        Load->setAlignment(AccessAlignment.getQuantity());
-        LoadVal = Load;
-      }
-
-      // Compute the mask for zeroing the bits that are part of the bit-field.
-      llvm::APInt InvMask =
-        ~llvm::APInt::getBitsSet(AI.AccessWidth, AI.FieldBitStart,
-                                 AI.FieldBitStart + AI.TargetBitWidth);
-
-      // Apply the mask and OR in to the value to write.
-      Val = Builder.CreateOr(Builder.CreateAnd(LoadVal, InvMask), Val);
-    }
-
-    // Write the value.
-    if (Dst.isShared()) {
-      uint64_t BitAlign = CGM.getDataLayout().getABITypeAlignment(AccessLTy);
-      CharUnits Align = CGM.getContext().toCharUnitsFromBits(BitAlign);
-      if (!AI.AccessAlignment.isZero())
-        Align = AI.AccessAlignment;
-      EmitUPCStore(Val, Ptr, Dst.isStrict(), Align, Dst.getLoc());
-    } else {
-      llvm::StoreInst *Store = Builder.CreateStore(Val, Ptr,
-                                                   Dst.isVolatileQualified());
-      Store->setAlignment(AccessAlignment.getQuantity());
-    }
-=======
   // Write the new value back out.
   llvm::StoreInst *Store = Builder.CreateStore(SrcVal, Ptr,
                                                Dst.isVolatileQualified());
@@ -1760,7 +1589,6 @@ void CodeGenFunction::EmitStoreThroughBitfieldLValue(RValue Src, LValue Dst,
     ResultVal = Builder.CreateIntCast(ResultVal, ResLTy, Info.IsSigned,
                                       "bf.result.cast");
     *Result = EmitFromMemory(ResultVal, Dst.getType());
->>>>>>> release_33
   }
 }
 
@@ -2771,14 +2599,7 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
     QualType fieldType =
       field->getType().withCVRQualifiers(base.getVRQualifiers());
-<<<<<<< HEAD
-    return LValue::MakeBitfield(base.getAddress(), Info, fieldType,
-                                base.getAlignment(),
-                                ConvertType(field->getParent()),
-                                base.getLoc());
-=======
     return LValue::MakeBitfield(Addr, Info, fieldType, base.getAlignment());
->>>>>>> release_33
   }
 
   const RecordDecl *rec = field->getParent();
@@ -2849,14 +2670,12 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
 
   LValue LV = MakeAddrLValue(addr, type, alignment);
   LV.getQuals().addCVRQualifiers(cvr);
-<<<<<<< HEAD
   if (base.isShared())
     LV.getQuals().addShared();
   if (base.getQuals().hasRelaxed())
     LV.getQuals().addRelaxed();
   if (base.getQuals().hasStrict())
     LV.getQuals().addStrict();
-=======
   if (TBAAPath) {
     const ASTRecordLayout &Layout =
         getContext().getASTRecordLayout(field->getParent());
@@ -2867,7 +2686,6 @@ LValue CodeGenFunction::EmitLValueForField(LValue base,
                      Layout.getFieldOffset(field->getFieldIndex()) /
                                            getContext().getCharWidth());
   }
->>>>>>> release_33
 
   // __weak attribute on a field is ignored.
   if (LV.getQuals().getObjCGCAttr() == Qualifiers::Weak)
@@ -3129,24 +2947,14 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     return MakeAddrLValue(Derived, E->getType());
   }
   case CK_LValueBitCast: {
-    QualType Ty;
+    // TODO: add UPC specific code
     // This must be a reinterpret_cast (or c-style equivalent).
-    if (const ExplicitCastExpr *CE = dyn_cast<ExplicitCastExpr>(E)) {
-      Ty = CE->getTypeAsWritten();
-    } else {
-      Ty = getContext().getPointerType(E->getType());
-    }
+    const ExplicitCastExpr *CE = cast<ExplicitCastExpr>(E);
+    
     LValue LV = EmitLValue(E->getSubExpr());
-    if (LV.isBitField()) {
-      // This can only be the qualifier conversion
-      // used to add strict/relaxed
-      return LValue::MakeBitfield(
-        LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
-        E->getType(), LV.getAlignment(), LV.getBitFieldBaseType(), LV.getLoc());
-    }
     llvm::Value *V = Builder.CreateBitCast(LV.getAddress(),
-                                           ConvertType(Ty));
-    return MakeAddrLValue(V, E->getType(), LV.getAlignment(), LV.getLoc());
+                                           ConvertType(CE->getTypeAsWritten()));
+    return MakeAddrLValue(V, E->getType());
   }
   case CK_ObjCObjectLValueCast: {
     LValue LV = EmitLValue(E->getSubExpr());
@@ -3155,7 +2963,6 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
                                            ConvertType(ToType));
     return MakeAddrLValue(V, E->getType());
   }
-<<<<<<< HEAD
   case CK_UPCSharedToLocal: {
     LValue LV = EmitLValue(E->getSubExpr());
     llvm::Value *V = EmitUPCCastSharedToLocal(LV.getAddress(), E->getType(), E->getExprLoc());
@@ -3166,10 +2973,8 @@ LValue CodeGenFunction::EmitCastLValue(const CastExpr *E) {
     llvm::Value *V = EmitUPCBitCastZeroPhase(LV.getAddress(), E->getType());
     return MakeAddrLValue(V, E->getType());
   }
-=======
   case CK_ZeroToOCLEvent:
     llvm_unreachable("NULL to OpenCL event lvalue cast is not valid");
->>>>>>> release_33
   }
   
   llvm_unreachable("Unhandled lvalue cast kind?");
@@ -3535,190 +3340,6 @@ EmitPointerToDataMemberBinaryExpr(const BinaryOperator *E) {
   return MakeAddrLValue(AddV, MPT->getPointeeType());
 }
 
-<<<<<<< HEAD
-static void
-EmitAtomicOp(CodeGenFunction &CGF, AtomicExpr *E, llvm::Value *Dest,
-             llvm::Value *Ptr, llvm::Value *Val1, llvm::Value *Val2,
-             uint64_t Size, unsigned Align, llvm::AtomicOrdering Order) {
-  llvm::AtomicRMWInst::BinOp Op = llvm::AtomicRMWInst::Add;
-  llvm::Instruction::BinaryOps PostOp = (llvm::Instruction::BinaryOps)0;
-
-  switch (E->getOp()) {
-  case AtomicExpr::AO__c11_atomic_init:
-    llvm_unreachable("Already handled!");
-
-  case AtomicExpr::AO__c11_atomic_compare_exchange_strong:
-  case AtomicExpr::AO__c11_atomic_compare_exchange_weak:
-  case AtomicExpr::AO__atomic_compare_exchange:
-  case AtomicExpr::AO__atomic_compare_exchange_n: {
-    // Note that cmpxchg only supports specifying one ordering and
-    // doesn't support weak cmpxchg, at least at the moment.
-    llvm::LoadInst *LoadVal1 = CGF.Builder.CreateLoad(Val1);
-    LoadVal1->setAlignment(Align);
-    llvm::LoadInst *LoadVal2 = CGF.Builder.CreateLoad(Val2);
-    LoadVal2->setAlignment(Align);
-    llvm::AtomicCmpXchgInst *CXI =
-        CGF.Builder.CreateAtomicCmpXchg(Ptr, LoadVal1, LoadVal2, Order);
-    CXI->setVolatile(E->isVolatile());
-    llvm::StoreInst *StoreVal1 = CGF.Builder.CreateStore(CXI, Val1);
-    StoreVal1->setAlignment(Align);
-    llvm::Value *Cmp = CGF.Builder.CreateICmpEQ(CXI, LoadVal1);
-    CGF.EmitStoreOfScalar(Cmp, CGF.MakeAddrLValue(Dest, E->getType()));
-    return;
-  }
-
-  case AtomicExpr::AO__c11_atomic_load:
-  case AtomicExpr::AO__atomic_load_n:
-  case AtomicExpr::AO__atomic_load: {
-    llvm::LoadInst *Load = CGF.Builder.CreateLoad(Ptr);
-    Load->setAtomic(Order);
-    Load->setAlignment(Size);
-    Load->setVolatile(E->isVolatile());
-    llvm::StoreInst *StoreDest = CGF.Builder.CreateStore(Load, Dest);
-    StoreDest->setAlignment(Align);
-    return;
-  }
-
-  case AtomicExpr::AO__c11_atomic_store:
-  case AtomicExpr::AO__atomic_store:
-  case AtomicExpr::AO__atomic_store_n: {
-    assert(!Dest && "Store does not return a value");
-    llvm::LoadInst *LoadVal1 = CGF.Builder.CreateLoad(Val1);
-    LoadVal1->setAlignment(Align);
-    llvm::StoreInst *Store = CGF.Builder.CreateStore(LoadVal1, Ptr);
-    Store->setAtomic(Order);
-    Store->setAlignment(Size);
-    Store->setVolatile(E->isVolatile());
-    return;
-  }
-
-  case AtomicExpr::AO__c11_atomic_exchange:
-  case AtomicExpr::AO__atomic_exchange_n:
-  case AtomicExpr::AO__atomic_exchange:
-    Op = llvm::AtomicRMWInst::Xchg;
-    break;
-
-  case AtomicExpr::AO__atomic_add_fetch:
-    PostOp = llvm::Instruction::Add;
-    // Fall through.
-  case AtomicExpr::AO__c11_atomic_fetch_add:
-  case AtomicExpr::AO__atomic_fetch_add:
-    Op = llvm::AtomicRMWInst::Add;
-    break;
-
-  case AtomicExpr::AO__atomic_sub_fetch:
-    PostOp = llvm::Instruction::Sub;
-    // Fall through.
-  case AtomicExpr::AO__c11_atomic_fetch_sub:
-  case AtomicExpr::AO__atomic_fetch_sub:
-    Op = llvm::AtomicRMWInst::Sub;
-    break;
-
-  case AtomicExpr::AO__atomic_and_fetch:
-    PostOp = llvm::Instruction::And;
-    // Fall through.
-  case AtomicExpr::AO__c11_atomic_fetch_and:
-  case AtomicExpr::AO__atomic_fetch_and:
-    Op = llvm::AtomicRMWInst::And;
-    break;
-
-  case AtomicExpr::AO__atomic_or_fetch:
-    PostOp = llvm::Instruction::Or;
-    // Fall through.
-  case AtomicExpr::AO__c11_atomic_fetch_or:
-  case AtomicExpr::AO__atomic_fetch_or:
-    Op = llvm::AtomicRMWInst::Or;
-    break;
-
-  case AtomicExpr::AO__atomic_xor_fetch:
-    PostOp = llvm::Instruction::Xor;
-    // Fall through.
-  case AtomicExpr::AO__c11_atomic_fetch_xor:
-  case AtomicExpr::AO__atomic_fetch_xor:
-    Op = llvm::AtomicRMWInst::Xor;
-    break;
-
-  case AtomicExpr::AO__atomic_nand_fetch:
-    PostOp = llvm::Instruction::And;
-    // Fall through.
-  case AtomicExpr::AO__atomic_fetch_nand:
-    Op = llvm::AtomicRMWInst::Nand;
-    break;
-  }
-
-  llvm::LoadInst *LoadVal1 = CGF.Builder.CreateLoad(Val1);
-  LoadVal1->setAlignment(Align);
-  llvm::AtomicRMWInst *RMWI =
-      CGF.Builder.CreateAtomicRMW(Op, Ptr, LoadVal1, Order);
-  RMWI->setVolatile(E->isVolatile());
-
-  // For __atomic_*_fetch operations, perform the operation again to
-  // determine the value which was written.
-  llvm::Value *Result = RMWI;
-  if (PostOp)
-    Result = CGF.Builder.CreateBinOp(PostOp, RMWI, LoadVal1);
-  if (E->getOp() == AtomicExpr::AO__atomic_nand_fetch)
-    Result = CGF.Builder.CreateNot(Result);
-  llvm::StoreInst *StoreDest = CGF.Builder.CreateStore(Result, Dest);
-  StoreDest->setAlignment(Align);
-}
-
-// This function emits any expression (scalar, complex, or aggregate)
-// into a temporary alloca.
-static llvm::Value *
-EmitValToTemp(CodeGenFunction &CGF, Expr *E) {
-  llvm::Value *DeclPtr = CGF.CreateMemTemp(E->getType(), ".atomictmp");
-  CGF.EmitAnyExprToMem(E, DeclPtr, E->getType().getQualifiers(),
-                       /*Init*/ true);
-  return DeclPtr;
-}
-
-static RValue ConvertTempToRValue(CodeGenFunction &CGF, QualType Ty,
-                                  llvm::Value *Dest) {
-  if (Ty->isAnyComplexType())
-    return RValue::getComplex(CGF.LoadComplexFromAddr(Dest, false));
-  if (CGF.hasAggregateLLVMType(Ty))
-    return RValue::getAggregate(Dest);
-  return RValue::get(CGF.EmitLoadOfScalar(CGF.MakeAddrLValue(Dest, Ty)));
-}
-
-RValue CodeGenFunction::EmitAtomicExpr(AtomicExpr *E, llvm::Value *Dest) {
-  QualType AtomicTy = E->getPtr()->getType()->getPointeeType();
-  QualType MemTy = AtomicTy;
-  if (const AtomicType *AT = AtomicTy->getAs<AtomicType>())
-    MemTy = AT->getValueType();
-  CharUnits sizeChars = getContext().getTypeSizeInChars(AtomicTy);
-  uint64_t Size = sizeChars.getQuantity();
-  CharUnits alignChars = getContext().getTypeAlignInChars(AtomicTy);
-  unsigned Align = alignChars.getQuantity();
-  unsigned MaxInlineWidthInBits =
-    getContext().getTargetInfo().getMaxAtomicInlineWidth();
-  bool UseLibcall = (Size != Align ||
-                     getContext().toBits(sizeChars) > MaxInlineWidthInBits);
-
-  llvm::Value *Ptr, *Order, *OrderFail = 0, *Val1 = 0, *Val2 = 0;
-  Ptr = EmitScalarExpr(E->getPtr());
-
-  if (E->getOp() == AtomicExpr::AO__c11_atomic_init) {
-    assert(!Dest && "Init does not return a value");
-    if (!hasAggregateLLVMType(E->getVal1()->getType())) {
-      QualType PointeeType
-        = E->getPtr()->getType()->getAs<PointerType>()->getPointeeType();
-      EmitScalarInit(EmitScalarExpr(E->getVal1()),
-                     LValue::MakeAddr(Ptr, PointeeType, alignChars,
-                                      getContext()));
-    } else if (E->getType()->isAnyComplexType()) {
-      EmitComplexExprIntoAddr(E->getVal1(), Ptr, E->isVolatile());
-    } else {
-      AggValueSlot Slot = AggValueSlot::forAddr(Ptr, alignChars,
-                                        AtomicTy.getQualifiers(),
-                                        AggValueSlot::IsNotDestructed,
-                                        AggValueSlot::DoesNotNeedGCBarriers,
-                                        AggValueSlot::IsNotAliased);
-      EmitAggExpr(E->getVal1(), Slot);
-    }
-    return RValue::get(0);
-=======
 /// Given the address of a temporary variable, produce an r-value of
 /// its type.
 RValue CodeGenFunction::convertTempToRValue(llvm::Value *addr,
@@ -3731,7 +3352,6 @@ RValue CodeGenFunction::convertTempToRValue(llvm::Value *addr,
     return lvalue.asAggregateRValue();
   case TEK_Scalar:
     return RValue::get(EmitLoadOfScalar(lvalue));
->>>>>>> release_33
   }
   llvm_unreachable("bad evaluation kind");
 }

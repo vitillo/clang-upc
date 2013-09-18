@@ -12,8 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenModule.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Constants.h"
 
 using namespace clang;
 using namespace CodeGen;

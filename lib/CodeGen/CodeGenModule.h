@@ -983,6 +983,12 @@ public:
   // Emit the initializer for a shared array, if it needs special treatment
   llvm::Constant *MaybeEmitUPCSharedArrayInits(const VarDecl *VD);
 
+  /// EmitCXXGlobalVarDeclInitFunc - Emit the function that initializes the
+  /// specified global (if PerformInit is true) and registers its destructor.
+  void EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
+                                    llvm::GlobalVariable *Addr,
+                                    bool PerformInit);
+
 private:
   llvm::GlobalValue *GetGlobalValue(StringRef Ref);
 
@@ -1061,12 +1067,6 @@ private:
 
   /// EmitCXXGlobalDtorFunc - Emit the function that destroys C++ globals.
   void EmitCXXGlobalDtorFunc();
-
-  /// EmitCXXGlobalVarDeclInitFunc - Emit the function that initializes the
-  /// specified global (if PerformInit is true) and registers its destructor.
-  void EmitCXXGlobalVarDeclInitFunc(const VarDecl *D,
-                                    llvm::GlobalVariable *Addr,
-                                    bool PerformInit);
 
   // FIXME: Hardcoding priority here is gross.
   void AddGlobalCtor(llvm::Function *Ctor, int Priority=65535);

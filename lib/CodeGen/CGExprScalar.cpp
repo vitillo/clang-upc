@@ -1248,20 +1248,10 @@ Value *ScalarExprEmitter::VisitCastExpr(CastExpr *CE) {
 
   case CK_LValueBitCast: 
   case CK_ObjCObjectLValueCast: {
-    LValue LV = EmitLValue(E);
-    if (LV.isBitField()) {
-      // This can only be the qualifier conversion
-      // used to add strict/relaxed
-      assert(DestTy->getCanonicalTypeUnqualified() ==
-             E->getType()->getCanonicalTypeUnqualified());
-      return EmitLoadOfLValue(LValue::MakeBitfield(
-        LV.getBitFieldBaseAddr(), LV.getBitFieldInfo(),
-        DestTy, LV.getAlignment(), LV.getBitFieldBaseType(), CE->getExprLoc()));
-    }
-    Value *V = LV.getAddress();
+    Value *V = EmitLValue(E).getAddress();
     V = Builder.CreateBitCast(V, 
                           ConvertType(CGF.getContext().getPointerType(DestTy)));
-    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy, LV.getAlignment(), CE->getExprLoc()));
+    return EmitLoadOfLValue(CGF.MakeNaturalAlignAddrLValue(V, DestTy));
   }
 
   case CK_CPointerToObjCPointerCast:
@@ -1708,7 +1698,7 @@ ScalarExprEmitter::EmitScalarPrePostIncDec(const UnaryOperator *E, LValue LV,
     llvm::Value *old;
     if (LV.isShared()) {
       old = CGF.EmitUPCAtomicCmpXchg(LV.getAddress(), atomicPHI,
-                                     CFG.EmitToMemory(value, type), E->getExprLoc());
+                                     CGF.EmitToMemory(value, type), E->getExprLoc());
     } else {
       old = Builder.CreateAtomicCmpXchg(LV.getAddress(), atomicPHI,
         CGF.EmitToMemory(value, type), llvm::SequentiallyConsistent);
@@ -2074,7 +2064,7 @@ LValue ScalarExprEmitter::EmitCompoundAssignLValue(
     llvm::Value *old;
     if (LHSLV.isShared()) {
       old = CGF.EmitUPCAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
-                                     CFG.EmitToMemory(Result, LHSTy), E->getExprLoc());
+                                     CGF.EmitToMemory(Result, LHSTy), E->getExprLoc());
     } else {
       old = Builder.CreateAtomicCmpXchg(LHSLV.getAddress(), atomicPHI,
         CGF.EmitToMemory(Result, LHSTy), llvm::SequentiallyConsistent);

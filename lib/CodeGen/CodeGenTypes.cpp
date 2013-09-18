@@ -33,7 +33,7 @@ CodeGenTypes::CodeGenTypes(CodeGenModule &cgm)
     TheDataLayout(cgm.getDataLayout()),
     Target(cgm.getTarget()), TheCXXABI(cgm.getCXXABI()),
     CodeGenOpts(cgm.getCodeGenOpts()),
-    TheABIInfo(cgm.getTargetCodeGenInfo().getABIInfo())
+    TheABIInfo(cgm.getTargetCodeGenInfo().getABIInfo()),
     UPCPtsType(0) {
   SkippedLayout = false;
 }

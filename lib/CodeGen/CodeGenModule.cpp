@@ -79,11 +79,7 @@ CodeGenModule::CodeGenModule(ASTContext &C, const CodeGenOptions &CGO,
     DebugInfo(0), ARCData(0), NoObjCARCExceptionsMetadata(0),
     RRData(0), CFConstantStringClassRef(0),
     ConstantStringClassRef(0), NSConstantStringType(0),
-<<<<<<< HEAD
-    VMContext(M.getContext()),
     UPCThreads(0), UPCMyThread(0), UPCFenceVar(0),
-=======
->>>>>>> release_33
     NSConcreteGlobalBlock(0), NSConcreteStackBlock(0),
     BlockObjectAssign(0), BlockObjectDispose(0),
     BlockDescriptorType(0), GenericBlockLiteralType(0),
@@ -631,13 +627,8 @@ void CodeGenModule::SetLLVMFunctionAttributes(const Decl *D,
                                               llvm::Function *F) {
   unsigned CallingConv;
   AttributeListType AttributeList;
-<<<<<<< HEAD
-  ConstructAttributeList(Info, D, AttributeList, CallingConv);
-  F->setAttributes(llvm::AttrListPtr::get(getLLVMContext(), AttributeList));
-=======
   ConstructAttributeList(Info, D, AttributeList, CallingConv, false);
   F->setAttributes(llvm::AttributeSet::get(getLLVMContext(), AttributeList));
->>>>>>> release_33
   F->setCallingConv(static_cast<llvm::CallingConv::ID>(CallingConv));
 }
 
@@ -1938,7 +1929,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
 
   SetCommonAttributes(D, GV);
   if(ASTTy.getQualifiers().hasShared()) {
-    if(isTargetDarwin())
+    if(getTarget().getTriple().isMacOSX())
       GV->setSection("__DATA,upc_shared");
     else
       GV->setSection("upc_shared");
@@ -1988,14 +1979,9 @@ CodeGenModule::GetLLVMLinkageVarDefinition(const VarDecl *D,
            ((!CodeGenOpts.NoCommon && !D->getAttr<NoCommonAttr>()) ||
              D->getAttr<CommonAttr>()) &&
            !D->hasExternalStorage() && !D->getInit() &&
-<<<<<<< HEAD
-           !D->getAttr<SectionAttr>() && !D->isThreadSpecified() &&
+           !D->getAttr<SectionAttr>() && !D->getTLSKind() &&
            !D->getAttr<WeakImportAttr>() &&
            !D->getType().getQualifiers().hasShared()) {
-=======
-           !D->getAttr<SectionAttr>() && !D->getTLSKind() &&
-           !D->getAttr<WeakImportAttr>()) {
->>>>>>> release_33
     // Thread local vars aren't considered common linkage.
     return llvm::GlobalVariable::CommonLinkage;
   } else if (D->getTLSKind() == VarDecl::TLS_Dynamic &&
@@ -2082,15 +2068,6 @@ static void replaceUsesOfNonProtoConstant(llvm::Constant *old,
 
     // Okay, we can transform this.  Create the new call instruction and copy
     // over the required information.
-<<<<<<< HEAD
-    ArgList.append(CS.arg_begin(), CS.arg_begin() + ArgNo);
-    llvm::CallInst *NewCall = llvm::CallInst::Create(NewFn, ArgList, "", CI);
-    ArgList.clear();
-    if (!NewCall->getType()->isVoidTy())
-      NewCall->takeName(CI);
-    NewCall->setAttributes(llvm::AttrListPtr::get(OldFn->getContext(), AttrVec));
-    NewCall->setCallingConv(CI->getCallingConv());
-=======
     newArgs.append(callSite.arg_begin(), callSite.arg_begin() + argNo);
 
     llvm::CallSite newCall;
@@ -2113,7 +2090,6 @@ static void replaceUsesOfNonProtoConstant(llvm::Constant *old,
     newCall.setAttributes(
                      llvm::AttributeSet::get(newFn->getContext(), newAttrs));
     newCall.setCallingConv(callSite.getCallingConv());
->>>>>>> release_33
 
     // Finally, remove the old call, replacing any uses with the new one.
     if (!callSite->use_empty())

@@ -1136,16 +1136,18 @@ static QualType ConvertDeclSpecToType(TypeProcessingState &state) {
           << Result << DS.getSourceRange();
       else if (TypeQuals & DeclSpec::TQ_volatile)
         Loc = DS.getVolatileSpecLoc();
-      else if (TypeQuals & DeclSpec::TQ_restrict)
-        Loc = DS.getRestrictSpecLoc();
-      else if (TypeQuals & DeclSpec::TQ_shared)
+      else if (TypeQuals & DeclSpec::TQ_shared){
         Loc = DS.getSharedSpecLoc();
-      else if (TypeQuals & DeclSpec::TQ_relaxed)
+      }else if (TypeQuals & DeclSpec::TQ_relaxed)
         Loc = DS.getRelaxedSpecLoc();
       else if (TypeQuals & DeclSpec::TQ_strict)
         Loc = DS.getStrictSpecLoc();
-      else
-        assert(false && "Has CVR quals but not C, V, or R?");
+      else{
+        assert((TypeQuals & (DeclSpec::TQ_restrict | DeclSpec::TQ_atomic)) &&
+               "Has CVRA quals but not C, V, R, or A?");
+        // No diagnostic; we'll diagnose 'restrict' or '_Atomic' applied to a
+        // function type later, in BuildQualifiedType.
+      }
       if (TypeQuals & DeclSpec::TQ_shared)
         S.Diag(DS.getSharedSpecLoc(), diag::err_upc_function_shared)
           << Result << DS.getSourceRange();

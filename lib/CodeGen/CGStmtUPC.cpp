@@ -16,7 +16,7 @@
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/SourceManager.h"
 #include "llvm/Support/CallSite.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/ADT/SmallVector.h"
 using namespace clang;
 using namespace CodeGen;
@@ -69,7 +69,7 @@ llvm::Constant *CodeGenModule::getUPCFenceVar() {
                                llvm::ConstantInt::get(IntTy, 0),
                                "__upc_fence_var");
 
-    if(isTargetDarwin())
+    if(getTarget().getTriple().isMacOSX())
       GV->setSection("__DATA,upc_shared");
     else
       GV->setSection("upc_shared");

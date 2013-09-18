@@ -301,14 +301,14 @@ public:
     TQ_const       = 1,
     TQ_restrict    = 2,
     TQ_volatile    = 4,
-    TQ_shared      = 8,
-    TQ_relaxed     = 16,
-    TQ_strict      = 32,
-    TQ_lqstar      = 64,
-    TQ_lqexpr      = 128,
     // This has no corresponding Qualifiers::TQ value, because it's not treated
     // as a qualifier in our type system.
-    TQ_atomic      = 256
+    TQ_atomic      = 8,
+    TQ_shared      = 16,
+    TQ_relaxed     = 32,
+    TQ_strict      = 64,
+    TQ_lqstar      = 128,
+    TQ_lqexpr      = 256
   };
 
   /// ParsedSpecifiers - Flags to query which specifiers were applied.  This is

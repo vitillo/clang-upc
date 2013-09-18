@@ -72,42 +72,7 @@ public:
     return EmitLoadOfLValue(CGF.EmitLValue(E));
   }
 
-<<<<<<< HEAD
-  ComplexPairTy EmitLoadOfLValue(LValue LV) {
-    assert(LV.isSimple() && "complex l-value must be simple");
-    if (LV.isShared()) {
-      llvm::Type *CTy = CGF.ConvertTypeForMem(LV.getType());
-      llvm::Value *Value = CGF.EmitUPCLoad(LV.getAddress(), LV.isStrict(),
-                                      CTy, LV.getAlignment(), LV.getLoc());
-      llvm::Value *Real = Builder.CreateExtractValue(Value, 0);
-      llvm::Value *Imag = Builder.CreateExtractValue(Value, 1);
-      return ComplexPairTy(Real, Imag);
-    }
-    return EmitLoadOfComplex(LV.getAddress(), LV.isVolatileQualified());
-  }
-
-  /// EmitLoadOfComplex - Given a pointer to a complex value, emit code to load
-  /// the real and imaginary pieces.
-  ComplexPairTy EmitLoadOfComplex(llvm::Value *SrcPtr, bool isVolatile);
-
-  /// EmitStoreThroughLValue - Given an l-value of complex type, store
-  /// a complex number into it.
-  void EmitStoreThroughLValue(ComplexPairTy Val, LValue LV) {
-    assert(LV.isSimple() && "complex l-value must be simple");
-    if (LV.isShared()) {
-      llvm::Type *CTy = CGF.ConvertTypeForMem(LV.getType());
-      llvm::Value *Value = llvm::UndefValue::get(CTy);
-      Value = Builder.CreateInsertValue(Value, Val.first, 0);
-      Value = Builder.CreateInsertValue(Value, Val.second, 1);
-      CGF.EmitUPCStore(Value, LV.getAddress(), LV.isStrict(),
-                       LV.getAlignment(), LV.getLoc());
-      return;
-    }
-    return EmitStoreOfComplex(Val, LV.getAddress(), LV.isVolatileQualified());
-  }
-=======
   ComplexPairTy EmitLoadOfLValue(LValue LV);
->>>>>>> release_33
 
   /// EmitStoreOfComplex - Store the specified real/imag parts into the
   /// specified value pointer.
@@ -427,22 +392,12 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastExpr::CastKind CK, Expr *Op,
     return Visit(Op);
 
   case CK_LValueBitCast: {
-<<<<<<< HEAD
-    LValue LV = CGF.EmitLValue(Op);
-    llvm::Value *V = LV.getAddress();
-    QualType PtrTy = CGF.getContext().getPointerType(DestTy);
-    V = Builder.CreateBitCast(V, CGF.ConvertType(PtrTy));
-    // FIXME: Are the qualifiers correct here?
-    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy, LV.getAlignment(),
-                                               LV.getLoc()));
-=======
     LValue origLV = CGF.EmitLValue(Op);
     llvm::Value *V = origLV.getAddress();
     V = Builder.CreateBitCast(V, 
                     CGF.ConvertType(CGF.getContext().getPointerType(DestTy)));
     return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy,
                                                origLV.getAlignment()));
->>>>>>> release_33
   }
 
   case CK_BitCast:
@@ -860,28 +815,10 @@ void CodeGenFunction::EmitComplexExprIntoLValue(const Expr *E, LValue dest,
   Emitter.EmitStoreOfComplex(Val, dest, isInit);
 }
 
-<<<<<<< HEAD
-/// EmitStoreOfComplex - Store a complex number into a LValue
-void CodeGenFunction::EmitStoreOfComplex(ComplexPairTy V, LValue LV) {
-  ComplexExprEmitter(*this).EmitStoreThroughLValue(V, LV);
-}
-
-/// EmitLoadOfComplex - Load a complex number from a LValue
-ComplexPairTy CodeGenFunction::EmitLoadOfComplex(LValue LV) {
-  return ComplexExprEmitter(*this).EmitLoadOfLValue(LV);
-}
-
-/// StoreComplexToAddr - Store a complex number into the specified address.
-void CodeGenFunction::StoreComplexToAddr(ComplexPairTy V,
-                                         llvm::Value *DestAddr,
-                                         bool DestIsVolatile) {
-  ComplexExprEmitter(*this).EmitStoreOfComplex(V, DestAddr, DestIsVolatile);
-=======
 /// EmitStoreOfComplex - Store a complex number into the specified l-value.
 void CodeGenFunction::EmitStoreOfComplex(ComplexPairTy V, LValue dest,
                                          bool isInit) {
   ComplexExprEmitter(*this).EmitStoreOfComplex(V, dest, isInit);
->>>>>>> release_33
 }
 
 /// EmitLoadOfComplex - Load a complex number from the specified address.
