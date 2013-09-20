@@ -31,3 +31,6 @@ cscope.out
 # Clang extra user tools, which is tracked independently (clang-tools-extra).
 tools/extra
 tools/upc2c
+# Sphinx build products
+docs/_build
+docs/analyzer/_build

@@ -15,9 +15,9 @@
 #include "CodeGenModule.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/StmtVisitor.h"
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
 #include "llvm/ADT/SmallString.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
 using namespace clang;
 using namespace CodeGen;
 
@@ -27,12 +27,21 @@ using namespace CodeGen;
 
 typedef CodeGenFunction::ComplexPairTy ComplexPairTy;
 
+/// Return the complex type that we are meant to emit.
+static const ComplexType *getComplexType(QualType type) {
+  type = type.getCanonicalType();
+  if (const ComplexType *comp = dyn_cast<ComplexType>(type)) {
+    return comp;
+  } else {
+    return cast<ComplexType>(cast<AtomicType>(type)->getValueType());
+  }
+}
+
 namespace  {
 class ComplexExprEmitter
   : public StmtVisitor<ComplexExprEmitter, ComplexPairTy> {
   CodeGenFunction &CGF;
   CGBuilderTy &Builder;
-  // True is we should ignore the value of a
   bool IgnoreReal;
   bool IgnoreImag;
 public:
@@ -63,42 +72,11 @@ public:
     return EmitLoadOfLValue(CGF.EmitLValue(E));
   }
 
-  ComplexPairTy EmitLoadOfLValue(LValue LV) {
-    assert(LV.isSimple() && "complex l-value must be simple");
-    if (LV.isShared()) {
-      llvm::Type *CTy = CGF.ConvertTypeForMem(LV.getType());
-      llvm::Value *Value = CGF.EmitUPCLoad(LV.getAddress(), LV.isStrict(),
-                                      CTy, LV.getAlignment(), LV.getLoc());
-      llvm::Value *Real = Builder.CreateExtractValue(Value, 0);
-      llvm::Value *Imag = Builder.CreateExtractValue(Value, 1);
-      return ComplexPairTy(Real, Imag);
-    }
-    return EmitLoadOfComplex(LV.getAddress(), LV.isVolatileQualified());
-  }
-
-  /// EmitLoadOfComplex - Given a pointer to a complex value, emit code to load
-  /// the real and imaginary pieces.
-  ComplexPairTy EmitLoadOfComplex(llvm::Value *SrcPtr, bool isVolatile);
-
-  /// EmitStoreThroughLValue - Given an l-value of complex type, store
-  /// a complex number into it.
-  void EmitStoreThroughLValue(ComplexPairTy Val, LValue LV) {
-    assert(LV.isSimple() && "complex l-value must be simple");
-    if (LV.isShared()) {
-      llvm::Type *CTy = CGF.ConvertTypeForMem(LV.getType());
-      llvm::Value *Value = llvm::UndefValue::get(CTy);
-      Value = Builder.CreateInsertValue(Value, Val.first, 0);
-      Value = Builder.CreateInsertValue(Value, Val.second, 1);
-      CGF.EmitUPCStore(Value, LV.getAddress(), LV.isStrict(),
-                       LV.getAlignment(), LV.getLoc());
-      return;
-    }
-    return EmitStoreOfComplex(Val, LV.getAddress(), LV.isVolatileQualified());
-  }
+  ComplexPairTy EmitLoadOfLValue(LValue LV);
 
   /// EmitStoreOfComplex - Store the specified real/imag parts into the
   /// specified value pointer.
-  void EmitStoreOfComplex(ComplexPairTy Val, llvm::Value *ResPtr, bool isVol);
+  void EmitStoreOfComplex(ComplexPairTy Val, LValue LV, bool isInit);
 
   /// EmitComplexToComplexCast - Emit a cast from complex value Val to DestType.
   ComplexPairTy EmitComplexToComplexCast(ComplexPairTy Val, QualType SrcType,
@@ -204,6 +182,10 @@ public:
   ComplexPairTy VisitCXXDefaultArgExpr(CXXDefaultArgExpr *DAE) {
     return Visit(DAE->getExpr());
   }
+  ComplexPairTy VisitCXXDefaultInitExpr(CXXDefaultInitExpr *DIE) {
+    CodeGenFunction::CXXDefaultInitExprScope Scope(CGF);
+    return Visit(DIE->getExpr());
+  }
   ComplexPairTy VisitExprWithCleanups(ExprWithCleanups *E) {
     CGF.enterFullExpression(E);
     CodeGenFunction::RunCleanupsScope Scope(CGF);
@@ -211,13 +193,13 @@ public:
   }
   ComplexPairTy VisitCXXScalarValueInitExpr(CXXScalarValueInitExpr *E) {
     assert(E->getType()->isAnyComplexType() && "Expected complex type!");
-    QualType Elem = E->getType()->getAs<ComplexType>()->getElementType();
+    QualType Elem = E->getType()->castAs<ComplexType>()->getElementType();
     llvm::Constant *Null = llvm::Constant::getNullValue(CGF.ConvertType(Elem));
     return ComplexPairTy(Null, Null);
   }
   ComplexPairTy VisitImplicitValueInitExpr(ImplicitValueInitExpr *E) {
     assert(E->getType()->isAnyComplexType() && "Expected complex type!");
-    QualType Elem = E->getType()->getAs<ComplexType>()->getElementType();
+    QualType Elem = E->getType()->castAs<ComplexType>()->getElementType();
     llvm::Constant *Null =
                        llvm::Constant::getNullValue(CGF.ConvertType(Elem));
     return ComplexPairTy(Null, Null);
@@ -303,10 +285,25 @@ public:
 //                                Utilities
 //===----------------------------------------------------------------------===//
 
-/// EmitLoadOfComplex - Given an RValue reference for a complex, emit code to
+/// EmitLoadOfLValue - Given an RValue reference for a complex, emit code to
 /// load the real and imaginary pieces, returning them as Real/Imag.
-ComplexPairTy ComplexExprEmitter::EmitLoadOfComplex(llvm::Value *SrcPtr,
-                                                    bool isVolatile) {
+ComplexPairTy ComplexExprEmitter::EmitLoadOfLValue(LValue lvalue) {
+  assert(lvalue.isSimple() && "non-simple complex l-value?");
+  if (lvalue.getType()->isAtomicType())
+    return CGF.EmitAtomicLoad(lvalue).getComplexVal();
+
+  if (lvalue.isShared()) {
+    llvm::Type *CTy = CGF.ConvertTypeForMem(lvalue.getType());
+    llvm::Value *Value = CGF.EmitUPCLoad(lvalue.getAddress(), lvalue.isStrict(),
+					 CTy, lvalue.getAlignment(), lvalue.getLoc());
+    llvm::Value *Real = Builder.CreateExtractValue(Value, 0);
+    llvm::Value *Imag = Builder.CreateExtractValue(Value, 1);
+    return ComplexPairTy(Real, Imag);
+  }
+
+  llvm::Value *SrcPtr = lvalue.getAddress();
+  bool isVolatile = lvalue.isVolatileQualified();
+
   llvm::Value *Real=0, *Imag=0;
 
   if (!IgnoreReal || isVolatile) {
@@ -325,13 +322,29 @@ ComplexPairTy ComplexExprEmitter::EmitLoadOfComplex(llvm::Value *SrcPtr,
 
 /// EmitStoreOfComplex - Store the specified real/imag parts into the
 /// specified value pointer.
-void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val, llvm::Value *Ptr,
-                                            bool isVolatile) {
+void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val,
+                                            LValue lvalue,
+                                            bool isInit) {
+  if (lvalue.getType()->isAtomicType())
+    return CGF.EmitAtomicStore(RValue::getComplex(Val), lvalue, isInit);
+
+  if (lvalue.isShared()) {
+    llvm::Type *CTy = CGF.ConvertTypeForMem(lvalue.getType());
+    llvm::Value *Value = llvm::UndefValue::get(CTy);
+    Value = Builder.CreateInsertValue(Value, Val.first, 0);
+    Value = Builder.CreateInsertValue(Value, Val.second, 1);
+    CGF.EmitUPCStore(Value, lvalue.getAddress(), lvalue.isStrict(),
+		     lvalue.getAlignment(), lvalue.getLoc());
+    return;
+  }
+
+  llvm::Value *Ptr = lvalue.getAddress();
   llvm::Value *RealPtr = Builder.CreateStructGEP(Ptr, 0, "real");
   llvm::Value *ImagPtr = Builder.CreateStructGEP(Ptr, 1, "imag");
 
-  Builder.CreateStore(Val.first, RealPtr, isVolatile);
-  Builder.CreateStore(Val.second, ImagPtr, isVolatile);
+  // TODO: alignment
+  Builder.CreateStore(Val.first, RealPtr, lvalue.isVolatileQualified());
+  Builder.CreateStore(Val.second, ImagPtr, lvalue.isVolatileQualified());
 }
 
 
@@ -343,7 +356,7 @@ void ComplexExprEmitter::EmitStoreOfComplex(ComplexPairTy Val, llvm::Value *Ptr,
 ComplexPairTy ComplexExprEmitter::VisitExpr(Expr *E) {
   CGF.ErrorUnsupported(E, "complex expression");
   llvm::Type *EltTy =
-  CGF.ConvertType(E->getType()->getAs<ComplexType>()->getElementType());
+    CGF.ConvertType(getComplexType(E->getType())->getElementType());
   llvm::Value *U = llvm::UndefValue::get(EltTy);
   return ComplexPairTy(U, U);
 }
@@ -372,8 +385,8 @@ ComplexPairTy ComplexExprEmitter::EmitComplexToComplexCast(ComplexPairTy Val,
                                                            QualType SrcType,
                                                            QualType DestType) {
   // Get the src/dest element type.
-  SrcType = SrcType->getAs<ComplexType>()->getElementType();
-  DestType = DestType->getAs<ComplexType>()->getElementType();
+  SrcType = SrcType->castAs<ComplexType>()->getElementType();
+  DestType = DestType->castAs<ComplexType>()->getElementType();
 
   // C99 6.3.1.6: When a value of complex type is converted to another
   // complex type, both the real and imaginary parts follow the conversion
@@ -398,13 +411,12 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastExpr::CastKind CK, Expr *Op,
     return Visit(Op);
 
   case CK_LValueBitCast: {
-    LValue LV = CGF.EmitLValue(Op);
-    llvm::Value *V = LV.getAddress();
-    QualType PtrTy = CGF.getContext().getPointerType(DestTy);
-    V = Builder.CreateBitCast(V, CGF.ConvertType(PtrTy));
-    // FIXME: Are the qualifiers correct here?
-    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy, LV.getAlignment(),
-                                               LV.getLoc()));
+    LValue origLV = CGF.EmitLValue(Op);
+    llvm::Value *V = origLV.getAddress();
+    V = Builder.CreateBitCast(V, 
+                    CGF.ConvertType(CGF.getContext().getPointerType(DestTy)));
+    return EmitLoadOfLValue(CGF.MakeAddrLValue(V, DestTy,
+                                               origLV.getAlignment(), origLV.getLoc()));
   }
 
   case CK_BitCast:
@@ -449,6 +461,7 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastExpr::CastKind CK, Expr *Op,
   case CK_UPCSharedToLocal:
   case CK_UPCBitCastZeroPhase:
   case CK_BuiltinFnToFnPtr:
+  case CK_ZeroToOCLEvent:
     llvm_unreachable("invalid cast kind for complex value");
 
   case CK_FloatingRealToComplex:
@@ -456,7 +469,7 @@ ComplexPairTy ComplexExprEmitter::EmitCast(CastExpr::CastKind CK, Expr *Op,
     llvm::Value *Elt = CGF.EmitScalarExpr(Op);
 
     // Convert the input element to the element type of the complex.
-    DestTy = DestTy->getAs<ComplexType>()->getElementType();
+    DestTy = DestTy->castAs<ComplexType>()->getElementType();
     Elt = CGF.EmitScalarConversion(Elt, Op->getType(), DestTy);
 
     // Return (realval, 0).
@@ -589,7 +602,7 @@ ComplexPairTy ComplexExprEmitter::EmitBinDiv(const BinOpInfo &Op) {
     llvm::Value *Tmp8 = Builder.CreateMul(LHSr, RHSi); // a*d
     llvm::Value *Tmp9 = Builder.CreateSub(Tmp7, Tmp8); // bc-ad
 
-    if (Op.Ty->getAs<ComplexType>()->getElementType()->isUnsignedIntegerType()) {
+    if (Op.Ty->castAs<ComplexType>()->getElementType()->isUnsignedIntegerType()) {
       DSTr = Builder.CreateUDiv(Tmp3, Tmp6);
       DSTi = Builder.CreateUDiv(Tmp9, Tmp6);
     } else {
@@ -649,7 +662,7 @@ EmitCompoundAssignLValue(const CompoundAssignOperator *E,
   Val = Result;
 
   // Store the result value into the LHS lvalue.
-  EmitStoreThroughLValue(Result, LHS);
+  EmitStoreOfComplex(Result, LHS, /*isInit*/ false);
 
   return LHS;
 }
@@ -687,7 +700,7 @@ LValue ComplexExprEmitter::EmitBinAssignLValue(const BinaryOperator *E,
   LValue LHS = CGF.EmitLValue(E->getLHS());
 
   // Store the result value into the LHS lvalue.
-  EmitStoreThroughLValue(Val, LHS);
+  EmitStoreOfComplex(Val, LHS, /*isInit*/ false);
 
   return LHS;
 }
@@ -775,7 +788,7 @@ ComplexPairTy ComplexExprEmitter::VisitInitListExpr(InitListExpr *E) {
 
   // Empty init list intializes to null
   assert(E->getNumInits() == 0 && "Unexpected number of inits");
-  QualType Ty = E->getType()->getAs<ComplexType>()->getElementType();
+  QualType Ty = E->getType()->castAs<ComplexType>()->getElementType();
   llvm::Type* LTy = CGF.ConvertType(Ty);
   llvm::Value* zeroConstant = llvm::Constant::getNullValue(LTy);
   return ComplexPairTy(zeroConstant, zeroConstant);
@@ -788,13 +801,13 @@ ComplexPairTy ComplexExprEmitter::VisitVAArgExpr(VAArgExpr *E) {
   if (!ArgPtr) {
     CGF.ErrorUnsupported(E, "complex va_arg expression");
     llvm::Type *EltTy =
-      CGF.ConvertType(E->getType()->getAs<ComplexType>()->getElementType());
+      CGF.ConvertType(E->getType()->castAs<ComplexType>()->getElementType());
     llvm::Value *U = llvm::UndefValue::get(EltTy);
     return ComplexPairTy(U, U);
   }
 
-  // FIXME Volatility.
-  return EmitLoadOfComplex(ArgPtr, false);
+  return EmitLoadOfLValue(
+               CGF.MakeNaturalAlignAddrLValue(ArgPtr, E->getType()));
 }
 
 //===----------------------------------------------------------------------===//
@@ -805,46 +818,31 @@ ComplexPairTy ComplexExprEmitter::VisitVAArgExpr(VAArgExpr *E) {
 /// complex type, ignoring the result.
 ComplexPairTy CodeGenFunction::EmitComplexExpr(const Expr *E, bool IgnoreReal,
                                                bool IgnoreImag) {
-  assert(E && E->getType()->isAnyComplexType() &&
+  assert(E && getComplexType(E->getType()) &&
          "Invalid complex expression to emit");
 
   return ComplexExprEmitter(*this, IgnoreReal, IgnoreImag)
     .Visit(const_cast<Expr*>(E));
 }
 
-/// EmitComplexExprIntoAddr - Emit the computation of the specified expression
-/// of complex type, storing into the specified Value*.
-void CodeGenFunction::EmitComplexExprIntoAddr(const Expr *E,
-                                              llvm::Value *DestAddr,
-                                              bool DestIsVolatile) {
-  assert(E && E->getType()->isAnyComplexType() &&
+void CodeGenFunction::EmitComplexExprIntoLValue(const Expr *E, LValue dest,
+                                                bool isInit) {
+  assert(E && getComplexType(E->getType()) &&
          "Invalid complex expression to emit");
   ComplexExprEmitter Emitter(*this);
   ComplexPairTy Val = Emitter.Visit(const_cast<Expr*>(E));
-  Emitter.EmitStoreOfComplex(Val, DestAddr, DestIsVolatile);
+  Emitter.EmitStoreOfComplex(Val, dest, isInit);
 }
 
-/// EmitStoreOfComplex - Store a complex number into a LValue
-void CodeGenFunction::EmitStoreOfComplex(ComplexPairTy V, LValue LV) {
-  ComplexExprEmitter(*this).EmitStoreThroughLValue(V, LV);
+/// EmitStoreOfComplex - Store a complex number into the specified l-value.
+void CodeGenFunction::EmitStoreOfComplex(ComplexPairTy V, LValue dest,
+                                         bool isInit) {
+  ComplexExprEmitter(*this).EmitStoreOfComplex(V, dest, isInit);
 }
 
-/// EmitLoadOfComplex - Load a complex number from a LValue
-ComplexPairTy CodeGenFunction::EmitLoadOfComplex(LValue LV) {
-  return ComplexExprEmitter(*this).EmitLoadOfLValue(LV);
-}
-
-/// StoreComplexToAddr - Store a complex number into the specified address.
-void CodeGenFunction::StoreComplexToAddr(ComplexPairTy V,
-                                         llvm::Value *DestAddr,
-                                         bool DestIsVolatile) {
-  ComplexExprEmitter(*this).EmitStoreOfComplex(V, DestAddr, DestIsVolatile);
-}
-
-/// LoadComplexFromAddr - Load a complex number from the specified address.
-ComplexPairTy CodeGenFunction::LoadComplexFromAddr(llvm::Value *SrcAddr,
-                                                   bool SrcIsVolatile) {
-  return ComplexExprEmitter(*this).EmitLoadOfComplex(SrcAddr, SrcIsVolatile);
+/// EmitLoadOfComplex - Load a complex number from the specified address.
+ComplexPairTy CodeGenFunction::EmitLoadOfComplex(LValue src) {
+  return ComplexExprEmitter(*this).EmitLoadOfLValue(src);
 }
 
 LValue CodeGenFunction::EmitComplexAssignmentLValue(const BinaryOperator *E) {

@@ -14,7 +14,7 @@
 #include "CodeGenFunction.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/SourceManager.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/ADT/SmallVector.h"
 using namespace clang;
 using namespace CodeGen;
@@ -52,7 +52,7 @@ RValue EmitUPCCall(CodeGenFunction &CGF,
 
   QualType FuncType =
     Context.getFunctionType(ResultTy,
-                            ArgTypes.data(), ArgTypes.size(),
+                            ArgTypes,
                             FunctionProtoType::ExtProtoInfo());
     const CGFunctionInfo &Info =
       CGF.getTypes().arrangeFreeFunctionCall(Args, FuncType->castAs<FunctionType>());

@@ -13,7 +13,7 @@ int * ptr4;
 shared [3] int * ptr5;
 shared void * ptr6;
 
-int main() { // CHECK: int main()
+int main() { // CHECK: main
     (void)(shared struct incomplete1 *)ptr1;
     // CHECK: CStyleCastExpr {{.*}} 'shared struct incomplete1 *' <NoOp>
     // CHECK: DeclRefExpr {{.*}} 'ptr1'

@@ -1,3 +1,4 @@
+
 //===- OperationKinds.h - Operation enums -----------------------*- C++ -*-===//
 //
 //                     The LLVM Compiler Infrastructure
@@ -293,6 +294,9 @@ enum CastKind {
   // Convert a builtin function to a function pointer; only allowed in the
   // callee of a call expression.
   CK_BuiltinFnToFnPtr,
+
+  // Convert a zero value for OpenCL event_t initialization.
+  CK_ZeroToOCLEvent,
 
   /// \brief [UPC] Converts from a UPC pointer-to-shared to
   // a regular C pointer.

@@ -16,7 +16,7 @@
 #include "clang/AST/Stmt.h"
 #include "clang/Basic/SourceManager.h"
 #include "llvm/Support/CallSite.h"
-#include "llvm/Constants.h"
+#include "llvm/IR/Constants.h"
 #include "llvm/ADT/SmallVector.h"
 using namespace clang;
 using namespace CodeGen;

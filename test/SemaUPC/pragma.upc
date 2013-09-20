@@ -11,7 +11,7 @@
 
 shared int i;
 
-void f() { // CHECK: void f()
+void f() { // CHECK: f
 #pragma upc relaxed
     int j1 = i;
     // CHECK: ImplicitCastExpr {{.*}} 'shared relaxed int' lvalue <LValueBitCast>
@@ -51,7 +51,7 @@ void f() { // CHECK: void f()
     // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
 }
 
-void g() { // CHECK: void g()
+void g() { // CHECK: g
     int j1 = i;
     // CHECK: ImplicitCastExpr {{.*}} 'shared strict int' lvalue <LValueBitCast>
     // CHECK-NEXT: DeclRefExpr {{.*}} 'i'
