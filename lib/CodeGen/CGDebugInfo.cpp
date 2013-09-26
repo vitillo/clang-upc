@@ -548,6 +548,7 @@ llvm::DIType CGDebugInfo::CreateQualifiedType(QualType Ty, llvm::DIFile Unit) {
     Qc.removeRestrict();
   } else if (Qc.hasShared() || Qc.hasStrict() || Qc.hasRelaxed()) {
     // FIXME: Actually implement this
+    Tag = llvm::dwarf::DW_TAG_unspecified_type;
     Qc.removeShared();
     Qc.removeLayoutQualifier();
     Qc.removeStrict();

@@ -1772,6 +1772,9 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
       Init = EmitConstantInit(*InitDecl);
     }
 
+    if(getLangOpts().UPC)
+      NeedsGlobalCtor = true;
+
     if (!Init) {
       QualType T = InitExpr->getType();
       if (D->getType()->isReferenceType())
