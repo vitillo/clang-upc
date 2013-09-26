@@ -1763,17 +1763,11 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
     Init = EmitNullConstant(D->getType());
   } else if(!Init) {
-    initializedGlobalDecl = GlobalDecl(D);
-    Init = EmitConstantInit(*InitDecl);
-
     // upc shared variables can never be static initialized
     if (!Init && !ASTTy.getQualifiers().hasShared()) {
       initializedGlobalDecl = GlobalDecl(D);
       Init = EmitConstantInit(*InitDecl);
     }
-
-    if(getLangOpts().UPC)
-      NeedsGlobalCtor = true;
 
     if (!Init) {
       QualType T = InitExpr->getType();
