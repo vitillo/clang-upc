@@ -96,7 +96,7 @@ public:
     /// \brief This is the scope of OpenMP executable directive
     OpenMPDirectiveScope = 0x8000,
 
-    /// UPCForAllScope - This is the scope of a upc_forall statement.
+    /// \brief This is the scope of a upc_forall statement.
     UPCForAllScope = 0x10000
   };
 private:
@@ -110,7 +110,7 @@ private:
 
   /// Flags - This contains a set of ScopeFlags, which indicates how the scope
   /// interrelates with other control flow statements.
-  unsigned short Flags;
+  unsigned int Flags;
 
   /// PrototypeDepth - This is the number of function prototype scopes
   /// enclosing this scope, including this scope.
