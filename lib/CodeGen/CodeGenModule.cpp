@@ -1762,7 +1762,7 @@ void CodeGenModule::EmitGlobalVarDefinition(const VarDecl *D) {
     // to do a RAUW.
     assert(!ASTTy->isIncompleteType() && "Unexpected incomplete type");
     Init = EmitNullConstant(D->getType());
-  } else {
+  } else if(!Init) {
     initializedGlobalDecl = GlobalDecl(D);
     Init = EmitConstantInit(*InitDecl);
 
