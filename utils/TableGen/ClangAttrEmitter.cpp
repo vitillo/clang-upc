@@ -490,6 +490,8 @@ namespace {
       OS << "      " << WritePCHRecord(type, "(*i)");
     }
     void writeValue(raw_ostream &OS) const {
+      bool isNonNull = getAttrName() == "NonNull";
+
       OS << "\";\n";
       OS << "  bool isFirst = true;\n"
          << "  for (" << getAttrName() << "Attr::" << getLowerName()
@@ -497,7 +499,7 @@ namespace {
          << getLowerName() << "_end(); i != e; ++i) {\n"
          << "    if (isFirst) isFirst = false;\n"
          << "    else OS << \", \";\n"
-         << "    OS << *i;\n"
+         << "    OS << *i" << (isNonNull ? " + 1;" : ";") << "\n"
          << "  }\n";
       OS << "  OS << \"";
     }
